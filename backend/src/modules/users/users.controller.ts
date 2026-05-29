@@ -55,6 +55,8 @@ export async function createUser(req: Request, res: Response, next: NextFunction
 
 export async function updateUser(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const existing = await prisma.user.findUnique({ where: { id: req.params.id as string } });
+    if (!existing) { res.status(404).json({ error: 'Usuário não encontrado' }); return; }
     const data = updateSchema.parse(req.body);
     const update: Record<string, unknown> = { ...data };
     if (data.password) {
