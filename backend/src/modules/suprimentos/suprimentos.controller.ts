@@ -116,13 +116,14 @@ export async function toggleItemActive(req: Request, res: Response, next: NextFu
 
 export async function listRequests(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { status, urgency } = req.query;
+    const { status, urgency, category } = req.query;
     const isAdmin = req.user!.role === 'ADMIN';
 
     const where: Record<string, unknown> = {};
     if (!isAdmin) where.requesterId = req.user!.sub;
     if (status) where.status = status;
     if (urgency) where.urgency = urgency;
+    if (category) where.item = { category };
 
     const requests = await (prisma as any).supplyRequest.findMany({
       where,

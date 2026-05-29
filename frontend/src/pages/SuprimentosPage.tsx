@@ -15,23 +15,26 @@ interface SupplyRequest {
 }
 
 const statuses = ['', 'PENDENTE', 'APROVADO', 'COMPRADO', 'ENTREGUE', 'CANCELADO'];
+const categories = ['', 'PAPEL', 'TONER', 'LIMPEZA', 'INFORMATICA', 'OUTROS'];
 
 export default function SuprimentosPage() {
   const { user } = useAuth();
   const [requests, setRequests] = useState<SupplyRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
+  const [category, setCategory] = useState('');
 
   const load = () => {
     setLoading(true);
     const params: Record<string, string> = {};
     if (status) params.status = status;
+    if (category) params.category = category;
     api.get('/suprimentos/requests', { params })
       .then((r) => setRequests(r.data))
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { load(); }, [status]);
+  useEffect(() => { load(); }, [status, category]);
 
   return (
     <div className="space-y-4">
@@ -57,6 +60,15 @@ export default function SuprimentosPage() {
         >
           {statuses.map((s) => (
             <option key={s} value={s}>{s || 'Todos os status'}</option>
+          ))}
+        </select>
+        <select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+        >
+          {categories.map((c) => (
+            <option key={c} value={c}>{c || 'Todas as categorias'}</option>
           ))}
         </select>
       </div>
