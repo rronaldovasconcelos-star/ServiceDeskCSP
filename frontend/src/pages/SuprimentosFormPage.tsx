@@ -52,17 +52,17 @@ export default function SuprimentosFormPage() {
 
   return (
     <div className="max-w-xl">
-      <h2 className="text-xl font-bold text-slate-800 mb-6">Novo Pedido de Suprimento</h2>
+      <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-6">Novo Pedido de Suprimento</h2>
 
       {error && (
-        <div className="mb-4 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+        <div className="mb-4 px-4 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg text-red-600 dark:text-red-400 text-sm">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-6 space-y-4">
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Item *</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Item *</label>
           <select
             value={itemId}
             onChange={(e) => setItemId(e.target.value)}
@@ -78,13 +78,13 @@ export default function SuprimentosFormPage() {
             ))}
           </select>
           {selectedItem && (
-            <p className="mt-1 text-xs text-slate-400">Unidade: {selectedItem.unit}</p>
+            <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">Unidade: {selectedItem.unit}</p>
           )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Quantidade *</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Quantidade *</label>
             <input
               type="number"
               min={1}
@@ -95,7 +95,7 @@ export default function SuprimentosFormPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Urgência *</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Urgência *</label>
             <select
               value={urgency}
               onChange={(e) => setUrgency(e.target.value)}
@@ -110,7 +110,7 @@ export default function SuprimentosFormPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Observações</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Observações</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -131,7 +131,7 @@ export default function SuprimentosFormPage() {
           <button
             type="button"
             onClick={() => navigate('/suprimentos')}
-            className="px-6 py-2 border border-slate-300 text-slate-600 text-sm rounded-lg hover:bg-slate-50"
+            className="px-6 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
           >
             Cancelar
           </button>

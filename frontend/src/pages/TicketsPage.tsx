@@ -38,7 +38,7 @@ export default function TicketsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-800">Chamados</h2>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Chamados</h2>
         <Link to="/tickets/new" className="px-4 py-2 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800">
           + Novo Chamado
         </Link>
@@ -48,7 +48,7 @@ export default function TicketsPage() {
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+          className="border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
         >
           {statuses.map((s) => (
             <option key={s} value={s}>{s || 'Todos os status'}</option>
@@ -57,7 +57,7 @@ export default function TicketsPage() {
         <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+          className="border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
         >
           {categories.map((c) => (
             <option key={c} value={c}>{c || 'Todas as categorias'}</option>
@@ -66,13 +66,13 @@ export default function TicketsPage() {
       </div>
 
       {loading ? (
-        <p className="text-slate-500">Carregando...</p>
+        <p className="text-slate-500 dark:text-slate-400">Carregando...</p>
       ) : tickets.length === 0 ? (
-        <p className="text-slate-400 text-sm">Nenhum chamado encontrado.</p>
+        <p className="text-slate-400 dark:text-slate-500 text-sm">Nenhum chamado encontrado.</p>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+            <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 text-xs uppercase">
               <tr>
                 <th className="px-4 py-3 text-left">Título</th>
                 <th className="px-4 py-3 text-left">Categoria</th>
@@ -82,19 +82,19 @@ export default function TicketsPage() {
                 <th className="px-4 py-3 text-left">Aberto em</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {tickets.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-50 cursor-pointer">
+                <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/40 cursor-pointer">
                   <td className="px-4 py-3">
-                    <Link to={`/tickets/${t.id}`} className="font-medium text-blue-700 hover:underline">
+                    <Link to={`/tickets/${t.id}`} className="font-medium text-blue-700 dark:text-blue-400 hover:underline">
                       {t.title}
                     </Link>
                   </td>
-                  <td className="px-4 py-3">{t.category}</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{t.category}</td>
                   <td className="px-4 py-3"><UrgencyBadge urgency={t.urgency} /></td>
                   <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
-                  <td className="px-4 py-3 text-slate-600">{t.requester.name}</td>
-                  <td className="px-4 py-3 text-slate-400">
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{t.requester.name}</td>
+                  <td className="px-4 py-3 text-slate-400 dark:text-slate-500">
                     {new Date(t.createdAt).toLocaleDateString('pt-BR')}
                   </td>
                 </tr>

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
 
 * {
   box-sizing: border-box;
@@ -9,4 +10,35 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
   background-color: #f8fafc;
   color: #1e293b;
+}
+
+.dark body {
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #1e293b;
+  color: #f1f5f9;
+  border-color: #475569;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b;
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #3b82f6;
+  outline-color: #3b82f6;
+}
+
+.dark option,
+.dark optgroup {
+  background-color: #1e293b;
+  color: #f1f5f9;
 }

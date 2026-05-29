@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import {
   LayoutDashboard,
   Ticket,
@@ -9,6 +10,8 @@ import {
   Users,
   LogOut,
   ChevronRight,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 const navItems = [
@@ -22,13 +25,14 @@ const navItems = [
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const { theme, toggle } = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <div className="flex min-h-screen bg-slate-100">
+    <div className="flex min-h-screen bg-slate-100 dark:bg-slate-900">
       <aside
         className="w-64 flex flex-col shadow-xl"
         style={{ background: 'linear-gradient(180deg, #0f2662 0%, #1a3a8a 60%, #1e4db0 100%)' }}
@@ -89,13 +93,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <p className="text-blue-300 text-xs truncate">{user?.email}</p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 w-full text-xs text-blue-300 hover:text-white transition-colors py-1.5 px-2 rounded-lg hover:bg-white/10"
-          >
-            <LogOut size={14} />
-            Sair
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 flex-1 text-xs text-blue-300 hover:text-white transition-colors py-1.5 px-2 rounded-lg hover:bg-white/10"
+            >
+              <LogOut size={14} />
+              Sair
+            </button>
+            <button
+              onClick={toggle}
+              title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+              className="flex items-center justify-center w-7 h-7 rounded-lg text-blue-300 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            </button>
+          </div>
         </div>
       </aside>
 

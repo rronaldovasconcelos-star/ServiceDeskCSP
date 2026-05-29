@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import api from '../lib/api';
+import KanbanBoard from '../components/KanbanBoard';
 
 interface SupplyMetrics {
   total: number;
@@ -8,6 +9,17 @@ interface SupplyMetrics {
   approved: number;
   byStatus: Record<string, number>;
   byUrgency: Record<string, number>;
+}
+
+interface Ticket {
+  id: string;
+  title: string;
+  category: string;
+  urgency: string;
+  status: string;
+  createdAt: string;
+  requester: { name: string };
+  assignee: { name: string } | null;
 }
 
 interface Metrics {
@@ -34,29 +46,46 @@ const supplyStatusLabels: Record<string, string> = {
 
 function StatCard({ title, value, sub, color }: { title: string; value: string | number; sub?: string; color: string }) {
   return (
-    <div className={`rounded-xl p-5 shadow-sm border-l-4 bg-white ${color}`}>
-      <p className="text-sm text-slate-500">{title}</p>
-      <p className="text-3xl font-bold text-slate-800 mt-1">{value}</p>
-      {sub && <p className="text-xs text-slate-400 mt-1">{sub}</p>}
+    <div className={`rounded-xl p-5 shadow-sm border-l-4 bg-white dark:bg-slate-800 ${color}`}>
+      <p className="text-sm text-slate-500 dark:text-slate-400">{title}</p>
+      <p className="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-1">{value}</p>
+      {sub && <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{sub}</p>}
     </div>
   );
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">{children}</h3>
+    <h3 className="text-sm font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wide">{children}</h3>
   );
 }
 
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/reports/metrics')
-      .then((r) => setMetrics(r.data))
-      .finally(() => setLoading(false));
+    Promise.all([
+      api.get('/reports/metrics'),
+      api.get('/tickets'),
+    ]).then(([metricsRes, ticketsRes]) => {
+      setMetrics(metricsRes.data);
+      setTickets(ticketsRes.data);
+    }).finally(() => setLoading(false));
   }, []);
+
+  const handleStatusChange = async (ticketId: string, newStatus: string) => {
+    setTickets((prev) =>
+      prev.map((t) => t.id === ticketId ? { ...t, status: newStatus } : t)
+    );
+    try {
+      await api.patch(`/tickets/${ticketId}/status`, { status: newStatus });
+    } catch {
+      const res = await api.get('/tickets');
+      setTickets(res.data);
+    }
+  };
 
   const handleExport = async (path: string, filename: string) => {
     const res = await api.get(path, { responseType: 'blob' });
@@ -82,7 +111,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-800">Dashboard</h2>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Dashboard</h2>
         <div className="flex gap-2">
           <button onClick={() => handleExport('/reports/export/csv', 'chamados.csv')} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">
             Exportar CSV
@@ -109,8 +138,8 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-600 mb-4">Chamados por Status</h3>
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-4">Chamados por Status</h3>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie data={byStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
@@ -122,8 +151,8 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
 
-          <div className="bg-white rounded-xl p-5 shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-600 mb-4">Chamados por Categoria</h3>
+          <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-4">Chamados por Categoria</h3>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={byCategoryData}>
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
@@ -134,6 +163,12 @@ export default function DashboardPage() {
             </ResponsiveContainer>
           </div>
         </div>
+      </div>
+
+      {/* Kanban */}
+      <div className="space-y-4">
+        <SectionTitle>Quadro de Chamados</SectionTitle>
+        <KanbanBoard tickets={tickets} onStatusChange={handleStatusChange} />
       </div>
 
       {/* Suprimentos */}
@@ -162,8 +197,8 @@ export default function DashboardPage() {
 
         {metrics.supply.total > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-600 mb-4">Pedidos por Status</h3>
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-4">Pedidos por Status</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie data={supplyByStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
@@ -175,8 +210,8 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </div>
 
-            <div className="bg-white rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-semibold text-slate-600 mb-4">Pedidos por Urgência</h3>
+            <div className="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-4">Pedidos por Urgência</h3>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={Object.entries(metrics.supply.byUrgency).map(([k, v]) => ({ name: k, value: v }))}>
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />

@@ -81,22 +81,22 @@ export default function TicketDetailPage() {
     load();
   };
 
-  if (loading) return <div className="text-slate-500">Carregando...</div>;
+  if (loading) return <div className="text-slate-500 dark:text-slate-400">Carregando...</div>;
   if (!ticket) return <div className="text-red-500">Chamado não encontrado.</div>;
 
   const nextStatuses = TRANSITIONS[ticket.status] ?? [];
 
   return (
     <div className="max-w-3xl space-y-6">
-      <button onClick={() => navigate('/tickets')} className="text-sm text-blue-600 hover:underline">
+      <button onClick={() => navigate('/tickets')} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
         ← Voltar para Chamados
       </button>
 
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-slate-800">{ticket.title}</h2>
-            <p className="text-slate-500 text-sm mt-1">{ticket.category}</p>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{ticket.title}</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{ticket.category}</p>
           </div>
           <div className="flex gap-2">
             <UrgencyBadge urgency={ticket.urgency} />
@@ -104,19 +104,19 @@ export default function TicketDetailPage() {
           </div>
         </div>
 
-        <p className="mt-4 text-slate-700 text-sm leading-relaxed">{ticket.description}</p>
+        <p className="mt-4 text-slate-700 dark:text-slate-300 text-sm leading-relaxed">{ticket.description}</p>
 
-        <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-600">
-          <div><span className="font-medium">Solicitante:</span> {ticket.requester.name}</div>
-          <div><span className="font-medium">Responsável:</span> {ticket.assignee?.name ?? '—'}</div>
-          <div><span className="font-medium">Aberto em:</span> {new Date(ticket.createdAt).toLocaleString('pt-BR')}</div>
+        <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-600 dark:text-slate-400">
+          <div><span className="font-medium text-slate-700 dark:text-slate-300">Solicitante:</span> {ticket.requester.name}</div>
+          <div><span className="font-medium text-slate-700 dark:text-slate-300">Responsável:</span> {ticket.assignee?.name ?? '—'}</div>
+          <div><span className="font-medium text-slate-700 dark:text-slate-300">Aberto em:</span> {new Date(ticket.createdAt).toLocaleString('pt-BR')}</div>
           {ticket.resolvedAt && (
-            <div><span className="font-medium">Concluído em:</span> {new Date(ticket.resolvedAt).toLocaleString('pt-BR')}</div>
+            <div><span className="font-medium text-slate-700 dark:text-slate-300">Concluído em:</span> {new Date(ticket.resolvedAt).toLocaleString('pt-BR')}</div>
           )}
         </div>
 
         {user?.role === 'ADMIN' && (
-          <div className="mt-5 pt-5 border-t border-slate-100 flex flex-wrap gap-3">
+          <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-3">
             {nextStatuses.map((s) => (
               <button
                 key={s}
@@ -130,7 +130,7 @@ export default function TicketDetailPage() {
             <select
               value={ticket.assignee?.id ?? ''}
               onChange={(e) => assignTicket(e.target.value || null)}
-              className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm"
+              className="border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100"
             >
               <option value="">Sem responsável</option>
               {users.map((u) => (
@@ -141,15 +141,15 @@ export default function TicketDetailPage() {
         )}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h3 className="text-sm font-semibold text-slate-600 mb-4">Histórico</h3>
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6">
+        <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-4">Histórico</h3>
         <div className="space-y-3">
           {ticket.history.map((entry) => (
             <div key={entry.id} className="flex gap-3">
-              <div className="w-1.5 rounded-full bg-slate-200 self-stretch mt-1.5" />
+              <div className="w-1.5 rounded-full bg-slate-200 dark:bg-slate-600 self-stretch mt-1.5" />
               <div className="flex-1">
-                <p className="text-sm text-slate-700">{entry.message}</p>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-sm text-slate-700 dark:text-slate-300">{entry.message}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                   {entry.author.name} · {new Date(entry.createdAt).toLocaleString('pt-BR')}
                 </p>
               </div>
@@ -157,13 +157,13 @@ export default function TicketDetailPage() {
           ))}
         </div>
 
-        <form onSubmit={addComment} className="mt-5 pt-5 border-t border-slate-100">
+        <form onSubmit={addComment} className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700">
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={3}
             placeholder="Adicionar comentário..."
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
           />
           <button
             type="submit"

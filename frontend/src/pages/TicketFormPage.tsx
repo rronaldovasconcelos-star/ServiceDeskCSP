@@ -29,17 +29,17 @@ export default function TicketFormPage() {
 
   return (
     <div className="max-w-xl">
-      <h2 className="text-xl font-bold text-slate-800 mb-6">Novo Chamado</h2>
+      <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-6">Novo Chamado</h2>
 
       {error && (
-        <div className="mb-4 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+        <div className="mb-4 px-4 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg text-red-600 dark:text-red-400 text-sm">
           {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-6 space-y-4">
+      <form onSubmit={handleSubmit} className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Título *</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Título *</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -50,7 +50,7 @@ export default function TicketFormPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Descrição *</label>
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Descrição *</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -63,7 +63,7 @@ export default function TicketFormPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Categoria *</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Categoria *</label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -74,7 +74,7 @@ export default function TicketFormPage() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Urgência *</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Urgência *</label>
             <select
               value={urgency}
               onChange={(e) => setUrgency(e.target.value)}
@@ -99,7 +99,7 @@ export default function TicketFormPage() {
           <button
             type="button"
             onClick={() => navigate('/tickets')}
-            className="px-6 py-2 border border-slate-300 text-slate-600 text-sm rounded-lg hover:bg-slate-50"
+            className="px-6 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
           >
             Cancelar
           </button>

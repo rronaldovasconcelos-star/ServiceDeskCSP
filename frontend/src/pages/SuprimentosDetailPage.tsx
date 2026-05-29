@@ -81,7 +81,7 @@ export default function SuprimentosDetailPage() {
     load();
   };
 
-  if (loading) return <div className="text-slate-500">Carregando...</div>;
+  if (loading) return <div className="text-slate-500 dark:text-slate-400">Carregando...</div>;
   if (!request) return <div className="text-red-500">{error || 'Pedido não encontrado.'}</div>;
 
   const nextStatuses = TRANSITIONS[request.status] ?? [];
@@ -95,19 +95,19 @@ export default function SuprimentosDetailPage() {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <button onClick={() => navigate('/suprimentos')} className="text-sm text-blue-600 hover:underline">
+      <button onClick={() => navigate('/suprimentos')} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
         ← Voltar para Suprimentos
       </button>
 
       {error && (
-        <div className="px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">{error}</div>
+        <div className="px-4 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg text-red-600 dark:text-red-400 text-sm">{error}</div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm p-6">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-bold text-slate-800">{request.item.name}</h2>
-            <p className="text-slate-500 text-sm mt-1">{request.item.category} · {request.quantity} {request.item.unit}</p>
+            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{request.item.name}</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{request.item.category} · {request.quantity} {request.item.unit}</p>
           </div>
           <div className="flex gap-2">
             <UrgencyBadge urgency={request.urgency} />
@@ -116,20 +116,20 @@ export default function SuprimentosDetailPage() {
         </div>
 
         {request.notes && (
-          <p className="mt-4 text-slate-700 text-sm leading-relaxed bg-slate-50 rounded-lg px-3 py-2">
+          <p className="mt-4 text-slate-700 dark:text-slate-300 text-sm leading-relaxed bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-2">
             {request.notes}
           </p>
         )}
 
-        <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-600">
-          <div><span className="font-medium">Solicitante:</span> {request.requester.name}</div>
-          <div><span className="font-medium">E-mail:</span> {request.requester.email}</div>
-          <div><span className="font-medium">Aberto em:</span> {new Date(request.createdAt).toLocaleString('pt-BR')}</div>
-          <div><span className="font-medium">Atualizado em:</span> {new Date(request.updatedAt).toLocaleString('pt-BR')}</div>
+        <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-600 dark:text-slate-400">
+          <div><span className="font-medium text-slate-700 dark:text-slate-300">Solicitante:</span> {request.requester.name}</div>
+          <div><span className="font-medium text-slate-700 dark:text-slate-300">E-mail:</span> {request.requester.email}</div>
+          <div><span className="font-medium text-slate-700 dark:text-slate-300">Aberto em:</span> {new Date(request.createdAt).toLocaleString('pt-BR')}</div>
+          <div><span className="font-medium text-slate-700 dark:text-slate-300">Atualizado em:</span> {new Date(request.updatedAt).toLocaleString('pt-BR')}</div>
         </div>
 
         {user?.role === 'ADMIN' && nextStatuses.length > 0 && (
-          <div className="mt-5 pt-5 border-t border-slate-100 flex flex-wrap gap-3">
+          <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-3">
             {nextStatuses.map((s) => (
               <button
                 key={s}
@@ -137,7 +137,7 @@ export default function SuprimentosDetailPage() {
                 disabled={actionLoading}
                 className={`px-4 py-1.5 text-sm rounded-lg transition-colors disabled:opacity-50 ${
                   s === 'CANCELADO'
-                    ? 'border border-red-300 text-red-600 hover:bg-red-50'
+                    ? 'border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30'
                     : 'bg-blue-700 text-white hover:bg-blue-800'
                 }`}
               >
@@ -149,22 +149,22 @@ export default function SuprimentosDetailPage() {
       </div>
 
       {request.status !== 'CANCELADO' && (
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h3 className="text-sm font-semibold text-slate-600 mb-4">Progresso do Pedido</h3>
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6">
+          <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-4">Progresso do Pedido</h3>
           <div className="flex items-center gap-0">
             {timeline.map((step, i) => (
               <div key={step.status} className="flex items-center flex-1">
                 <div className="flex flex-col items-center">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                    step.done ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-400'
+                    step.done ? 'bg-blue-700 text-white' : 'bg-slate-200 dark:bg-slate-600 text-slate-400 dark:text-slate-400'
                   }`}>
                     {step.done ? '✓' : i + 1}
                   </div>
-                  <span className="mt-1 text-xs text-slate-500 text-center w-16">{step.label}</span>
+                  <span className="mt-1 text-xs text-slate-500 dark:text-slate-400 text-center w-16">{step.label}</span>
                 </div>
                 {i < timeline.length - 1 && (
                   <div className={`flex-1 h-0.5 mb-4 ${
-                    timeline[i + 1].done ? 'bg-blue-700' : 'bg-slate-200'
+                    timeline[i + 1].done ? 'bg-blue-700' : 'bg-slate-200 dark:bg-slate-600'
                   }`} />
                 )}
               </div>
@@ -173,15 +173,15 @@ export default function SuprimentosDetailPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h3 className="text-sm font-semibold text-slate-600 mb-4">Histórico</h3>
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6">
+        <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-4">Histórico</h3>
         <div className="space-y-3">
           {request.history.map((entry) => (
             <div key={entry.id} className="flex gap-3">
-              <div className="w-1.5 rounded-full bg-slate-200 self-stretch mt-1.5" />
+              <div className="w-1.5 rounded-full bg-slate-200 dark:bg-slate-600 self-stretch mt-1.5" />
               <div className="flex-1">
-                <p className="text-sm text-slate-700">{entry.message}</p>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-sm text-slate-700 dark:text-slate-300">{entry.message}</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                   {entry.author.name} · {new Date(entry.createdAt).toLocaleString('pt-BR')}
                 </p>
               </div>
@@ -189,7 +189,7 @@ export default function SuprimentosDetailPage() {
           ))}
         </div>
 
-        <form onSubmit={addComment} className="mt-5 pt-5 border-t border-slate-100">
+        <form onSubmit={addComment} className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700">
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}

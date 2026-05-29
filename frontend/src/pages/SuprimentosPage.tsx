@@ -39,10 +39,10 @@ export default function SuprimentosPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-800">Pedidos de Suprimentos</h2>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Pedidos de Suprimentos</h2>
         <div className="flex gap-2">
           {user?.role === 'ADMIN' && (
-            <Link to="/suprimentos/catalogo" className="px-4 py-2 border border-slate-300 text-slate-600 text-sm rounded-lg hover:bg-slate-50">
+            <Link to="/suprimentos/catalogo" className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700">
               Catálogo
             </Link>
           )}
@@ -74,13 +74,13 @@ export default function SuprimentosPage() {
       </div>
 
       {loading ? (
-        <p className="text-slate-500">Carregando...</p>
+        <p className="text-slate-500 dark:text-slate-400">Carregando...</p>
       ) : requests.length === 0 ? (
-        <p className="text-slate-400 text-sm">Nenhum pedido encontrado.</p>
+        <p className="text-slate-400 dark:text-slate-500 text-sm">Nenhum pedido encontrado.</p>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+            <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 text-xs uppercase">
               <tr>
                 <th className="px-4 py-3 text-left">Item</th>
                 <th className="px-4 py-3 text-left">Qtd</th>
@@ -90,20 +90,20 @@ export default function SuprimentosPage() {
                 <th className="px-4 py-3 text-left">Data</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {requests.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50 cursor-pointer">
+                <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/40 cursor-pointer">
                   <td className="px-4 py-3">
-                    <Link to={`/suprimentos/${r.id}`} className="font-medium text-blue-700 hover:underline">
+                    <Link to={`/suprimentos/${r.id}`} className="font-medium text-blue-700 dark:text-blue-400 hover:underline">
                       {r.item.name}
                     </Link>
-                    <span className="ml-2 text-xs text-slate-400">{r.item.category}</span>
+                    <span className="ml-2 text-xs text-slate-400 dark:text-slate-500">{r.item.category}</span>
                   </td>
-                  <td className="px-4 py-3">{r.quantity} {r.item.unit}</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{r.quantity} {r.item.unit}</td>
                   <td className="px-4 py-3"><UrgencyBadge urgency={r.urgency} /></td>
                   <td className="px-4 py-3"><SupplyStatusBadge status={r.status} /></td>
-                  {user?.role === 'ADMIN' && <td className="px-4 py-3 text-slate-600">{r.requester.name}</td>}
-                  <td className="px-4 py-3 text-slate-400">
+                  {user?.role === 'ADMIN' && <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{r.requester.name}</td>}
+                  <td className="px-4 py-3 text-slate-400 dark:text-slate-500">
                     {new Date(r.createdAt).toLocaleDateString('pt-BR')}
                   </td>
                 </tr>
