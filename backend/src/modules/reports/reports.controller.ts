@@ -119,3 +119,72 @@ export async function exportPdf(_req: Request, res: Response, next: NextFunction
     next(err);
   }
 }
+
+export async function exportSupplyCsv(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const requests = await (prisma as any).supplyRequest.findMany({
+      select: {
+        id: true, quantity: true, urgency: true, status: true,
+        createdAt: true, updatedAt: true,
+        item: { select: { name: true, unit: true, category: true } },
+        requester: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const header = 'ID,Item,Categoria,Quantidade,Unidade,Urgência,Status,Solicitante,Criado em,Atualizado em\n';
+    const rows = requests.map((r: any) => [
+      r.id,
+      `"${r.item.name.replace(/"/g, '""')}"`,
+      r.item.category,
+      r.quantity,
+      r.item.unit,
+      r.urgency,
+      r.status,
+      r.requester.name,
+      r.createdAt.toISOString(),
+      r.updatedAt.toISOString(),
+    ].join(',')).join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="suprimentos.csv"');
+    res.send('﻿' + header + rows); // BOM for Excel UTF-8
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function exportSupplyPdf(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const requests = await (prisma as any).supplyRequest.findMany({
+      select: {
+        quantity: true, urgency: true, status: true, createdAt: true,
+        item: { select: { name: true, unit: true, category: true } },
+        requester: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="suprimentos.pdf"');
+    doc.pipe(res);
+
+    doc.fontSize(18).text('Relatório de Suprimentos — Colégio Santa Paula', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(10).text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`);
+    doc.moveDown();
+
+    for (const r of requests) {
+      doc.fontSize(11).text(`• ${r.item.name} (${r.quantity} ${r.item.unit})`, { continued: false });
+      doc.fontSize(9)
+        .text(`  Categoria: ${r.item.category} | Urgência: ${r.urgency} | Status: ${r.status}`)
+        .text(`  Solicitante: ${r.requester.name} | Aberto em: ${r.createdAt.toLocaleDateString('pt-BR')}`);
+      doc.moveDown(0.4);
+    }
+
+    doc.end();
+  } catch (err) {
+    next(err);
+  }
+}

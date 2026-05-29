@@ -58,9 +58,14 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleExport = (type: 'csv' | 'pdf') => {
-    const base = (import.meta.env.VITE_API_URL ?? '/api');
-    window.open(`${base}/reports/export/${type}`, '_blank');
+  const handleExport = async (path: string, filename: string) => {
+    const res = await api.get(path, { responseType: 'blob' });
+    const url = URL.createObjectURL(res.data);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (loading) return <div className="p-6 text-slate-500">Carregando métricas...</div>;
@@ -79,10 +84,10 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-slate-800">Dashboard</h2>
         <div className="flex gap-2">
-          <button onClick={() => handleExport('csv')} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">
+          <button onClick={() => handleExport('/reports/export/csv', 'chamados.csv')} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">
             Exportar CSV
           </button>
-          <button onClick={() => handleExport('pdf')} className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">
+          <button onClick={() => handleExport('/reports/export/pdf', 'chamados.pdf')} className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">
             Exportar PDF
           </button>
         </div>
@@ -133,7 +138,17 @@ export default function DashboardPage() {
 
       {/* Suprimentos */}
       <div className="space-y-4">
-        <SectionTitle>Pedidos de Suprimentos</SectionTitle>
+        <div className="flex items-center justify-between">
+          <SectionTitle>Pedidos de Suprimentos</SectionTitle>
+          <div className="flex gap-2">
+            <button onClick={() => handleExport('/reports/export/suprimentos/csv', 'suprimentos.csv')} className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700">
+              Exportar CSV
+            </button>
+            <button onClick={() => handleExport('/reports/export/suprimentos/pdf', 'suprimentos.pdf')} className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700">
+              Exportar PDF
+            </button>
+          </div>
+        </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard title="Total de Pedidos" value={metrics.supply.total} color="border-purple-500" />
           <StatCard title="Pendentes de Aprovação" value={metrics.supply.pending} color="border-yellow-500" />
