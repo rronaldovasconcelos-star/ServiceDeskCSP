@@ -5,6 +5,8 @@ const navItems = [
   { to: '/', label: 'Dashboard', adminOnly: true },
   { to: '/tickets', label: 'Chamados', adminOnly: false },
   { to: '/tickets/new', label: 'Novo Chamado', adminOnly: false },
+  { to: '/suprimentos', label: 'Suprimentos', adminOnly: false },
+  { to: '/suprimentos/catalogo', label: 'Catálogo', adminOnly: true },
   { to: '/users', label: 'Usuários', adminOnly: true },
 ];
 

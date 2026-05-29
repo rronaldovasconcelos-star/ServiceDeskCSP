@@ -8,6 +8,10 @@ import TicketsPage from './pages/TicketsPage';
 import TicketFormPage from './pages/TicketFormPage';
 import TicketDetailPage from './pages/TicketDetailPage';
 import UsersPage from './pages/UsersPage';
+import SuprimentosPage from './pages/SuprimentosPage';
+import SuprimentosFormPage from './pages/SuprimentosFormPage';
+import SuprimentosDetailPage from './pages/SuprimentosDetailPage';
+import SuprimentosCatalogoPage from './pages/SuprimentosCatalogoPage';
 
 export default function App() {
   return (
@@ -52,6 +56,38 @@ export default function App() {
             element={
               <ProtectedRoute adminOnly>
                 <Layout><UsersPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/suprimentos"
+            element={
+              <ProtectedRoute>
+                <Layout><SuprimentosPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/suprimentos/catalogo"
+            element={
+              <ProtectedRoute adminOnly>
+                <Layout><SuprimentosCatalogoPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/suprimentos/new"
+            element={
+              <ProtectedRoute>
+                <Layout><SuprimentosFormPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/suprimentos/:id"
+            element={
+              <ProtectedRoute>
+                <Layout><SuprimentosDetailPage /></Layout>
               </ProtectedRoute>
             }
           />

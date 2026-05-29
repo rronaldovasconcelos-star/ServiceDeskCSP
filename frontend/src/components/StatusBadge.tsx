@@ -41,3 +41,27 @@ export function UrgencyBadge({ urgency }: { urgency: string }) {
     </span>
   );
 }
+
+const supplyStatusColors: Record<string, string> = {
+  PENDENTE: 'bg-yellow-100 text-yellow-800',
+  APROVADO: 'bg-blue-100 text-blue-800',
+  COMPRADO: 'bg-purple-100 text-purple-800',
+  ENTREGUE: 'bg-green-100 text-green-800',
+  CANCELADO: 'bg-red-100 text-red-800',
+};
+
+const supplyStatusLabels: Record<string, string> = {
+  PENDENTE: 'Pendente',
+  APROVADO: 'Aprovado',
+  COMPRADO: 'Comprado',
+  ENTREGUE: 'Entregue',
+  CANCELADO: 'Cancelado',
+};
+
+export function SupplyStatusBadge({ status }: { status: string }) {
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-full text-xs ${supplyStatusColors[status] ?? 'bg-gray-100 text-gray-600'}`}>
+      {supplyStatusLabels[status] ?? status}
+    </span>
+  );
+}

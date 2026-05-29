@@ -1,10 +1,9 @@
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { defineConfig } from 'prisma/config';
 import { PrismaLibSql } from '@prisma/adapter-libsql';
 
-const dbFile = path.resolve(process.cwd(), 'prisma/dev.db');
-const dbUrl = pathToFileURL(dbFile).href;
+const dbFile = path.resolve(process.cwd(), 'prisma/dev.db').replace(/\\/g, '/');
+const dbUrl = `file:${dbFile}`;
 
 export default defineConfig({
   schema: './prisma/schema.prisma',
