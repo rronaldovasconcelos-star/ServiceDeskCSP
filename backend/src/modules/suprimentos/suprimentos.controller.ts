@@ -151,6 +151,16 @@ export async function createRequest(req: Request, res: Response, next: NextFunct
       select: requestSelect,
     });
 
+    await (prisma as any).supplyRequestHistory.create({
+      data: {
+        requestId: request.id,
+        authorId: req.user!.sub,
+        type: 'STATUS_CHANGE',
+        message: 'Pedido enviado',
+        toStatus: 'PENDENTE',
+      },
+    });
+
     const admins = await prisma.user.findMany({ where: { role: 'ADMIN', isActive: true } });
     for (const admin of admins) {
       await sendWhatsApp(
@@ -169,7 +179,16 @@ export async function getRequest(req: Request, res: Response, next: NextFunction
   try {
     const request = await (prisma as any).supplyRequest.findUnique({
       where: { id: req.params.id },
-      select: requestSelect,
+      select: {
+        ...requestSelect,
+        history: {
+          select: {
+            id: true, type: true, message: true, fromStatus: true, toStatus: true, createdAt: true,
+            author: { select: { id: true, name: true } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
     });
 
     if (!request) { res.status(404).json({ error: 'Pedido não encontrado' }); return; }
@@ -205,6 +224,17 @@ export async function changeRequestStatus(req: Request, res: Response, next: Nex
       select: requestSelect,
     });
 
+    await (prisma as any).supplyRequestHistory.create({
+      data: {
+        requestId: request.id,
+        authorId: req.user!.sub,
+        type: 'STATUS_CHANGE',
+        message: `Status alterado: ${request.status} → ${status}`,
+        fromStatus: request.status,
+        toStatus: status,
+      },
+    });
+
     if (status === 'ENTREGUE') {
       await sendWhatsApp(
         updated.requester.phone,
@@ -213,6 +243,31 @@ export async function changeRequestStatus(req: Request, res: Response, next: Nex
     }
 
     res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function addComment(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { message } = z.object({ message: z.string().min(1) }).parse(req.body);
+
+    const request = await (prisma as any).supplyRequest.findUnique({ where: { id: req.params.id } });
+    if (!request) { res.status(404).json({ error: 'Pedido não encontrado' }); return; }
+
+    const isAdmin = req.user!.role === 'ADMIN';
+    if (!isAdmin && request.requesterId !== req.user!.sub) {
+      res.status(403).json({ error: 'Acesso negado' }); return;
+    }
+
+    const entry = await (prisma as any).supplyRequestHistory.create({
+      data: { requestId: request.id, authorId: req.user!.sub, type: 'COMMENT', message },
+      select: {
+        id: true, type: true, message: true, createdAt: true,
+        author: { select: { id: true, name: true } },
+      },
+    });
+    res.status(201).json(entry);
   } catch (err) {
     next(err);
   }

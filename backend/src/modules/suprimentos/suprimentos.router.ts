@@ -9,6 +9,7 @@ import {
   createRequest,
   getRequest,
   changeRequestStatus,
+  addComment,
 } from './suprimentos.controller.js';
 
 const router = Router();
@@ -26,5 +27,6 @@ router.get('/requests', listRequests);
 router.post('/requests', createRequest);
 router.get('/requests/:id', getRequest);
 router.patch('/requests/:id/status', requireRole('ADMIN'), changeRequestStatus);
+router.post('/requests/:id/comments', addComment);
 
 export default router;

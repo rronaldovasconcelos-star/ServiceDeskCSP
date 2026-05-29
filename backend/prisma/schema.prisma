@@ -18,10 +18,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  ticketsRequested Ticket[]        @relation("Requester")
-  ticketsAssigned  Ticket[]        @relation("Assignee")
+  ticketsRequested Ticket[]               @relation("Requester")
+  ticketsAssigned  Ticket[]               @relation("Assignee")
   history          TicketHistory[]
-  supplyRequests   SupplyRequest[] @relation("SupplyRequests")
+  supplyRequests   SupplyRequest[]        @relation("SupplyRequests")
+  supplyHistory    SupplyRequestHistory[]
 }
 
 
@@ -67,8 +68,23 @@ model SupplyRequest {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  item      SupplyItem @relation(fields: [itemId], references: [id])
-  requester User       @relation("SupplyRequests", fields: [requesterId], references: [id])
+  item      SupplyItem             @relation(fields: [itemId], references: [id])
+  requester User                   @relation("SupplyRequests", fields: [requesterId], references: [id])
+  history   SupplyRequestHistory[]
+}
+
+model SupplyRequestHistory {
+  id         String   @id @default(cuid())
+  requestId  String
+  authorId   String
+  type       String   // COMMENT | STATUS_CHANGE
+  message    String
+  fromStatus String?
+  toStatus   String?
+  createdAt  DateTime @default(now())
+
+  request SupplyRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  author  User          @relation(fields: [authorId], references: [id])
 }
 
 model TicketHistory {

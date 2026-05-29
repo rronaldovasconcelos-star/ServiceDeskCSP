@@ -4,6 +4,16 @@ import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { SupplyStatusBadge, UrgencyBadge } from '../components/StatusBadge';
 
+interface HistoryEntry {
+  id: string;
+  type: string;
+  message: string;
+  fromStatus?: string;
+  toStatus?: string;
+  createdAt: string;
+  author: { id: string; name: string };
+}
+
 interface SupplyRequest {
   id: string;
   quantity: number;
@@ -14,6 +24,7 @@ interface SupplyRequest {
   updatedAt: string;
   item: { id: string; name: string; unit: string; category: string };
   requester: { id: string; name: string; email: string; phone?: string };
+  history: HistoryEntry[];
 }
 
 const TRANSITIONS: Record<string, string[]> = {
@@ -36,6 +47,7 @@ export default function SuprimentosDetailPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [comment, setComment] = useState('');
 
   const load = () => {
     api.get(`/suprimentos/requests/${id}`).then((r) => setRequest(r.data));
@@ -59,6 +71,14 @@ export default function SuprimentosDetailPage() {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const addComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!comment.trim()) return;
+    await api.post(`/suprimentos/requests/${id}/comments`, { message: comment });
+    setComment('');
+    load();
   };
 
   if (loading) return <div className="text-slate-500">Carregando...</div>;
@@ -152,6 +172,39 @@ export default function SuprimentosDetailPage() {
           </div>
         </div>
       )}
+
+      <div className="bg-white rounded-xl shadow-sm p-6">
+        <h3 className="text-sm font-semibold text-slate-600 mb-4">Histórico</h3>
+        <div className="space-y-3">
+          {request.history.map((entry) => (
+            <div key={entry.id} className="flex gap-3">
+              <div className="w-1.5 rounded-full bg-slate-200 self-stretch mt-1.5" />
+              <div className="flex-1">
+                <p className="text-sm text-slate-700">{entry.message}</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {entry.author.name} · {new Date(entry.createdAt).toLocaleString('pt-BR')}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <form onSubmit={addComment} className="mt-5 pt-5 border-t border-slate-100">
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={3}
+            placeholder="Adicionar comentário..."
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            type="submit"
+            className="mt-2 px-4 py-1.5 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800"
+          >
+            Comentar
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
