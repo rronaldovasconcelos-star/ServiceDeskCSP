@@ -1,8 +1,11 @@
 const statusColors: Record<string, string> = {
   ABERTO: 'bg-blue-100 text-blue-800',
+  AGUARDANDO_APROVACAO: 'bg-orange-100 text-orange-800',
+  APROVADO: 'bg-teal-100 text-teal-800',
+  REJEITADO: 'bg-red-100 text-red-800',
   EM_ANDAMENTO: 'bg-yellow-100 text-yellow-800',
   CONCLUIDO: 'bg-green-100 text-green-800',
-  CANCELADO: 'bg-red-100 text-red-800',
+  CANCELADO: 'bg-slate-100 text-slate-600',
 };
 
 const urgencyColors: Record<string, string> = {
@@ -14,6 +17,9 @@ const urgencyColors: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
   ABERTO: 'Aberto',
+  AGUARDANDO_APROVACAO: 'Aguardando Aprovação',
+  APROVADO: 'Aprovado',
+  REJEITADO: 'Rejeitado',
   EM_ANDAMENTO: 'Em Andamento',
   CONCLUIDO: 'Concluído',
   CANCELADO: 'Cancelado',

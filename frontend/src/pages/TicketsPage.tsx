@@ -14,7 +14,17 @@ interface Ticket {
   assignee?: { name: string } | null;
 }
 
-const statuses = ['', 'ABERTO', 'EM_ANDAMENTO', 'CONCLUIDO', 'CANCELADO'];
+const statuses = ['', 'ABERTO', 'AGUARDANDO_APROVACAO', 'APROVADO', 'REJEITADO', 'EM_ANDAMENTO', 'CONCLUIDO', 'CANCELADO'];
+const statusFilterLabel: Record<string, string> = {
+  '': 'Todos os status',
+  ABERTO: 'Aberto',
+  AGUARDANDO_APROVACAO: 'Aguardando Aprovação',
+  APROVADO: 'Aprovado',
+  REJEITADO: 'Rejeitado',
+  EM_ANDAMENTO: 'Em Andamento',
+  CONCLUIDO: 'Concluído',
+  CANCELADO: 'Cancelado',
+};
 const categories = ['', 'TI', 'SUPRIMENTOS'];
 
 export default function TicketsPage() {
@@ -51,7 +61,7 @@ export default function TicketsPage() {
           className="border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
         >
           {statuses.map((s) => (
-            <option key={s} value={s}>{s || 'Todos os status'}</option>
+            <option key={s} value={s}>{statusFilterLabel[s]}</option>
           ))}
         </select>
         <select

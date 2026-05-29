@@ -32,13 +32,28 @@ interface UserOption { id: string; name: string; }
 
 const TRANSITIONS: Record<string, string[]> = {
   ABERTO: ['EM_ANDAMENTO', 'CANCELADO'],
+  AGUARDANDO_APROVACAO: ['APROVADO', 'REJEITADO'],
+  APROVADO: ['EM_ANDAMENTO', 'CANCELADO'],
   EM_ANDAMENTO: ['CONCLUIDO', 'CANCELADO'],
   CONCLUIDO: [],
   CANCELADO: [],
+  REJEITADO: [],
 };
 
 const statusLabel: Record<string, string> = {
-  EM_ANDAMENTO: 'Em Andamento', CONCLUIDO: 'Concluído', CANCELADO: 'Cancelado',
+  APROVADO: 'Aprovar',
+  REJEITADO: 'Rejeitar',
+  EM_ANDAMENTO: 'Iniciar Atendimento',
+  CONCLUIDO: 'Concluir',
+  CANCELADO: 'Cancelar',
+};
+
+const statusButtonStyle: Record<string, string> = {
+  APROVADO: 'bg-teal-600 hover:bg-teal-700 text-white',
+  REJEITADO: 'bg-red-600 hover:bg-red-700 text-white',
+  EM_ANDAMENTO: 'bg-blue-700 hover:bg-blue-800 text-white',
+  CONCLUIDO: 'bg-green-600 hover:bg-green-700 text-white',
+  CANCELADO: 'bg-slate-400 hover:bg-slate-500 text-white',
 };
 
 export default function TicketDetailPage() {
@@ -50,6 +65,9 @@ export default function TicketDetailPage() {
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(true);
 
+  const isPrivileged = user?.role === 'ADMIN' || user?.role === 'GESTOR';
+  const canApprove = isPrivileged;
+
   const load = () => {
     api.get(`/tickets/${id}`).then((r) => setTicket(r.data));
   };
@@ -58,7 +76,7 @@ export default function TicketDetailPage() {
     api.get(`/tickets/${id}`)
       .then((r) => setTicket(r.data))
       .finally(() => setLoading(false));
-    if (user?.role === 'ADMIN') {
+    if (isPrivileged) {
       api.get('/users').then((r) => setUsers(r.data));
     }
   }, [id, user]);
@@ -85,6 +103,7 @@ export default function TicketDetailPage() {
   if (!ticket) return <div className="text-red-500">Chamado não encontrado.</div>;
 
   const nextStatuses = TRANSITIONS[ticket.status] ?? [];
+  const isApprovalStep = ticket.status === 'AGUARDANDO_APROVACAO';
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -115,18 +134,67 @@ export default function TicketDetailPage() {
           )}
         </div>
 
-        {user?.role === 'ADMIN' && (
+        {/* Banner de aprovação pendente para ADMIN/GESTOR */}
+        {isApprovalStep && canApprove && (
+          <div className="mt-5 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg">
+            <p className="text-sm font-medium text-orange-800 dark:text-orange-300 mb-3">
+              Este chamado de compra está aguardando sua aprovação.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => changeStatus('APROVADO')}
+                className="px-4 py-2 text-sm bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors font-medium"
+              >
+                ✓ Aprovar
+              </button>
+              <button
+                onClick={() => changeStatus('REJEITADO')}
+                className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
+              >
+                ✕ Rejeitar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Banner informativo para solicitante quando aguardando aprovação */}
+        {isApprovalStep && !canApprove && (
+          <div className="mt-5 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg">
+            <p className="text-sm text-orange-800 dark:text-orange-300">
+              Seu chamado está aguardando aprovação de um gestor ou administrador.
+            </p>
+          </div>
+        )}
+
+        {/* Ações de status para chamados que não estão em aprovação pendente */}
+        {isPrivileged && !isApprovalStep && nextStatuses.length > 0 && (
           <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-3">
             {nextStatuses.map((s) => (
               <button
                 key={s}
                 onClick={() => changeStatus(s)}
-                className="px-4 py-1.5 text-sm bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors"
+                className={`px-4 py-1.5 text-sm rounded-lg transition-colors ${statusButtonStyle[s] ?? 'bg-blue-700 hover:bg-blue-800 text-white'}`}
               >
                 {statusLabel[s] ?? s}
               </button>
             ))}
 
+            <select
+              value={ticket.assignee?.id ?? ''}
+              onChange={(e) => assignTicket(e.target.value || null)}
+              className="border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100"
+            >
+              <option value="">Sem responsável</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Atribuição disponível mesmo quando aguardando aprovação */}
+        {isPrivileged && isApprovalStep && (
+          <div className="mt-4">
             <select
               value={ticket.assignee?.id ?? ''}
               onChange={(e) => assignTicket(e.target.value || null)}

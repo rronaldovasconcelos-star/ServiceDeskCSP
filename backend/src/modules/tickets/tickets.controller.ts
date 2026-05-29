@@ -13,10 +13,16 @@ const createSchema = z.object({
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   ABERTO: ['EM_ANDAMENTO', 'CANCELADO'],
+  AGUARDANDO_APROVACAO: ['APROVADO', 'REJEITADO'],
+  APROVADO: ['EM_ANDAMENTO', 'CANCELADO'],
   EM_ANDAMENTO: ['CONCLUIDO', 'CANCELADO'],
   CONCLUIDO: [],
   CANCELADO: [],
+  REJEITADO: [],
 };
+
+// Transições que exigem papel ADMIN ou GESTOR
+const APPROVAL_TRANSITIONS = new Set(['APROVADO', 'REJEITADO']);
 
 const ticketSelect = {
   id: true,
@@ -35,10 +41,11 @@ const ticketSelect = {
 export async function listTickets(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { status, category, urgency } = req.query;
-    const isAdmin = req.user!.role === 'ADMIN';
+    const role = req.user!.role;
+    const isPrivileged = role === 'ADMIN' || role === 'GESTOR';
 
     const where: Record<string, unknown> = {};
-    if (!isAdmin) where.requesterId = req.user!.sub;
+    if (!isPrivileged) where.requesterId = req.user!.sub;
     if (status) where.status = status;
     if (category) where.category = category;
     if (urgency) where.urgency = urgency;
@@ -57,28 +64,39 @@ export async function listTickets(req: Request, res: Response, next: NextFunctio
 export async function createTicket(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const data = createSchema.parse(req.body);
+
+    // Chamados de compra entram em fila de aprovação automaticamente
+    const initialStatus = data.category === 'SUPRIMENTOS' ? 'AGUARDANDO_APROVACAO' : 'ABERTO';
+
     const ticket = await prisma.ticket.create({
-      data: { ...data, requesterId: req.user!.sub },
+      data: { ...data, status: initialStatus, requesterId: req.user!.sub },
       select: ticketSelect,
     });
+
+    const historyMessage = data.category === 'SUPRIMENTOS'
+      ? 'Chamado aberto — aguardando aprovação'
+      : 'Chamado aberto';
 
     await prisma.ticketHistory.create({
       data: {
         ticketId: ticket.id,
         authorId: req.user!.sub,
         type: 'STATUS_CHANGE',
-        message: 'Chamado aberto',
-        toStatus: 'ABERTO',
+        message: historyMessage,
+        toStatus: initialStatus,
       },
     });
 
-    // Notify all admins
-    const admins = await prisma.user.findMany({ where: { role: 'ADMIN', isActive: true } });
-    for (const admin of admins) {
-      await sendWhatsApp(
-        admin.phone,
-        `📋 Novo chamado aberto!\n*${ticket.title}*\nCategoria: ${ticket.category}\nUrgência: ${ticket.urgency}\nSolicitante: ${ticket.requester.name}`,
-      );
+    // Notifica admins e gestores
+    const approvers = await prisma.user.findMany({
+      where: { role: { in: ['ADMIN', 'GESTOR'] }, isActive: true },
+    });
+    const notifMsg = data.category === 'SUPRIMENTOS'
+      ? `🛒 Chamado de compra aguardando aprovação!\n*${ticket.title}*\nUrgência: ${ticket.urgency}\nSolicitante: ${ticket.requester.name}`
+      : `📋 Novo chamado aberto!\n*${ticket.title}*\nCategoria: ${ticket.category}\nUrgência: ${ticket.urgency}\nSolicitante: ${ticket.requester.name}`;
+
+    for (const approver of approvers) {
+      await sendWhatsApp(approver.phone, notifMsg);
     }
 
     res.status(201).json(ticket);
@@ -105,8 +123,9 @@ export async function getTicket(req: Request, res: Response, next: NextFunction)
 
     if (!ticket) { res.status(404).json({ error: 'Chamado não encontrado' }); return; }
 
-    const isAdmin = req.user!.role === 'ADMIN';
-    if (!isAdmin && ticket.requester.id !== req.user!.sub) {
+    const role = req.user!.role;
+    const isPrivileged = role === 'ADMIN' || role === 'GESTOR';
+    if (!isPrivileged && ticket.requester.id !== req.user!.sub) {
       res.status(403).json({ error: 'Acesso negado' });
       return;
     }
@@ -129,6 +148,13 @@ export async function changeStatus(req: Request, res: Response, next: NextFuncti
       return;
     }
 
+    // Aprovação/rejeição exige ADMIN ou GESTOR
+    const role = req.user!.role;
+    if (APPROVAL_TRANSITIONS.has(status) && role !== 'ADMIN' && role !== 'GESTOR') {
+      res.status(403).json({ error: 'Apenas administradores e gestores podem aprovar ou rejeitar chamados' });
+      return;
+    }
+
     const resolvedAt = status === 'CONCLUIDO' ? new Date() : undefined;
     const updated = await prisma.ticket.update({
       where: { id: ticket.id },
@@ -136,23 +162,34 @@ export async function changeStatus(req: Request, res: Response, next: NextFuncti
       select: ticketSelect,
     });
 
+    const statusMessages: Record<string, string> = {
+      APROVADO: 'Chamado aprovado — pode ser executado',
+      REJEITADO: 'Chamado rejeitado',
+      EM_ANDAMENTO: 'Atendimento iniciado',
+      CONCLUIDO: 'Chamado concluído',
+      CANCELADO: 'Chamado cancelado',
+    };
+
     await prisma.ticketHistory.create({
       data: {
         ticketId: ticket.id,
         authorId: req.user!.sub,
         type: 'STATUS_CHANGE',
-        message: `Status alterado: ${ticket.status} → ${status}`,
+        message: statusMessages[status] ?? `Status alterado: ${ticket.status} → ${status}`,
         fromStatus: ticket.status,
         toStatus: status,
       },
     });
 
-    if (status === 'CONCLUIDO') {
+    // Notifica solicitante nas transições relevantes
+    if (['APROVADO', 'REJEITADO', 'CONCLUIDO'].includes(status)) {
       const requester = await prisma.user.findUnique({ where: { id: ticket.requesterId } });
-      await sendWhatsApp(
-        requester?.phone,
-        `✅ Seu chamado foi concluído!\n*${ticket.title}*\nQualquer dúvida, abra um novo chamado.`,
-      );
+      const msgs: Record<string, string> = {
+        APROVADO: `✅ Seu chamado foi aprovado!\n*${ticket.title}*\nEm breve será atendido.`,
+        REJEITADO: `❌ Seu chamado foi rejeitado.\n*${ticket.title}*\nEntre em contato para mais informações.`,
+        CONCLUIDO: `✅ Seu chamado foi concluído!\n*${ticket.title}*\nQualquer dúvida, abra um novo chamado.`,
+      };
+      await sendWhatsApp(requester?.phone, msgs[status]);
     }
 
     res.json(updated);
@@ -197,8 +234,9 @@ export async function addComment(req: Request, res: Response, next: NextFunction
     const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id as string } });
     if (!ticket) { res.status(404).json({ error: 'Chamado não encontrado' }); return; }
 
-    const isAdmin = req.user!.role === 'ADMIN';
-    if (!isAdmin && ticket.requesterId !== req.user!.sub) {
+    const role = req.user!.role;
+    const isPrivileged = role === 'ADMIN' || role === 'GESTOR';
+    if (!isPrivileged && ticket.requesterId !== req.user!.sub) {
       res.status(403).json({ error: 'Acesso negado' }); return;
     }
 
