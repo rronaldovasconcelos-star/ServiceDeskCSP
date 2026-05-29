@@ -1,0 +1,56 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("USER") // ADMIN | USER
+  phone        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ticketsRequested Ticket[]        @relation("Requester")
+  ticketsAssigned  Ticket[]        @relation("Assignee")
+  history          TicketHistory[]
+}
+
+model Ticket {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  category    String    // TI | SUPRIMENTOS
+  urgency     String    // BAIXA | MEDIA | ALTA | URGENTE
+  status      String    @default("ABERTO") // ABERTO | EM_ANDAMENTO | CONCLUIDO | CANCELADO
+  requesterId String
+  assigneeId  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  requester User            @relation("Requester", fields: [requesterId], references: [id])
+  assignee  User?           @relation("Assignee", fields: [assigneeId], references: [id])
+  history   TicketHistory[]
+}
+
+model TicketHistory {
+  id         String   @id @default(cuid())
+  ticketId   String
+  authorId   String
+  type       String   // COMMENT | STATUS_CHANGE | ASSIGNMENT
+  message    String
+  fromStatus String?
+  toStatus   String?
+  createdAt  DateTime @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+}

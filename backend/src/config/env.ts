@@ -1,0 +1,29 @@
+import 'dotenv/config';
+
+function required(key: string): string {
+  const value = process.env[key];
+  if (!value) throw new Error(`Missing required env variable: ${key}`);
+  return value;
+}
+
+function optional(key: string, fallback: string): string {
+  return process.env[key] ?? fallback;
+}
+
+export const env = {
+  port: parseInt(optional('PORT', '3001'), 10),
+  jwtSecret: optional('JWT_SECRET', 'change-me-in-production-super-secret-key'),
+  jwtExpiresIn: optional('JWT_EXPIRES_IN', '8h'),
+  nodeEnv: optional('NODE_ENV', 'development'),
+
+  // Seed
+  seedAdminEmail: optional('SEED_ADMIN_EMAIL', 'admin@santiagopaula.com.br'),
+  seedAdminPassword: optional('SEED_ADMIN_PASSWORD', 'Admin@123'),
+  seedAdminName: optional('SEED_ADMIN_NAME', 'Administrador'),
+
+  // WhatsApp (Evolution API)
+  whatsappProvider: optional('WHATSAPP_PROVIDER', 'mock'), // 'evolution' | 'mock'
+  evolutionApiUrl: optional('EVOLUTION_API_URL', ''),
+  evolutionApiKey: optional('EVOLUTION_API_KEY', ''),
+  evolutionInstance: optional('EVOLUTION_INSTANCE', ''),
+};

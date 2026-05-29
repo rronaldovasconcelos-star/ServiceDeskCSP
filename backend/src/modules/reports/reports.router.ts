@@ -1,0 +1,13 @@
+import { Router } from 'express';
+import { authenticate, requireRole } from '../../middlewares/authenticate.js';
+import { getMetrics, exportCsv, exportPdf } from './reports.controller.js';
+
+const router = Router();
+
+router.use(authenticate, requireRole('ADMIN'));
+
+router.get('/metrics', getMetrics);
+router.get('/export/csv', exportCsv);
+router.get('/export/pdf', exportPdf);
+
+export default router;
