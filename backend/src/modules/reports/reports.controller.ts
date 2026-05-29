@@ -4,7 +4,7 @@ import { prisma } from '../../lib/prisma.js';
 
 export async function getMetrics(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const [total, byStatus, byCategory, byUrgency, resolved] = await Promise.all([
+    const [total, byStatus, byCategory, byUrgency, resolved, supplyTotal, supplyByStatus, supplyByUrgency] = await Promise.all([
       prisma.ticket.count(),
       prisma.ticket.groupBy({ by: ['status'], _count: { _all: true } }),
       prisma.ticket.groupBy({ by: ['category'], _count: { _all: true } }),
@@ -13,6 +13,9 @@ export async function getMetrics(_req: Request, res: Response, next: NextFunctio
         where: { resolvedAt: { not: null } },
         select: { createdAt: true, resolvedAt: true },
       }),
+      (prisma as any).supplyRequest.count(),
+      (prisma as any).supplyRequest.groupBy({ by: ['status'], _count: { _all: true } }),
+      (prisma as any).supplyRequest.groupBy({ by: ['urgency'], _count: { _all: true } }),
     ]);
 
     let avgResolutionHours: number | null = null;
@@ -24,17 +27,26 @@ export async function getMetrics(_req: Request, res: Response, next: NextFunctio
       avgResolutionHours = Math.round((totalMs / resolved.length / 3600000) * 10) / 10;
     }
 
-    const pending = byStatus.find((s) => s.status === 'ABERTO')?._count._all ?? 0;
-    const inProgress = byStatus.find((s) => s.status === 'EM_ANDAMENTO')?._count._all ?? 0;
+    const pending = byStatus.find((s: any) => s.status === 'ABERTO')?._count._all ?? 0;
+    const inProgress = byStatus.find((s: any) => s.status === 'EM_ANDAMENTO')?._count._all ?? 0;
+    const supplyPending = supplyByStatus.find((s: any) => s.status === 'PENDENTE')?._count._all ?? 0;
+    const supplyApproved = supplyByStatus.find((s: any) => s.status === 'APROVADO')?._count._all ?? 0;
 
     res.json({
       total,
       pending,
       inProgress,
       avgResolutionHours,
-      byStatus: Object.fromEntries(byStatus.map((s) => [s.status, s._count._all])),
-      byCategory: Object.fromEntries(byCategory.map((s) => [s.category, s._count._all])),
-      byUrgency: Object.fromEntries(byUrgency.map((s) => [s.urgency, s._count._all])),
+      byStatus: Object.fromEntries(byStatus.map((s: any) => [s.status, s._count._all])),
+      byCategory: Object.fromEntries(byCategory.map((s: any) => [s.category, s._count._all])),
+      byUrgency: Object.fromEntries(byUrgency.map((s: any) => [s.urgency, s._count._all])),
+      supply: {
+        total: supplyTotal,
+        pending: supplyPending,
+        approved: supplyApproved,
+        byStatus: Object.fromEntries(supplyByStatus.map((s: any) => [s.status, s._count._all])),
+        byUrgency: Object.fromEntries(supplyByUrgency.map((s: any) => [s.urgency, s._count._all])),
+      },
     });
   } catch (err) {
     next(err);
