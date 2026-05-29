@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { sendWhatsApp } from '../../services/whatsapp/index.js';
@@ -29,7 +30,7 @@ const ticketSelect = {
   resolvedAt: true,
   requester: { select: { id: true, name: true, email: true, phone: true } },
   assignee: { select: { id: true, name: true, email: true } },
-};
+} satisfies Prisma.TicketSelect;
 
 export async function listTickets(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -89,7 +90,7 @@ export async function createTicket(req: Request, res: Response, next: NextFuncti
 export async function getTicket(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const ticket = await prisma.ticket.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       select: {
         ...ticketSelect,
         history: {
@@ -119,7 +120,7 @@ export async function getTicket(req: Request, res: Response, next: NextFunction)
 export async function changeStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { status } = z.object({ status: z.string() }).parse(req.body);
-    const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id } });
+    const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id as string } });
     if (!ticket) { res.status(404).json({ error: 'Chamado não encontrado' }); return; }
 
     const allowed = VALID_TRANSITIONS[ticket.status] ?? [];
@@ -163,7 +164,7 @@ export async function changeStatus(req: Request, res: Response, next: NextFuncti
 export async function assignTicket(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { assigneeId } = z.object({ assigneeId: z.string().nullable() }).parse(req.body);
-    const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id } });
+    const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id as string } });
     if (!ticket) { res.status(404).json({ error: 'Chamado não encontrado' }); return; }
 
     const updated = await prisma.ticket.update({
@@ -193,7 +194,7 @@ export async function assignTicket(req: Request, res: Response, next: NextFuncti
 export async function addComment(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { message } = z.object({ message: z.string().min(1) }).parse(req.body);
-    const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id } });
+    const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id as string } });
     if (!ticket) { res.status(404).json({ error: 'Chamado não encontrado' }); return; }
 
     const isAdmin = req.user!.role === 'ADMIN';

@@ -61,7 +61,7 @@ export async function updateUser(req: Request, res: Response, next: NextFunction
       update.passwordHash = await bcrypt.hash(data.password, 10);
       delete update.password;
     }
-    const user = await prisma.user.update({ where: { id: req.params.id }, data: update, select });
+    const user = await prisma.user.update({ where: { id: req.params.id as string }, data: update, select });
     res.json(user);
   } catch (err) {
     next(err);
@@ -70,10 +70,10 @@ export async function updateUser(req: Request, res: Response, next: NextFunction
 
 export async function toggleActive(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const current = await prisma.user.findUnique({ where: { id: req.params.id } });
+    const current = await prisma.user.findUnique({ where: { id: req.params.id as string } });
     if (!current) { res.status(404).json({ error: 'Usuário não encontrado' }); return; }
     const user = await prisma.user.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: { isActive: !current.isActive },
       select,
     });
