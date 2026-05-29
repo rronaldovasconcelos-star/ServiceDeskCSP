@@ -15,6 +15,8 @@ const categories = ['PAPEL', 'TONER', 'LIMPEZA', 'INFORMATICA', 'OUTROS'];
 
 const emptyForm = { name: '', unit: '', category: 'PAPEL', description: '' };
 
+const inputCls = 'w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500';
+
 export default function SuprimentosCatalogoPage() {
   const [items, setItems] = useState<SupplyItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,7 +70,7 @@ export default function SuprimentosCatalogoPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-800">Catálogo de Suprimentos</h2>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Catálogo de Suprimentos</h2>
         <button
           onClick={openNew}
           className="px-4 py-2 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800"
@@ -78,49 +80,49 @@ export default function SuprimentosCatalogoPage() {
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">{editId ? 'Editar Item' : 'Novo Item'}</h3>
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6">
+          <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4">{editId ? 'Editar Item' : 'Novo Item'}</h3>
           {error && (
-            <div className="mb-4 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">{error}</div>
+            <div className="mb-4 px-4 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg text-red-600 dark:text-red-400 text-sm">{error}</div>
           )}
           <form onSubmit={handleSubmit} className="space-y-3">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Nome *</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Nome *</label>
                 <input
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   required
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={inputCls}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Unidade *</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Unidade *</label>
                 <input
                   value={form.unit}
                   onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
                   required
                   placeholder="resma, unidade, caixa..."
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={inputCls}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Categoria *</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Categoria *</label>
                 <select
                   value={form.category}
                   onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={inputCls}
                 >
                   {categories.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">Descrição</label>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Descrição</label>
                 <input
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                   placeholder="Opcional"
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={inputCls}
                 />
               </div>
             </div>
@@ -135,7 +137,7 @@ export default function SuprimentosCatalogoPage() {
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
-                className="px-5 py-2 border border-slate-300 text-slate-600 text-sm rounded-lg hover:bg-slate-50"
+                className="px-5 py-2 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700"
               >
                 Cancelar
               </button>
@@ -145,13 +147,13 @@ export default function SuprimentosCatalogoPage() {
       )}
 
       {loading ? (
-        <p className="text-slate-500">Carregando...</p>
+        <p className="text-slate-500 dark:text-slate-400">Carregando...</p>
       ) : items.length === 0 ? (
-        <p className="text-slate-400 text-sm">Nenhum item no catálogo.</p>
+        <p className="text-slate-400 dark:text-slate-500 text-sm">Nenhum item no catálogo.</p>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+            <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 text-xs uppercase">
               <tr>
                 <th className="px-4 py-3 text-left">Nome</th>
                 <th className="px-4 py-3 text-left">Categoria</th>
@@ -161,15 +163,15 @@ export default function SuprimentosCatalogoPage() {
                 <th className="px-4 py-3 text-left">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {items.map((item) => (
-                <tr key={item.id} className={`hover:bg-slate-50 ${!item.isActive ? 'opacity-50' : ''}`}>
-                  <td className="px-4 py-3 font-medium text-slate-800">{item.name}</td>
-                  <td className="px-4 py-3 text-slate-600">{item.category}</td>
-                  <td className="px-4 py-3 text-slate-600">{item.unit}</td>
-                  <td className="px-4 py-3 text-slate-400 text-xs">{item.description ?? '—'}</td>
+                <tr key={item.id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/40 ${!item.isActive ? 'opacity-50' : ''}`}>
+                  <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{item.name}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{item.category}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{item.unit}</td>
+                  <td className="px-4 py-3 text-slate-400 dark:text-slate-500 text-xs">{item.description ?? '—'}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs ${item.isActive ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-500'}`}>
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs ${item.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'}`}>
                       {item.isActive ? 'Ativo' : 'Inativo'}
                     </span>
                   </td>
@@ -177,13 +179,13 @@ export default function SuprimentosCatalogoPage() {
                     <div className="flex gap-2">
                       <button
                         onClick={() => openEdit(item)}
-                        className="text-xs text-blue-600 hover:underline"
+                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => toggleActive(item.id)}
-                        className="text-xs text-slate-500 hover:underline"
+                        className="text-xs text-slate-500 dark:text-slate-400 hover:underline"
                       >
                         {item.isActive ? 'Desativar' : 'Ativar'}
                       </button>
