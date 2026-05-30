@@ -64,14 +64,15 @@ export async function uploadFiles(req: Request, res: Response, next: NextFunctio
     const created = [];
     for (const f of files) {
       const key = `${ownerId}/${f.filename}`;
-      await storage.save(key, f.path);
+      // save retorna a chave efetiva: path local (disco) ou ID do Drive
+      const storageKey = await storage.save(key, f.path, f.mimetype);
       const record = await (prisma as any).file.create({
         data: {
           originalName: f.originalname,
           storedName: f.filename,
           mimeType: f.mimetype,
           sizeBytes: f.size,
-          storageKey: key,
+          storageKey,
           folder,
           ownerId,
         },

@@ -31,6 +31,9 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Credenciais (service accounts, chaves privadas — NUNCA commitar)
+backend/credentials/
+
 # Misc
 *.pem
 coverage/

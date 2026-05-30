@@ -12,10 +12,11 @@ const ROOT = path.resolve(process.cwd(), env.uploadDir);
 fs.mkdirSync(ROOT, { recursive: true });
 
 export class LocalDiskProvider implements StorageProvider {
-  async save(key: string, sourcePath: string): Promise<void> {
+  async save(key: string, sourcePath: string, _mimeType?: string): Promise<string> {
     const dest = path.join(ROOT, key);
     await fsp.mkdir(path.dirname(dest), { recursive: true });
     await fsp.rename(sourcePath, dest);
+    return key; // chave local é o próprio path relativo
   }
 
   createReadStream(key: string): Readable {

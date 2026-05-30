@@ -2,13 +2,17 @@ import { Readable } from 'node:stream';
 
 /**
  * Abstração de armazenamento de arquivos.
- * Hoje implementada em disco local; futuramente pode ter um provider S3/R2
- * sem que o controller precise mudar.
+ * Implementações: LocalDiskProvider (disco local) e GoogleDriveProvider.
+ * Trocar de provider não requer alteração no controller.
  */
 export interface StorageProvider {
-  /** Move/grava o arquivo de `sourcePath` para a chave lógica `key`. */
-  save(key: string, sourcePath: string): Promise<void>;
-  /** Abre um stream de leitura para a chave. */
+  /**
+   * Grava o arquivo de `sourcePath` no storage.
+   * Retorna a chave efetiva a ser persistida no banco (pode diferir do `key`
+   * passado — ex: Google Drive retorna o ID do arquivo em vez do caminho).
+   */
+  save(key: string, sourcePath: string, mimeType?: string): Promise<string>;
+  /** Abre um stream de leitura para a chave persistida. */
   createReadStream(key: string): Readable;
   /** Remove o arquivo da chave (idempotente). */
   delete(key: string): Promise<void>;

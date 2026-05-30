@@ -30,5 +30,11 @@ export const env = {
   // Uploads (Repositório de arquivos)
   uploadDir: optional('UPLOAD_DIR', 'uploads'),
   maxFileSizeMb: parseInt(optional('MAX_FILE_SIZE_MB', '100'), 10),
-  storageProvider: optional('STORAGE_PROVIDER', 'local'), // 'local' | 's3' (futuro)
+  storageProvider: optional('STORAGE_PROVIDER', 'local'), // 'local' | 'google-drive'
+
+  // Google Drive — OAuth2 (usado quando STORAGE_PROVIDER=google-drive)
+  googleDriveRootFolderId: optional('GOOGLE_DRIVE_ROOT_FOLDER_ID', ''),
+  googleOauthClientId: optional('GOOGLE_OAUTH_CLIENT_ID', ''),
+  googleOauthClientSecret: optional('GOOGLE_OAUTH_CLIENT_SECRET', ''),
+  googleOauthRefreshToken: optional('GOOGLE_OAUTH_REFRESH_TOKEN', ''),
 };

@@ -1,10 +1,12 @@
 import { env } from '../../config/env.js';
 import { LocalDiskProvider } from './LocalDiskProvider.js';
+import { GoogleDriveProvider } from './GoogleDriveProvider.js';
 import { StorageProvider } from './types.js';
 
 function buildProvider(): StorageProvider {
-  // Futuro: if (env.storageProvider === 's3') return new S3Provider();
-  void env.storageProvider;
+  if (env.storageProvider === 'google-drive') {
+    return new GoogleDriveProvider();
+  }
   return new LocalDiskProvider();
 }
 
