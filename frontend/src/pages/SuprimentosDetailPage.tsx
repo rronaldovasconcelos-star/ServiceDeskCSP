@@ -73,7 +73,7 @@ export default function SuprimentosDetailPage() {
     }
   };
 
-  const addComment = async (e: React.FormEvent) => {
+  const addComment = async (e: { preventDefault(): void }) => {
     e.preventDefault();
     if (!comment.trim()) return;
     await api.post(`/suprimentos/requests/${id}/comments`, { message: comment });
@@ -195,7 +195,7 @@ export default function SuprimentosDetailPage() {
             onChange={(e) => setComment(e.target.value)}
             rows={3}
             placeholder="Adicionar comentário..."
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
           />
           <button
             type="submit"

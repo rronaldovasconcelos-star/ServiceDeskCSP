@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 
@@ -29,7 +28,7 @@ export default function SuprimentosFormPage() {
 
   const selectedItem = items.find((i) => i.id === itemId);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault();
     setError('');
     setLoading(true);
@@ -67,7 +66,7 @@ export default function SuprimentosFormPage() {
             value={itemId}
             onChange={(e) => setItemId(e.target.value)}
             required
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100"
           >
             {Object.entries(groupedItems).map(([cat, catItems]) => (
               <optgroup key={cat} label={cat}>
@@ -91,7 +90,7 @@ export default function SuprimentosFormPage() {
               value={quantity}
               onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
               required
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100"
             />
           </div>
           <div>
@@ -99,7 +98,7 @@ export default function SuprimentosFormPage() {
             <select
               value={urgency}
               onChange={(e) => setUrgency(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100"
             >
               <option value="BAIXA">Baixa</option>
               <option value="MEDIA">Média</option>

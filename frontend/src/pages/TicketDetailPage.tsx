@@ -91,7 +91,7 @@ export default function TicketDetailPage() {
     load();
   };
 
-  const addComment = async (e: React.FormEvent) => {
+  const addComment = async (e: { preventDefault(): void }) => {
     e.preventDefault();
     if (!comment.trim()) return;
     await api.post(`/tickets/${id}/comments`, { message: comment });
