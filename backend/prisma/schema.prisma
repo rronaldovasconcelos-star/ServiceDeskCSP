@@ -38,7 +38,7 @@ model VerificationCode {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  @@unique([userId]) // garante um código ativo por usuário no nível do banco
 }
 
 model File {

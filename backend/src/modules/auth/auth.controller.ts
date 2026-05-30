@@ -3,6 +3,7 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { randomInt } from 'node:crypto';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { env } from '../../config/env.js';
 import { normalizeBrazilPhone } from '../../lib/phone.js';
@@ -128,18 +129,27 @@ export async function register(req: Request, res: Response, next: NextFunction):
       });
       userId = existing.id;
     } else {
-      const created = await prisma.user.create({
-        data: {
-          name: data.name,
-          email: data.email,
-          phone,
-          passwordHash,
-          role: 'USER',
-          isActive: false,
-          phoneVerified: false,
-        },
-      });
-      userId = created.id;
+      try {
+        const created = await prisma.user.create({
+          data: {
+            name: data.name,
+            email: data.email,
+            phone,
+            passwordHash,
+            role: 'USER',
+            isActive: false,
+            phoneVerified: false,
+          },
+        });
+        userId = created.id;
+      } catch (err) {
+        // Race condition: dois cadastros simultâneos com o mesmo e-mail.
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          res.status(409).json({ error: 'E-mail já cadastrado.' });
+          return;
+        }
+        throw err;
+      }
     }
 
     try {
