@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 
@@ -18,8 +19,9 @@ export default function LoginPage() {
     try {
       await login(email, password);
       navigate('/');
-    } catch {
-      setError('Email ou senha inválidos.');
+    } catch (err) {
+      const apiError = axios.isAxiosError(err) ? err.response?.data?.error : undefined;
+      setError(apiError ?? 'Email ou senha inválidos.');
     } finally {
       setLoading(false);
     }
@@ -117,6 +119,13 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          <p className="text-center text-sm text-slate-500 mt-6">
+            Não tem uma conta?{' '}
+            <Link to="/register" className="font-semibold hover:underline" style={{ color: '#2e6db4' }}>
+              Criar conta
+            </Link>
+          </p>
         </div>
       </div>
     </div>

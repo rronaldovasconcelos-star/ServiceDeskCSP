@@ -25,6 +25,7 @@ const select = {
   email: true,
   role: true,
   phone: true,
+  phoneVerified: true,
   isActive: true,
   createdAt: true,
   updatedAt: true,

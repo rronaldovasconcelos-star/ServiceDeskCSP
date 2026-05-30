@@ -8,22 +8,37 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         String   @default("USER") // ADMIN | USER
-  phone        String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  passwordHash  String
+  role          String   @default("USER") // ADMIN | USER
+  phone         String?
+  phoneVerified Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  ticketsRequested Ticket[]               @relation("Requester")
-  ticketsAssigned  Ticket[]               @relation("Assignee")
-  history          TicketHistory[]
-  supplyRequests   SupplyRequest[]        @relation("SupplyRequests")
-  supplyHistory    SupplyRequestHistory[]
-  files            File[]                 @relation("OwnerFiles")
+  ticketsRequested  Ticket[]               @relation("Requester")
+  ticketsAssigned   Ticket[]               @relation("Assignee")
+  history           TicketHistory[]
+  supplyRequests    SupplyRequest[]        @relation("SupplyRequests")
+  supplyHistory     SupplyRequestHistory[]
+  files             File[]                 @relation("OwnerFiles")
+  verificationCodes VerificationCode[]
+}
+
+model VerificationCode {
+  id        String   @id @default(cuid())
+  userId    String
+  codeHash  String // bcrypt do código de 6 dígitos
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model File {

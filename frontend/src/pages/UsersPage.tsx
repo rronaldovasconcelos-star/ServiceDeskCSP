@@ -8,7 +8,20 @@ interface User {
   email: string;
   role: string;
   phone?: string;
+  phoneVerified?: boolean;
   isActive: boolean;
+}
+
+// Estado visível na lista: Ativo (verde), Pendente de aprovação (âmbar) ou Inativo (vermelho).
+function statusInfo(u: User): { label: string; style: React.CSSProperties } {
+  if (u.isActive) return { label: 'Ativo', style: { background: 'rgba(34,197,94,0.15)', color: '#22c55e' } };
+  if (u.phoneVerified) return { label: 'Pendente', style: { background: 'rgba(245,158,11,0.15)', color: '#f59e0b' } };
+  return { label: 'Inativo', style: { background: 'rgba(239,68,68,0.12)', color: '#ef4444' } };
+}
+
+function toggleLabel(u: User): string {
+  if (u.isActive) return 'Desativar';
+  return u.phoneVerified ? 'Aprovar' : 'Ativar';
 }
 
 const emptyForm = { name: '', email: '', password: '', role: 'USER', phone: '' };
@@ -278,14 +291,8 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <span
-                        className="pill"
-                        style={u.isActive
-                          ? { background: 'rgba(34,197,94,0.15)', color: '#22c55e' }
-                          : { background: 'rgba(239,68,68,0.12)', color: '#ef4444' }
-                        }
-                      >
-                        {u.isActive ? 'Ativo' : 'Inativo'}
+                      <span className="pill" style={statusInfo(u).style}>
+                        {statusInfo(u).label}
                       </span>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
@@ -298,9 +305,9 @@ export default function UsersPage() {
                         </button>
                         <button
                           onClick={() => toggleActive(u)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 12, padding: 0 }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: !u.isActive && u.phoneVerified ? '#22c55e' : 'var(--text-secondary)', fontSize: 12, fontWeight: !u.isActive && u.phoneVerified ? 600 : 400, padding: 0 }}
                         >
-                          {u.isActive ? 'Desativar' : 'Ativar'}
+                          {toggleLabel(u)}
                         </button>
                       </div>
                     </td>
@@ -334,14 +341,8 @@ export default function UsersPage() {
                   {u.email}
                 </p>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span
-                    className="pill"
-                    style={u.isActive
-                      ? { background: 'rgba(34,197,94,0.15)', color: '#22c55e' }
-                      : { background: 'rgba(239,68,68,0.12)', color: '#ef4444' }
-                    }
-                  >
-                    {u.isActive ? 'Ativo' : 'Inativo'}
+                  <span className="pill" style={statusInfo(u).style}>
+                    {statusInfo(u).label}
                   </span>
                   <div style={{ display: 'flex', gap: 12 }}>
                     <button
@@ -352,9 +353,9 @@ export default function UsersPage() {
                     </button>
                     <button
                       onClick={() => toggleActive(u)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 12 }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: !u.isActive && u.phoneVerified ? '#22c55e' : 'var(--text-secondary)', fontSize: 12, fontWeight: !u.isActive && u.phoneVerified ? 600 : 400 }}
                     >
-                      {u.isActive ? 'Desativar' : 'Ativar'}
+                      {toggleLabel(u)}
                     </button>
                   </div>
                 </div>

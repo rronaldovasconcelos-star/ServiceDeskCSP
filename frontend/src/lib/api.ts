@@ -13,7 +13,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    // Não redireciona em falhas das rotas de autenticação (login/cadastro):
+    // a própria tela exibe a mensagem de erro. O redirect é só para token expirado.
+    const url: string = err.config?.url ?? '';
+    const isAuthRoute = url.includes('/auth/');
+    if (err.response?.status === 401 && !isAuthRoute) {
       localStorage.removeItem('token');
       window.location.href = '/login';
     }

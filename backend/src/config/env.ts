@@ -16,6 +16,10 @@ export const env = {
   jwtExpiresIn: optional('JWT_EXPIRES_IN', '8h'),
   nodeEnv: optional('NODE_ENV', 'development'),
 
+  // Auto-cadastro / OTP
+  otpExpiresMinutes: parseInt(optional('OTP_EXPIRES_MINUTES', '10'), 10),
+  allowSelfRegistration: optional('ALLOW_SELF_REGISTRATION', 'true') === 'true',
+
   // Seed
   seedAdminEmail: optional('SEED_ADMIN_EMAIL', 'admin@santiagopaula.com.br'),
   seedAdminPassword: optional('SEED_ADMIN_PASSWORD', 'Admin@123'),

@@ -21,3 +21,12 @@ export async function sendWhatsApp(phone: string | null | undefined, text: strin
     console.error('[WhatsApp]', err instanceof Error ? err.message : err);
   }
 }
+
+/**
+ * Envia mensagem e PROPAGA o erro em caso de falha.
+ * Usado em fluxos onde a entrega é crítica (ex: código OTP de cadastro),
+ * para que o chamador possa avisar o usuário.
+ */
+export async function sendWhatsAppStrict(phone: string, text: string): Promise<void> {
+  await provider.sendMessage(phone, text);
+}
