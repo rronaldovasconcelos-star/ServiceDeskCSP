@@ -11,7 +11,7 @@ export default function ProtectedRoute({ children, adminOnly }: Props) {
 
   if (loading) return <div className="flex items-center justify-center h-screen">Carregando...</div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (adminOnly && user.role !== 'ADMIN') return <Navigate to="/" replace />;
+  if (adminOnly && user.role !== 'ADMIN') return <Navigate to="/tickets" replace />;
 
   return <>{children}</>;
 }
