@@ -54,7 +54,7 @@ export default function TicketsPage() {
         </Link>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-2">
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
@@ -80,38 +80,67 @@ export default function TicketsPage() {
       ) : tickets.length === 0 ? (
         <p className="text-slate-400 dark:text-slate-500 text-sm">Nenhum chamado encontrado.</p>
       ) : (
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 text-xs uppercase">
-              <tr>
-                <th className="px-4 py-3 text-left">Título</th>
-                <th className="px-4 py-3 text-left">Categoria</th>
-                <th className="px-4 py-3 text-left">Urgência</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-left">Solicitante</th>
-                <th className="px-4 py-3 text-left">Aberto em</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-              {tickets.map((t) => (
-                <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/40 cursor-pointer">
-                  <td className="px-4 py-3">
-                    <Link to={`/tickets/${t.id}`} className="font-medium text-blue-700 dark:text-blue-400 hover:underline">
-                      {t.title}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{t.category}</td>
-                  <td className="px-4 py-3"><UrgencyBadge urgency={t.urgency} /></td>
-                  <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
-                  <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{t.requester.name}</td>
-                  <td className="px-4 py-3 text-slate-400 dark:text-slate-500">
-                    {new Date(t.createdAt).toLocaleDateString('pt-BR')}
-                  </td>
+        <>
+          {/* Desktop: tabela */}
+          <div className="hidden md:block bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 text-xs uppercase">
+                <tr>
+                  <th className="px-4 py-3 text-left">Título</th>
+                  <th className="px-4 py-3 text-left">Categoria</th>
+                  <th className="px-4 py-3 text-left">Urgência</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left">Solicitante</th>
+                  <th className="px-4 py-3 text-left">Aberto em</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                {tickets.map((t) => (
+                  <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/40 cursor-pointer">
+                    <td className="px-4 py-3">
+                      <Link to={`/tickets/${t.id}`} className="font-medium text-blue-700 dark:text-blue-400 hover:underline">
+                        {t.title}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{t.category}</td>
+                    <td className="px-4 py-3"><UrgencyBadge urgency={t.urgency} /></td>
+                    <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{t.requester.name}</td>
+                    <td className="px-4 py-3 text-slate-400 dark:text-slate-500">
+                      {new Date(t.createdAt).toLocaleDateString('pt-BR')}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile: cards */}
+          <div className="md:hidden space-y-3">
+            {tickets.map((t) => (
+              <Link
+                key={t.id}
+                to={`/tickets/${t.id}`}
+                className="block bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <span className="font-semibold text-blue-700 dark:text-blue-400 text-sm leading-snug">{t.title}</span>
+                  <StatusBadge status={t.status} />
+                </div>
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <UrgencyBadge urgency={t.urgency} />
+                  <span className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">
+                    {t.category}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 mt-1">
+                  <span>{t.requester.name}</span>
+                  <span>{new Date(t.createdAt).toLocaleDateString('pt-BR')}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
