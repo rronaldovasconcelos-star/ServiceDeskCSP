@@ -27,13 +27,34 @@ const statusFilterLabel: Record<string, string> = {
 };
 const categories = ['', 'TI', 'SUPRIMENTOS'];
 
+const selectStyle: React.CSSProperties = {
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius-sm)',
+  padding: '6px 12px',
+  fontSize: '13px',
+  background: 'var(--bg-card)',
+  color: 'var(--text-primary)',
+  outline: 'none',
+};
+
+const thStyle: React.CSSProperties = {
+  padding: '10px 16px',
+  textAlign: 'left',
+  fontSize: '11px',
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  color: 'var(--text-secondary)',
+  whiteSpace: 'nowrap',
+};
+
 export default function TicketsPage() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
   const [category, setCategory] = useState('');
 
-  const load = () => {
+  useEffect(() => {
     setLoading(true);
     const params: Record<string, string> = {};
     if (status) params.status = status;
@@ -41,72 +62,61 @@ export default function TicketsPage() {
     api.get('/tickets', { params })
       .then((r) => setTickets(r.data))
       .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { load(); }, [status, category]);
+  }, [status, category]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Chamados</h2>
-        <Link to="/tickets/new" className="px-4 py-2 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800">
+    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Chamados</h2>
+        <Link
+          to="/tickets/new"
+          style={{ padding: '7px 16px', background: 'var(--accent)', color: '#fff', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, textDecoration: 'none' }}
+        >
           + Novo Chamado
         </Link>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
-        >
-          {statuses.map((s) => (
-            <option key={s} value={s}>{statusFilterLabel[s]}</option>
-          ))}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+        <select value={status} onChange={(e) => setStatus(e.target.value)} style={selectStyle}>
+          {statuses.map((s) => <option key={s} value={s}>{statusFilterLabel[s]}</option>)}
         </select>
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100"
-        >
-          {categories.map((c) => (
-            <option key={c} value={c}>{c || 'Todas as categorias'}</option>
-          ))}
+        <select value={category} onChange={(e) => setCategory(e.target.value)} style={selectStyle}>
+          {categories.map((c) => <option key={c} value={c}>{c || 'Todas as categorias'}</option>)}
         </select>
       </div>
 
       {loading ? (
-        <p className="text-slate-500 dark:text-slate-400">Carregando...</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Carregando...</p>
       ) : tickets.length === 0 ? (
-        <p className="text-slate-400 dark:text-slate-500 text-sm">Nenhum chamado encontrado.</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhum chamado encontrado.</p>
       ) : (
         <>
           {/* Desktop: tabela */}
-          <div className="hidden md:block bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 text-xs uppercase">
-                <tr>
-                  <th className="px-4 py-3 text-left">Título</th>
-                  <th className="px-4 py-3 text-left">Categoria</th>
-                  <th className="px-4 py-3 text-left">Urgência</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-left">Solicitante</th>
-                  <th className="px-4 py-3 text-left">Aberto em</th>
+          <div className="hidden md:block" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-card-hover)', borderBottom: '1px solid var(--border)' }}>
+                  <th style={thStyle}>Título</th>
+                  <th style={thStyle}>Categoria</th>
+                  <th style={thStyle}>Urgência</th>
+                  <th style={thStyle}>Status</th>
+                  <th style={thStyle}>Solicitante</th>
+                  <th style={thStyle}>Aberto em</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                {tickets.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/40 cursor-pointer">
-                    <td className="px-4 py-3">
-                      <Link to={`/tickets/${t.id}`} className="font-medium text-blue-700 dark:text-blue-400 hover:underline">
+              <tbody>
+                {tickets.map((t, i) => (
+                  <tr key={t.id} className="table-row" style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined }}>
+                    <td style={{ padding: '10px 16px' }}>
+                      <Link to={`/tickets/${t.id}`} style={{ fontWeight: 500, color: 'var(--accent)', textDecoration: 'none' }}>
                         {t.title}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300">{t.category}</td>
-                    <td className="px-4 py-3"><UrgencyBadge urgency={t.urgency} /></td>
-                    <td className="px-4 py-3"><StatusBadge status={t.status} /></td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{t.requester.name}</td>
-                    <td className="px-4 py-3 text-slate-400 dark:text-slate-500">
+                    <td style={{ padding: '10px 16px', color: 'var(--text-primary)' }}>{t.category}</td>
+                    <td style={{ padding: '10px 16px' }}><UrgencyBadge urgency={t.urgency} /></td>
+                    <td style={{ padding: '10px 16px' }}><StatusBadge status={t.status} /></td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{t.requester.name}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>
                       {new Date(t.createdAt).toLocaleDateString('pt-BR')}
                     </td>
                   </tr>
@@ -121,19 +131,19 @@ export default function TicketsPage() {
               <Link
                 key={t.id}
                 to={`/tickets/${t.id}`}
-                className="block bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow"
+                style={{ display: 'block', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px', textDecoration: 'none' }}
               >
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <span className="font-semibold text-blue-700 dark:text-blue-400 text-sm leading-snug">{t.title}</span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--accent)', fontSize: '13px', lineHeight: 1.4 }}>{t.title}</span>
                   <StatusBadge status={t.status} />
                 </div>
-                <div className="flex flex-wrap items-center gap-2 mb-2">
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
                   <UrgencyBadge urgency={t.urgency} />
-                  <span className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>
                     {t.category}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs text-slate-400 dark:text-slate-500 mt-1">
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
                   <span>{t.requester.name}</span>
                   <span>{new Date(t.createdAt).toLocaleDateString('pt-BR')}</span>
                 </div>

@@ -81,65 +81,77 @@ export default function SuprimentosDetailPage() {
     load();
   };
 
-  if (loading) return <div className="text-slate-500 dark:text-slate-400">Carregando...</div>;
-  if (!request) return <div className="text-red-500">{error || 'Pedido não encontrado.'}</div>;
+  if (loading) return <div style={{ padding: '24px', color: 'var(--text-secondary)' }}>Carregando...</div>;
+  if (!request) return <div style={{ padding: '24px', color: '#ef4444' }}>{error || 'Pedido não encontrado.'}</div>;
 
   const nextStatuses = TRANSITIONS[request.status] ?? [];
 
   const timeline = [
-    { status: 'PENDENTE', label: 'Pedido enviado', done: true },
-    { status: 'APROVADO', label: 'Aprovado', done: ['APROVADO', 'COMPRADO', 'ENTREGUE'].includes(request.status) },
-    { status: 'COMPRADO', label: 'Comprado', done: ['COMPRADO', 'ENTREGUE'].includes(request.status) },
-    { status: 'ENTREGUE', label: 'Entregue', done: request.status === 'ENTREGUE' },
+    { status: 'PENDENTE',  label: 'Pedido enviado', done: true },
+    { status: 'APROVADO',  label: 'Aprovado',  done: ['APROVADO', 'COMPRADO', 'ENTREGUE'].includes(request.status) },
+    { status: 'COMPRADO',  label: 'Comprado',  done: ['COMPRADO', 'ENTREGUE'].includes(request.status) },
+    { status: 'ENTREGUE',  label: 'Entregue',  done: request.status === 'ENTREGUE' },
   ];
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <button onClick={() => navigate('/suprimentos')} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+    <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <button
+        onClick={() => navigate('/suprimentos')}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '13px', padding: 0, textAlign: 'left', width: 'fit-content' }}
+      >
         ← Voltar para Suprimentos
       </button>
 
       {error && (
-        <div className="px-4 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg text-red-600 dark:text-red-400 text-sm">{error}</div>
+        <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-sm)', color: '#ef4444', fontSize: '13px' }}>
+          {error}
+        </div>
       )}
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6">
-        <div className="flex items-start justify-between gap-4">
+      {/* Card principal */}
+      <div className="detail-card">
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
           <div>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{request.item.name}</h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{request.item.category} · {request.quantity} {request.item.unit}</p>
+            <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>{request.item.name}</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>{request.item.category} · {request.quantity} {request.item.unit}</p>
           </div>
-          <div className="flex gap-2">
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
             <UrgencyBadge urgency={request.urgency} />
             <SupplyStatusBadge status={request.status} />
           </div>
         </div>
 
         {request.notes && (
-          <p className="mt-4 text-slate-700 dark:text-slate-300 text-sm leading-relaxed bg-slate-50 dark:bg-slate-700/50 rounded-lg px-3 py-2">
+          <p style={{ marginTop: '16px', fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.6, background: 'var(--bg-card-hover)', borderRadius: 'var(--radius-sm)', padding: '10px 12px' }}>
             {request.notes}
           </p>
         )}
 
-        <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-600 dark:text-slate-400">
-          <div><span className="font-medium text-slate-700 dark:text-slate-300">Solicitante:</span> {request.requester.name}</div>
-          <div><span className="font-medium text-slate-700 dark:text-slate-300">E-mail:</span> {request.requester.email}</div>
-          <div><span className="font-medium text-slate-700 dark:text-slate-300">Aberto em:</span> {new Date(request.createdAt).toLocaleString('pt-BR')}</div>
-          <div><span className="font-medium text-slate-700 dark:text-slate-300">Atualizado em:</span> {new Date(request.updatedAt).toLocaleString('pt-BR')}</div>
+        <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+          <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Solicitante:</span> {request.requester.name}</div>
+          <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>E-mail:</span> {request.requester.email}</div>
+          <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Aberto em:</span> {new Date(request.createdAt).toLocaleString('pt-BR')}</div>
+          <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Atualizado em:</span> {new Date(request.updatedAt).toLocaleString('pt-BR')}</div>
         </div>
 
         {user?.role === 'ADMIN' && nextStatuses.length > 0 && (
-          <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-3">
+          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
             {nextStatuses.map((s) => (
               <button
                 key={s}
                 onClick={() => changeStatus(s)}
                 disabled={actionLoading}
-                className={`px-4 py-1.5 text-sm rounded-lg transition-colors disabled:opacity-50 ${
-                  s === 'CANCELADO'
-                    ? 'border border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30'
-                    : 'bg-blue-700 text-white hover:bg-blue-800'
-                }`}
+                style={{
+                  padding: '7px 16px',
+                  background: s === 'CANCELADO' ? 'transparent' : 'var(--accent)',
+                  color: s === 'CANCELADO' ? '#ef4444' : '#fff',
+                  border: s === 'CANCELADO' ? '1px solid rgba(239,68,68,0.4)' : 'none',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: actionLoading ? 'not-allowed' : 'pointer',
+                  opacity: actionLoading ? 0.5 : 1,
+                }}
               >
                 {nextLabel[s] ?? s}
               </button>
@@ -148,24 +160,21 @@ export default function SuprimentosDetailPage() {
         )}
       </div>
 
+      {/* Timeline de progresso */}
       {request.status !== 'CANCELADO' && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6">
-          <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-4">Progresso do Pedido</h3>
-          <div className="flex items-center gap-0">
+        <div className="detail-card">
+          <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 20px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Progresso do Pedido</h3>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
             {timeline.map((step, i) => (
-              <div key={step.status} className="flex items-center flex-1">
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                    step.done ? 'bg-blue-700 text-white' : 'bg-slate-200 dark:bg-slate-600 text-slate-400 dark:text-slate-400'
-                  }`}>
+              <div key={step.status} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, background: step.done ? 'var(--accent)' : 'var(--bg-card-hover)', color: step.done ? '#fff' : 'var(--text-secondary)', border: `2px solid ${step.done ? 'var(--accent)' : 'var(--border)'}` }}>
                     {step.done ? '✓' : i + 1}
                   </div>
-                  <span className="mt-1 text-xs text-slate-500 dark:text-slate-400 text-center w-16">{step.label}</span>
+                  <span style={{ marginTop: '6px', fontSize: '11px', color: 'var(--text-secondary)', textAlign: 'center', width: '60px', lineHeight: 1.3 }}>{step.label}</span>
                 </div>
                 {i < timeline.length - 1 && (
-                  <div className={`flex-1 h-0.5 mb-4 ${
-                    timeline[i + 1].done ? 'bg-blue-700' : 'bg-slate-200 dark:bg-slate-600'
-                  }`} />
+                  <div style={{ flex: 1, height: '2px', marginBottom: '20px', background: timeline[i + 1].done ? 'var(--accent)' : 'var(--border)' }} />
                 )}
               </div>
             ))}
@@ -173,15 +182,16 @@ export default function SuprimentosDetailPage() {
         </div>
       )}
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6">
-        <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-4">Histórico</h3>
-        <div className="space-y-3">
+      {/* Histórico */}
+      <div className="detail-card">
+        <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Histórico</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {request.history.map((entry) => (
-            <div key={entry.id} className="flex gap-3">
-              <div className="w-1.5 rounded-full bg-slate-200 dark:bg-slate-600 self-stretch mt-1.5" />
-              <div className="flex-1">
-                <p className="text-sm text-slate-700 dark:text-slate-300">{entry.message}</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+            <div key={entry.id} style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ width: '4px', borderRadius: '2px', background: 'var(--border)', flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: '0 0 2px' }}>{entry.message}</p>
+                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0 }}>
                   {entry.author.name} · {new Date(entry.createdAt).toLocaleString('pt-BR')}
                 </p>
               </div>
@@ -189,17 +199,17 @@ export default function SuprimentosDetailPage() {
           ))}
         </div>
 
-        <form onSubmit={addComment} className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700">
+        <form onSubmit={addComment} style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={3}
             placeholder="Adicionar comentário..."
-            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+            style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '8px 12px', fontSize: '13px', resize: 'none', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }}
           />
           <button
             type="submit"
-            className="mt-2 px-4 py-1.5 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800"
+            style={{ marginTop: '8px', padding: '7px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
           >
             Comentar
           </button>

@@ -12,19 +12,30 @@ interface SupplyItem {
 }
 
 const categories = ['PAPEL', 'TONER', 'LIMPEZA', 'INFORMATICA', 'OUTROS'];
-
 const emptyForm = { name: '', unit: '', category: 'PAPEL', description: '' };
 
-const inputCls = 'w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500';
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius-sm)',
+  padding: '8px 12px',
+  fontSize: '13px',
+  background: 'var(--bg-primary)',
+  color: 'var(--text-primary)',
+  outline: 'none',
+  boxSizing: 'border-box',
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: '11px',
+  fontWeight: 500,
+  color: 'var(--text-secondary)',
+  marginBottom: '5px',
+};
 
 function ItemModal({
-  editId,
-  form,
-  saving,
-  error,
-  onChange,
-  onSubmit,
-  onClose,
+  editId, form, saving, error, onChange, onSubmit, onClose,
 }: {
   editId: string | null;
   form: typeof emptyForm;
@@ -45,89 +56,58 @@ function ItemModal({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
-
-      {/* Modal */}
-      <div className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700">
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} onClick={onClose} aria-hidden="true" />
+      <div style={{ position: 'relative', width: '100%', maxWidth: '440px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
             {editId ? 'Editar Item' : 'Novo Item'}
           </h3>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
-            aria-label="Fechar"
-          >
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px', borderRadius: 'var(--radius-sm)', display: 'flex' }} aria-label="Fechar">
             <X size={18} />
           </button>
         </div>
 
-        {/* Body */}
-        <form onSubmit={onSubmit} className="px-6 py-5 space-y-3">
+        <form onSubmit={onSubmit} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {error && (
-            <div className="px-4 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg text-red-600 dark:text-red-400 text-sm">
+            <div style={{ padding: '10px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-sm)', color: '#ef4444', fontSize: '13px' }}>
               {error}
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 sm:col-span-1">
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Nome *</label>
-              <input
-                value={form.name}
-                onChange={(e) => onChange({ ...form, name: e.target.value })}
-                required
-                placeholder="Ex: Papel A4"
-                className={inputCls}
-              />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={labelStyle}>Nome *</label>
+              <input value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} required placeholder="Ex: Papel A4" style={inputStyle} />
             </div>
-            <div className="col-span-2 sm:col-span-1">
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Unidade *</label>
-              <input
-                value={form.unit}
-                onChange={(e) => onChange({ ...form, unit: e.target.value })}
-                required
-                placeholder="resma, unidade, caixa..."
-                className={inputCls}
-              />
+            <div>
+              <label style={labelStyle}>Unidade *</label>
+              <input value={form.unit} onChange={(e) => onChange({ ...form, unit: e.target.value })} required placeholder="resma, unidade..." style={inputStyle} />
             </div>
-            <div className="col-span-2 sm:col-span-1">
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Categoria *</label>
-              <select
-                value={form.category}
-                onChange={(e) => onChange({ ...form, category: e.target.value })}
-                className={inputCls}
-              >
+            <div>
+              <label style={labelStyle}>Categoria *</label>
+              <select value={form.category} onChange={(e) => onChange({ ...form, category: e.target.value })} style={inputStyle}>
                 {categories.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <div className="col-span-2 sm:col-span-1">
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Descrição</label>
-              <input
-                value={form.description}
-                onChange={(e) => onChange({ ...form, description: e.target.value })}
-                placeholder="Opcional"
-                className={inputCls}
-              />
+            <div>
+              <label style={labelStyle}>Descrição</label>
+              <input value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} placeholder="Opcional" style={inputStyle} />
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="flex gap-2 pt-2">
+          <div style={{ display: 'flex', gap: '8px', paddingTop: '4px' }}>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 py-2 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800 font-medium transition-colors disabled:opacity-50"
+              style={{ flex: 1, padding: '8px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}
             >
               {saving ? 'Salvando...' : editId ? 'Salvar alterações' : 'Criar item'}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              style={{ padding: '8px 16px', background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
             >
               Cancelar
             </button>
@@ -137,6 +117,17 @@ function ItemModal({
     </div>
   );
 }
+
+const thStyle: React.CSSProperties = {
+  padding: '10px 16px',
+  textAlign: 'left',
+  fontSize: '11px',
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  color: 'var(--text-secondary)',
+  whiteSpace: 'nowrap',
+};
 
 export default function SuprimentosCatalogoPage() {
   const [items, setItems] = useState<SupplyItem[]>([]);
@@ -189,64 +180,65 @@ export default function SuprimentosCatalogoPage() {
     load();
   };
 
+  const activeBadge = (isActive: boolean) => ({
+    display: 'inline-block' as const,
+    padding: '2px 8px',
+    borderRadius: '20px',
+    fontSize: '11px',
+    fontWeight: 500,
+    background: isActive ? 'rgba(34,197,94,0.12)' : 'rgba(100,116,139,0.12)',
+    color: isActive ? '#16a34a' : '#64748b',
+  });
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Catálogo de Suprimentos</h2>
-        <button onClick={openNew} className="px-4 py-2 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800">
+    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Catálogo de Suprimentos</h2>
+        <button
+          onClick={openNew}
+          style={{ padding: '7px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
+        >
           + Novo Item
         </button>
       </div>
 
       {showForm && (
-        <ItemModal
-          editId={editId}
-          form={form}
-          saving={saving}
-          error={error}
-          onChange={setForm}
-          onSubmit={handleSubmit}
-          onClose={closeModal}
-        />
+        <ItemModal editId={editId} form={form} saving={saving} error={error} onChange={setForm} onSubmit={handleSubmit} onClose={closeModal} />
       )}
 
       {loading ? (
-        <p className="text-slate-500 dark:text-slate-400">Carregando...</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Carregando...</p>
       ) : items.length === 0 ? (
-        <p className="text-slate-400 dark:text-slate-500 text-sm">Nenhum item no catálogo.</p>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhum item no catálogo.</p>
       ) : (
         <>
           {/* Desktop: tabela */}
-          <div className="hidden md:block bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 text-xs uppercase">
-                <tr>
-                  <th className="px-4 py-3 text-left">Nome</th>
-                  <th className="px-4 py-3 text-left">Categoria</th>
-                  <th className="px-4 py-3 text-left">Unidade</th>
-                  <th className="px-4 py-3 text-left">Descrição</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-left">Ações</th>
+          <div className="hidden md:block" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-card-hover)', borderBottom: '1px solid var(--border)' }}>
+                  <th style={thStyle}>Nome</th>
+                  <th style={thStyle}>Categoria</th>
+                  <th style={thStyle}>Unidade</th>
+                  <th style={thStyle}>Descrição</th>
+                  <th style={thStyle}>Status</th>
+                  <th style={thStyle}>Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                {items.map((item) => (
-                  <tr key={item.id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/40 ${!item.isActive ? 'opacity-50' : ''}`}>
-                    <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{item.name}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{item.category}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{item.unit}</td>
-                    <td className="px-4 py-3 text-slate-400 dark:text-slate-500 text-xs">{item.description ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs ${item.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'}`}>
-                        {item.isActive ? 'Ativo' : 'Inativo'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button onClick={() => openEdit(item)} className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+              <tbody>
+                {items.map((item, i) => (
+                  <tr key={item.id} className="table-row" style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined, opacity: item.isActive ? 1 : 0.5 }}>
+                    <td style={{ padding: '10px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>{item.name}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{item.category}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{item.unit}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)', fontSize: '12px' }}>{item.description ?? '—'}</td>
+                    <td style={{ padding: '10px 16px' }}><span style={activeBadge(item.isActive)}>{item.isActive ? 'Ativo' : 'Inativo'}</span></td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <button onClick={() => openEdit(item)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '12px', padding: 0, fontWeight: 500 }}>
                           Editar
                         </button>
-                        <button onClick={() => toggleActive(item.id)} className="text-xs text-slate-500 dark:text-slate-400 hover:underline">
+                        <button onClick={() => toggleActive(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12px', padding: 0 }}>
                           {item.isActive ? 'Desativar' : 'Ativar'}
                         </button>
                       </div>
@@ -262,26 +254,24 @@ export default function SuprimentosCatalogoPage() {
             {items.map((item) => (
               <div
                 key={item.id}
-                className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 ${!item.isActive ? 'opacity-60' : ''}`}
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px', opacity: item.isActive ? 1 : 0.6 }}
               >
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <span className="font-semibold text-slate-800 dark:text-slate-100 text-sm">{item.name}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs shrink-0 ${item.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'}`}>
-                    {item.isActive ? 'Ativo' : 'Inativo'}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '13px' }}>{item.name}</span>
+                  <span style={activeBadge(item.isActive)}>{item.isActive ? 'Ativo' : 'Inativo'}</span>
                 </div>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  <span className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">{item.category}</span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded-full">{item.unit}</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>{item.category}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>{item.unit}</span>
                 </div>
                 {item.description && (
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mb-3">{item.description}</p>
+                  <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '0 0 10px' }}>{item.description}</p>
                 )}
-                <div className="flex justify-end gap-3">
-                  <button onClick={() => openEdit(item)} className="text-blue-600 dark:text-blue-400 text-xs font-medium">
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '16px' }}>
+                  <button onClick={() => openEdit(item)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '12px', padding: 0, fontWeight: 500 }}>
                     Editar
                   </button>
-                  <button onClick={() => toggleActive(item.id)} className="text-slate-500 dark:text-slate-400 text-xs">
+                  <button onClick={() => toggleActive(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12px', padding: 0 }}>
                     {item.isActive ? 'Desativar' : 'Ativar'}
                   </button>
                 </div>

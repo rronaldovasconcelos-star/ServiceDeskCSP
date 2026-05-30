@@ -11,10 +11,10 @@ import {
   Users,
   LogOut,
   ChevronRight,
-  Sun,
-  Moon,
   Menu,
   X,
+  Sun,
+  Moon,
 } from 'lucide-react';
 
 const navItems = [
@@ -53,78 +53,87 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const handleLogout = () => { logout(); navigate('/login'); };
 
+  const filteredNav = navItems.filter((item) => !item.adminOnly || user?.role === 'ADMIN');
+
   const sidebarContent = (
     <>
       {/* Logo */}
-      <div className="flex flex-col items-center px-6 py-6 border-b border-white/10">
+      <div
+        className="flex flex-col items-center px-4 py-5"
+        style={{ borderBottom: '1px solid var(--border)' }}
+      >
         <img
           src="/logo.jpg"
           alt="Colégio Santa Paula"
-          className="w-20 h-20 object-contain rounded-xl shadow-lg mb-3 bg-white p-1"
+          className="w-14 h-14 object-contain rounded-xl shadow-lg mb-2 bg-white p-0.5"
         />
-        <h1 className="text-white text-sm font-bold text-center leading-tight">Colégio Santa Paula</h1>
+        <p className="text-xs font-bold text-center leading-tight" style={{ color: 'var(--text-primary)' }}>
+          Colégio Santa Paula
+        </p>
         <span
-          className="text-xs font-medium mt-1 px-2 py-0.5 rounded-full"
-          style={{ background: 'rgba(125,179,211,0.25)', color: '#b8d8ed' }}
+          className="text-xs mt-1 px-2 py-0.5 rounded-full font-medium"
+          style={{ background: 'rgba(77,142,240,0.15)', color: 'var(--accent)' }}
         >
           Portal de Chamados
         </span>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-5 space-y-1">
-        {navItems
-          .filter((item) => !item.adminOnly || user?.role === 'ADMIN')
-          .map((item) => {
-            const Icon = item.icon;
-            const active = location.pathname === item.to;
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                className={`flex items-center gap-3 px-3 py-3 md:py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group ${
-                  active
-                    ? 'text-white shadow-md'
-                    : 'text-blue-200 hover:text-white hover:bg-white/10'
-                }`}
-                style={active ? { background: 'rgba(255,255,255,0.18)' } : {}}
-              >
-                <Icon size={18} strokeWidth={active ? 2.5 : 1.8} />
-                <span className="flex-1">{item.label}</span>
-                {active && <ChevronRight size={14} className="opacity-60" />}
-              </Link>
-            );
-          })}
+      <nav className="flex-1 px-2 py-3 flex flex-col gap-0.5" aria-label="Navegação principal">
+        {filteredNav.map((item) => {
+          const Icon = item.icon;
+          const active = location.pathname === item.to;
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              aria-label={item.label}
+              className={`sidebar-link${active ? ' active' : ''}`}
+            >
+              <Icon size={15} strokeWidth={active ? 2.5 : 1.8} style={{ flexShrink: 0 }} />
+              <span className="link-label">{item.label}</span>
+              {active && <ChevronRight size={11} style={{ flexShrink: 0, opacity: 0.6 }} />}
+            </Link>
+          );
+        })}
       </nav>
 
       {/* User footer */}
-      <div className="px-4 py-4 border-t border-white/10">
-        <div className="flex items-center gap-3 mb-3">
+      <div className="px-3 py-3" style={{ borderTop: '1px solid var(--border)' }}>
+        <div className="flex items-center gap-2 mb-2">
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-            style={{ background: 'rgba(125,179,211,0.4)' }}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+            style={{ background: 'rgba(77,142,240,0.2)', color: 'var(--accent)' }}
           >
             {user?.name?.charAt(0).toUpperCase()}
           </div>
-          <div className="min-w-0">
-            <p className="text-white text-xs font-medium truncate">{user?.name}</p>
-            <p className="text-blue-300 text-xs truncate">{user?.email}</p>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+              {user?.name}
+            </p>
+            <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+              {user?.email}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 flex-1 text-xs text-blue-300 hover:text-white transition-colors py-1.5 px-2 rounded-lg hover:bg-white/10"
+            className="sidebar-link flex-1"
+            style={{ border: 'none', cursor: 'pointer', borderRadius: 'var(--radius-sm)', padding: '6px 8px' }}
+            aria-label="Sair do sistema"
           >
-            <LogOut size={14} />
-            Sair
+            <LogOut size={13} />
+            <span className="link-label">Sair</span>
           </button>
           <button
             onClick={toggle}
+            className="sidebar-link shrink-0"
+            style={{ border: 'none', cursor: 'pointer', borderRadius: 'var(--radius-sm)', padding: '6px 8px' }}
+            aria-label={theme === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro'}
             title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
-            className="flex items-center justify-center w-7 h-7 rounded-lg text-blue-300 hover:text-white hover:bg-white/10 transition-colors"
           >
-            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
           </button>
         </div>
       </div>
@@ -132,12 +141,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="flex min-h-screen bg-slate-100 dark:bg-slate-900">
+    <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>
 
-      {/* Sidebar desktop — sempre visível em md+ */}
+      {/* Sidebar desktop — 160px fixo em md+ */}
       <aside
-        className="hidden md:flex w-64 flex-col shadow-xl shrink-0"
-        style={{ background: 'linear-gradient(180deg, #0f2662 0%, #1a3a8a 60%, #1e4db0 100%)' }}
+        className="hidden md:flex flex-col shrink-0"
+        style={{ width: '160px', background: 'var(--bg-sidebar)', boxShadow: '2px 0 8px rgba(0,0,0,0.3)' }}
+        aria-label="Menu de navegação"
       >
         {sidebarContent}
       </aside>
@@ -145,7 +155,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Overlay mobile */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
@@ -153,16 +163,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Sidebar mobile — slide-in */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-72 flex flex-col shadow-2xl md:hidden transition-transform duration-300 ease-in-out ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 flex flex-col md:hidden transition-transform duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{ background: 'linear-gradient(180deg, #0f2662 0%, #1a3a8a 60%, #1e4db0 100%)' }}
+        style={{ background: 'var(--bg-sidebar)', boxShadow: '4px 0 24px rgba(0,0,0,0.5)' }}
         aria-label="Menu de navegação"
       >
-        {/* Botão fechar dentro da sidebar mobile */}
         <button
           onClick={() => setSidebarOpen(false)}
-          className="absolute top-4 right-4 text-blue-200 hover:text-white hover:bg-white/10 rounded-lg p-1.5 transition-colors"
+          className="absolute top-4 right-4 rounded-lg p-1.5 transition-colors"
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
           aria-label="Fechar menu"
         >
           <X size={20} />
@@ -172,14 +182,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Área principal */}
       <div className="flex-1 flex flex-col min-w-0">
+
         {/* Topbar mobile */}
         <header
-          className="md:hidden flex items-center gap-3 px-4 py-3 shadow-sm shrink-0"
-          style={{ background: 'linear-gradient(90deg, #0f2662 0%, #1a3a8a 100%)' }}
+          className="md:hidden flex items-center gap-3 px-4 py-3 shrink-0"
+          style={{ background: 'var(--bg-sidebar)', borderBottom: '1px solid var(--border)' }}
         >
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-primary)' }}
             aria-label="Abrir menu"
           >
             <Menu size={22} />
@@ -189,10 +201,33 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             alt="Colégio Santa Paula"
             className="w-8 h-8 object-contain rounded-lg bg-white p-0.5"
           />
-          <span className="text-white text-sm font-bold">Portal de Chamados</span>
+          <span className="flex-1 text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+            Portal de Chamados
+          </span>
+          <button
+            onClick={toggle}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-primary)' }}
+            aria-label={theme === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro'}
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
         </header>
 
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto">{children}</main>
+        {/* Conteúdo da página */}
+        <div className="flex-1 overflow-y-auto">
+          {children}
+        </div>
+
+        {/* Footer global */}
+        <footer
+          className="shrink-0 text-center py-3"
+          style={{ background: 'var(--bg-sidebar)', borderTop: '1px solid var(--border)' }}
+        >
+          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: 0 }}>
+            © 2025 Colégio Santa Paula — Portal de Chamados | v1.0
+          </p>
+        </footer>
       </div>
     </div>
   );

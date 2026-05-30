@@ -1,7 +1,6 @@
 import { useDroppable, useDraggable, DndContext } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { Link } from 'react-router-dom';
-import { useTheme } from '../context/ThemeContext';
 
 interface Ticket {
   id: string;
@@ -20,26 +19,10 @@ interface KanbanBoardProps {
 }
 
 const COLUMNS = [
-  {
-    id: 'ABERTO', label: 'Aberto', dot: '#f59e0b',
-    header: '#fffbeb', border: '#fde68a',
-    darkHeader: '#292524', darkBorder: '#78350f',
-  },
-  {
-    id: 'EM_ANDAMENTO', label: 'Em Andamento', dot: '#3b82f6',
-    header: '#eff6ff', border: '#bfdbfe',
-    darkHeader: '#1e2d3d', darkBorder: '#1d4ed8',
-  },
-  {
-    id: 'CONCLUIDO', label: 'Concluído', dot: '#10b981',
-    header: '#f0fdf4', border: '#a7f3d0',
-    darkHeader: '#1a2e23', darkBorder: '#065f46',
-  },
-  {
-    id: 'CANCELADO', label: 'Cancelado', dot: '#9ca3af',
-    header: '#f9fafb', border: '#e5e7eb',
-    darkHeader: '#1e293b', darkBorder: '#334155',
-  },
+  { id: 'ABERTO',       label: 'Aberto',       color: 'var(--status-aberto)' },
+  { id: 'EM_ANDAMENTO', label: 'Em Andamento', color: 'var(--status-andamento)' },
+  { id: 'CONCLUIDO',    label: 'Concluído',    color: 'var(--status-concluido)' },
+  { id: 'CANCELADO',    label: 'Cancelado',    color: 'var(--status-cancelado)' },
 ];
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -49,22 +32,37 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   CANCELADO:    [],
 };
 
-const URGENCY_STYLE: Record<string, string> = {
-  BAIXA:   'bg-green-100 text-green-700',
-  MEDIA:   'bg-yellow-100 text-yellow-700',
-  ALTA:    'bg-orange-100 text-orange-700',
-  URGENTE: 'bg-red-100 text-red-700',
+/* ── Cor da borda esquerda por prioridade ── */
+const URGENCY_BORDER: Record<string, string> = {
+  URGENTE: 'var(--prio-alta)',
+  ALTA:    'var(--prio-alta)',
+  MEDIA:   'var(--prio-media)',
+  BAIXA:   'var(--prio-baixa)',
 };
 
+/* ── Pills de urgência ── */
+const URGENCY_PILL: Record<string, { bg: string; color: string }> = {
+  URGENTE: { bg: 'rgba(239,68,68,0.15)',  color: '#ef4444' },
+  ALTA:    { bg: 'rgba(239,68,68,0.12)',  color: '#ef4444' },
+  MEDIA:   { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b' },
+  BAIXA:   { bg: 'rgba(34,197,94,0.12)',  color: '#22c55e' },
+};
 const URGENCY_LABEL: Record<string, string> = {
   BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta', URGENTE: 'Urgente',
 };
 
-const CATEGORY_STYLE: Record<string, string> = {
-  TI:          'bg-blue-100 text-blue-700',
-  SUPRIMENTOS: 'bg-purple-100 text-purple-700',
+/* ── Pills de categoria ── */
+const CATEGORY_PILL: Record<string, { bg: string; color: string }> = {
+  TI:          { bg: 'rgba(77,142,240,0.15)',  color: 'var(--accent)' },
+  SUPRIMENTOS: { bg: 'rgba(168,85,247,0.15)',  color: '#a855f7' },
 };
+const DEFAULT_PILL = { bg: 'rgba(148,163,184,0.15)', color: 'var(--text-secondary)' };
 
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+/* ── Card individual ── */
 function TicketCard({ ticket }: { ticket: Ticket }) {
   const draggable = VALID_TRANSITIONS[ticket.status]?.length > 0;
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -73,75 +71,120 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
     data: { status: ticket.status },
   });
 
-  const style = transform
+  const cardStyle = transform
     ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: 50 }
-    : undefined;
+    : {};
+
+  const urgencyStyle  = URGENCY_PILL[ticket.urgency]  ?? { bg: 'rgba(148,163,184,0.15)', color: 'var(--text-secondary)' };
+  const categoryStyle = CATEGORY_PILL[ticket.category] ?? DEFAULT_PILL;
+  const leftBorder    = URGENCY_BORDER[ticket.urgency] ?? 'var(--border)';
 
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...cardStyle, borderLeft: `3px solid ${leftBorder}` }}
       {...(draggable ? { ...listeners, ...attributes } : {})}
-      className={`bg-white dark:bg-slate-700 rounded-xl border border-slate-100 dark:border-slate-600 shadow-sm p-3 select-none transition-shadow ${
-        isDragging ? 'shadow-xl opacity-80 rotate-1' : 'hover:shadow-md'
-      } ${draggable ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+      className={[
+        'kanban-card',
+        draggable ? 'draggable' : '',
+        isDragging ? 'dragging' : '',
+      ].filter(Boolean).join(' ')}
+      title={`Aberto em: ${formatDate(ticket.createdAt)}`}
     >
       <Link
         to={`/tickets/${ticket.id}`}
         onClick={(e) => isDragging && e.preventDefault()}
-        className="block"
+        style={{ display: 'block', textDecoration: 'none' }}
+        aria-label={`Ver chamado: ${ticket.title}`}
       >
-        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-snug line-clamp-2 mb-2">
+        <p
+          style={{
+            color: 'var(--text-primary)',
+            fontSize: '13px',
+            fontWeight: 600,
+            lineHeight: 1.4,
+            margin: '0 0 8px',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
           {ticket.title}
         </p>
-        <div className="flex flex-wrap gap-1 mb-2">
-          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${CATEGORY_STYLE[ticket.category] ?? 'bg-slate-100 text-slate-600'}`}>
+
+        {/* Pills: categoria + urgência */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+          <span
+            className="pill"
+            style={{ background: categoryStyle.bg, color: categoryStyle.color }}
+          >
             {ticket.category}
           </span>
-          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${URGENCY_STYLE[ticket.urgency] ?? 'bg-slate-100 text-slate-600'}`}>
+          <span
+            className="pill"
+            style={{ background: urgencyStyle.bg, color: urgencyStyle.color }}
+          >
             {URGENCY_LABEL[ticket.urgency] ?? ticket.urgency}
           </span>
         </div>
-        <p className="text-xs text-slate-400 dark:text-slate-500 truncate">{ticket.requester.name}</p>
+
+        {/* Solicitante + Atribuído */}
+        <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {ticket.requester.name}
+        </p>
         {ticket.assignee && (
-          <p className="text-xs text-slate-400 dark:text-slate-500 truncate">→ {ticket.assignee.name}</p>
+          <p style={{ color: 'var(--accent)', fontSize: '11px', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            → {ticket.assignee.name}
+          </p>
         )}
       </Link>
     </div>
   );
 }
 
-function KanbanColumn({ col, tickets, isDark }: { col: typeof COLUMNS[number]; tickets: Ticket[]; isDark: boolean }) {
+/* ── Coluna Kanban ── */
+function KanbanColumn({ col, tickets }: { col: typeof COLUMNS[number]; tickets: Ticket[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.id });
 
-  const headerBg = isDark ? col.darkHeader : col.header;
-  const headerBorder = isDark ? col.darkBorder : col.border;
-  const bodyBg = isDark ? (isOver ? col.darkHeader : '#1e293b') : (isOver ? col.header : '#f8fafc');
-  const bodyBorder = isDark ? (isOver ? col.dot : '#334155') : (isOver ? col.dot : '#e2e8f0');
-
   return (
-    <div className="flex flex-col min-w-0 flex-1">
+    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+      {/* Header da coluna */}
       <div
-        className="flex items-center gap-2 px-3 py-2.5 rounded-t-xl border border-b-0"
-        style={{ background: headerBg, borderColor: headerBorder }}
+        className="kanban-col-header"
+        style={{ borderTop: `3px solid ${col.color}` }}
+        aria-label={`Coluna ${col.label}: ${tickets.length} chamado(s)`}
       >
-        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: col.dot }} />
-        <span className="text-sm font-semibold" style={{ color: isDark ? '#e2e8f0' : '#334155' }}>{col.label}</span>
         <span
-          className="ml-auto text-xs font-medium px-1.5 py-0.5 rounded-full"
-          style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.7)', color: isDark ? '#94a3b8' : '#64748b' }}
+          style={{ width: 8, height: 8, borderRadius: '50%', background: col.color, flexShrink: 0, display: 'inline-block' }}
+          aria-hidden="true"
+        />
+        <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, flex: 1 }}>
+          {col.label}
+        </span>
+        <span
+          style={{
+            background: `${col.color}22`,
+            color: col.color,
+            fontSize: '11px',
+            fontWeight: 600,
+            padding: '1px 7px',
+            borderRadius: 12,
+          }}
         >
           {tickets.length}
         </span>
       </div>
 
+      {/* Corpo da coluna — droppable */}
       <div
         ref={setNodeRef}
-        className="flex-1 flex flex-col gap-2 p-2 rounded-b-xl border min-h-48 transition-colors"
-        style={{ background: bodyBg, borderColor: bodyBorder }}
+        className={`kanban-col-body${isOver ? ' over' : ''}`}
       >
         {tickets.length === 0 && (
-          <p className="text-xs text-slate-300 dark:text-slate-600 text-center mt-4">Nenhum chamado</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '12px', textAlign: 'center', marginTop: 16, opacity: 0.5 }}>
+            Nenhum chamado
+          </p>
         )}
         {tickets.map((t) => (
           <TicketCard key={t.id} ticket={t} />
@@ -151,10 +194,8 @@ function KanbanColumn({ col, tickets, isDark }: { col: typeof COLUMNS[number]; t
   );
 }
 
+/* ── Board principal ── */
 export default function KanbanBoard({ tickets, onStatusChange }: KanbanBoardProps) {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-
   const grouped = COLUMNS.reduce<Record<string, Ticket[]>>((acc, col) => {
     acc[col.id] = tickets.filter((t) => t.status === col.id);
     return acc;
@@ -164,9 +205,9 @@ export default function KanbanBoard({ tickets, onStatusChange }: KanbanBoardProp
     const { active, over } = event;
     if (!over) return;
 
-    const ticketId = active.id as string;
+    const ticketId   = active.id as string;
     const fromStatus = (active.data.current as { status: string }).status;
-    const toStatus = over.id as string;
+    const toStatus   = over.id as string;
 
     if (fromStatus === toStatus) return;
     if (!VALID_TRANSITIONS[fromStatus]?.includes(toStatus)) return;
@@ -176,9 +217,13 @@ export default function KanbanBoard({ tickets, onStatusChange }: KanbanBoardProp
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+        role="region"
+        aria-label="Quadro de chamados"
+      >
         {COLUMNS.map((col) => (
-          <KanbanColumn key={col.id} col={col} tickets={grouped[col.id] ?? []} isDark={isDark} />
+          <KanbanColumn key={col.id} col={col} tickets={grouped[col.id] ?? []} />
         ))}
       </div>
     </DndContext>

@@ -41,19 +41,26 @@ const TRANSITIONS: Record<string, string[]> = {
 };
 
 const statusLabel: Record<string, string> = {
-  APROVADO: 'Aprovar',
-  REJEITADO: 'Rejeitar',
-  EM_ANDAMENTO: 'Iniciar Atendimento',
-  CONCLUIDO: 'Concluir',
-  CANCELADO: 'Cancelar',
+  APROVADO: 'Aprovar', REJEITADO: 'Rejeitar', EM_ANDAMENTO: 'Iniciar Atendimento',
+  CONCLUIDO: 'Concluir', CANCELADO: 'Cancelar',
 };
 
-const statusButtonStyle: Record<string, string> = {
-  APROVADO: 'bg-teal-600 hover:bg-teal-700 text-white',
-  REJEITADO: 'bg-red-600 hover:bg-red-700 text-white',
-  EM_ANDAMENTO: 'bg-blue-700 hover:bg-blue-800 text-white',
-  CONCLUIDO: 'bg-green-600 hover:bg-green-700 text-white',
-  CANCELADO: 'bg-slate-400 hover:bg-slate-500 text-white',
+const statusButtonColors: Record<string, { bg: string; color: string }> = {
+  APROVADO:    { bg: '#0d9488', color: '#fff' },
+  REJEITADO:   { bg: '#ef4444', color: '#fff' },
+  EM_ANDAMENTO:{ bg: 'var(--accent)', color: '#fff' },
+  CONCLUIDO:   { bg: '#16a34a', color: '#fff' },
+  CANCELADO:   { bg: 'var(--bg-card-hover)', color: 'var(--text-secondary)' },
+};
+
+const selectStyle: React.CSSProperties = {
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius-sm)',
+  padding: '6px 12px',
+  fontSize: '13px',
+  background: 'var(--bg-card)',
+  color: 'var(--text-primary)',
+  outline: 'none',
 };
 
 export default function TicketDetailPage() {
@@ -99,58 +106,56 @@ export default function TicketDetailPage() {
     load();
   };
 
-  if (loading) return <div className="text-slate-500 dark:text-slate-400">Carregando...</div>;
-  if (!ticket) return <div className="text-red-500">Chamado não encontrado.</div>;
+  if (loading) return <div style={{ padding: '24px', color: 'var(--text-secondary)' }}>Carregando...</div>;
+  if (!ticket) return <div style={{ padding: '24px', color: '#ef4444' }}>Chamado não encontrado.</div>;
 
   const nextStatuses = TRANSITIONS[ticket.status] ?? [];
   const isApprovalStep = ticket.status === 'AGUARDANDO_APROVACAO';
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <button onClick={() => navigate('/tickets')} className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+    <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <button
+        onClick={() => navigate('/tickets')}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '13px', padding: 0, textAlign: 'left', width: 'fit-content' }}
+      >
         ← Voltar para Chamados
       </button>
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6">
-        <div className="flex items-start justify-between gap-4">
+      {/* Card principal */}
+      <div className="detail-card">
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
           <div>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">{ticket.title}</h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">{ticket.category}</p>
+            <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>{ticket.title}</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>{ticket.category}</p>
           </div>
-          <div className="flex gap-2">
+          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
             <UrgencyBadge urgency={ticket.urgency} />
             <StatusBadge status={ticket.status} />
           </div>
         </div>
 
-        <p className="mt-4 text-slate-700 dark:text-slate-300 text-sm leading-relaxed">{ticket.description}</p>
+        <p style={{ marginTop: '16px', color: 'var(--text-primary)', fontSize: '13px', lineHeight: 1.6 }}>{ticket.description}</p>
 
-        <div className="mt-4 grid grid-cols-2 gap-4 text-sm text-slate-600 dark:text-slate-400">
-          <div><span className="font-medium text-slate-700 dark:text-slate-300">Solicitante:</span> {ticket.requester.name}</div>
-          <div><span className="font-medium text-slate-700 dark:text-slate-300">Responsável:</span> {ticket.assignee?.name ?? '—'}</div>
-          <div><span className="font-medium text-slate-700 dark:text-slate-300">Aberto em:</span> {new Date(ticket.createdAt).toLocaleString('pt-BR')}</div>
+        <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+          <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Solicitante:</span> {ticket.requester.name}</div>
+          <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Responsável:</span> {ticket.assignee?.name ?? '—'}</div>
+          <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Aberto em:</span> {new Date(ticket.createdAt).toLocaleString('pt-BR')}</div>
           {ticket.resolvedAt && (
-            <div><span className="font-medium text-slate-700 dark:text-slate-300">Concluído em:</span> {new Date(ticket.resolvedAt).toLocaleString('pt-BR')}</div>
+            <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Concluído em:</span> {new Date(ticket.resolvedAt).toLocaleString('pt-BR')}</div>
           )}
         </div>
 
         {/* Banner de aprovação pendente para ADMIN/GESTOR */}
         {isApprovalStep && canApprove && (
-          <div className="mt-5 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg">
-            <p className="text-sm font-medium text-orange-800 dark:text-orange-300 mb-3">
+          <div style={{ marginTop: '20px', padding: '14px', background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: 'var(--radius-sm)' }}>
+            <p style={{ fontSize: '13px', fontWeight: 500, color: '#f97316', marginBottom: '10px' }}>
               Este chamado de compra está aguardando sua aprovação.
             </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => changeStatus('APROVADO')}
-                className="px-4 py-2 text-sm bg-teal-600 hover:bg-teal-700 text-white rounded-lg transition-colors font-medium"
-              >
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button onClick={() => changeStatus('APROVADO')} style={{ padding: '7px 16px', background: '#0d9488', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
                 ✓ Aprovar
               </button>
-              <button
-                onClick={() => changeStatus('REJEITADO')}
-                className="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
-              >
+              <button onClick={() => changeStatus('REJEITADO')} style={{ padding: '7px 16px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
                 ✕ Rejeitar
               </button>
             </div>
@@ -159,65 +164,52 @@ export default function TicketDetailPage() {
 
         {/* Banner informativo para solicitante quando aguardando aprovação */}
         {isApprovalStep && !canApprove && (
-          <div className="mt-5 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg">
-            <p className="text-sm text-orange-800 dark:text-orange-300">
+          <div style={{ marginTop: '20px', padding: '14px', background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: 'var(--radius-sm)' }}>
+            <p style={{ fontSize: '13px', color: '#f97316', margin: 0 }}>
               Seu chamado está aguardando aprovação de um gestor ou administrador.
             </p>
           </div>
         )}
 
-        {/* Ações de status para chamados que não estão em aprovação pendente */}
+        {/* Ações de status */}
         {isPrivileged && !isApprovalStep && nextStatuses.length > 0 && (
-          <div className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700 flex flex-wrap gap-3">
-            {nextStatuses.map((s) => (
-              <button
-                key={s}
-                onClick={() => changeStatus(s)}
-                className={`px-4 py-1.5 text-sm rounded-lg transition-colors ${statusButtonStyle[s] ?? 'bg-blue-700 hover:bg-blue-800 text-white'}`}
-              >
-                {statusLabel[s] ?? s}
-              </button>
-            ))}
-
-            <select
-              value={ticket.assignee?.id ?? ''}
-              onChange={(e) => assignTicket(e.target.value || null)}
-              className="border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100"
-            >
+          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+            {nextStatuses.map((s) => {
+              const c = statusButtonColors[s] ?? { bg: 'var(--accent)', color: '#fff' };
+              return (
+                <button key={s} onClick={() => changeStatus(s)} style={{ padding: '7px 16px', background: c.bg, color: c.color, border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
+                  {statusLabel[s] ?? s}
+                </button>
+              );
+            })}
+            <select value={ticket.assignee?.id ?? ''} onChange={(e) => assignTicket(e.target.value || null)} style={selectStyle}>
               <option value="">Sem responsável</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
+              {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
         )}
 
         {/* Atribuição disponível mesmo quando aguardando aprovação */}
         {isPrivileged && isApprovalStep && (
-          <div className="mt-4">
-            <select
-              value={ticket.assignee?.id ?? ''}
-              onChange={(e) => assignTicket(e.target.value || null)}
-              className="border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100"
-            >
+          <div style={{ marginTop: '14px' }}>
+            <select value={ticket.assignee?.id ?? ''} onChange={(e) => assignTicket(e.target.value || null)} style={selectStyle}>
               <option value="">Sem responsável</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
+              {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
           </div>
         )}
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6">
-        <h3 className="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-4">Histórico</h3>
-        <div className="space-y-3">
+      {/* Histórico */}
+      <div className="detail-card">
+        <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Histórico</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {ticket.history.map((entry) => (
-            <div key={entry.id} className="flex gap-3">
-              <div className="w-1.5 rounded-full bg-slate-200 dark:bg-slate-600 self-stretch mt-1.5" />
-              <div className="flex-1">
-                <p className="text-sm text-slate-700 dark:text-slate-300">{entry.message}</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+            <div key={entry.id} style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ width: '4px', borderRadius: '2px', background: 'var(--border)', flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: '0 0 2px' }}>{entry.message}</p>
+                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0 }}>
                   {entry.author.name} · {new Date(entry.createdAt).toLocaleString('pt-BR')}
                 </p>
               </div>
@@ -225,17 +217,17 @@ export default function TicketDetailPage() {
           ))}
         </div>
 
-        <form onSubmit={addComment} className="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700">
+        <form onSubmit={addComment} style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
           <textarea
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             rows={3}
             placeholder="Adicionar comentário..."
-            className="w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+            style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '8px 12px', fontSize: '13px', resize: 'none', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }}
           />
           <button
             type="submit"
-            className="mt-2 px-4 py-1.5 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800"
+            style={{ marginTop: '8px', padding: '7px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
           >
             Comentar
           </button>

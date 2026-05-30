@@ -1,18 +1,20 @@
-const statusColors: Record<string, string> = {
-  ABERTO: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-  AGUARDANDO_APROVACAO: 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
-  APROVADO: 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300',
-  REJEITADO: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
-  EM_ANDAMENTO: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
-  CONCLUIDO: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-  CANCELADO: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+type BadgeStyle = { background: string; color: string; fontWeight?: number };
+
+const statusStyles: Record<string, BadgeStyle> = {
+  ABERTO:                { background: 'rgba(59,130,246,0.12)',  color: '#3b82f6' },
+  AGUARDANDO_APROVACAO:  { background: 'rgba(249,115,22,0.12)',  color: '#f97316' },
+  APROVADO:              { background: 'rgba(20,184,166,0.12)',  color: '#0d9488' },
+  REJEITADO:             { background: 'rgba(239,68,68,0.12)',   color: '#ef4444' },
+  EM_ANDAMENTO:          { background: 'rgba(234,179,8,0.12)',   color: '#d97706' },
+  CONCLUIDO:             { background: 'rgba(34,197,94,0.12)',   color: '#16a34a' },
+  CANCELADO:             { background: 'rgba(100,116,139,0.12)', color: '#64748b' },
 };
 
-const urgencyColors: Record<string, string> = {
-  BAIXA: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
-  MEDIA: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-  ALTA: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-  URGENTE: 'bg-red-100 text-red-700 font-semibold dark:bg-red-900/40 dark:text-red-300',
+const urgencyStyles: Record<string, BadgeStyle> = {
+  BAIXA:   { background: 'rgba(100,116,139,0.12)', color: '#64748b' },
+  MEDIA:   { background: 'rgba(59,130,246,0.12)',  color: '#2563eb' },
+  ALTA:    { background: 'rgba(249,115,22,0.12)',  color: '#ea580c' },
+  URGENTE: { background: 'rgba(239,68,68,0.12)',   color: '#ef4444', fontWeight: 600 },
 };
 
 const statusLabels: Record<string, string> = {
@@ -26,47 +28,46 @@ const statusLabels: Record<string, string> = {
 };
 
 const urgencyLabels: Record<string, string> = {
-  BAIXA: 'Baixa',
-  MEDIA: 'Média',
-  ALTA: 'Alta',
-  URGENTE: 'Urgente',
+  BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta', URGENTE: 'Urgente',
 };
 
+const fallback: BadgeStyle = { background: 'rgba(100,116,139,0.12)', color: '#64748b' };
+
 export function StatusBadge({ status }: { status: string }) {
+  const s = statusStyles[status] ?? fallback;
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs ${statusColors[status] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}>
+    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: s.fontWeight ?? 500, background: s.background, color: s.color, whiteSpace: 'nowrap' }}>
       {statusLabels[status] ?? status}
     </span>
   );
 }
 
 export function UrgencyBadge({ urgency }: { urgency: string }) {
+  const s = urgencyStyles[urgency] ?? fallback;
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs ${urgencyColors[urgency] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}>
+    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: s.fontWeight ?? 500, background: s.background, color: s.color, whiteSpace: 'nowrap' }}>
       {urgencyLabels[urgency] ?? urgency}
     </span>
   );
 }
 
-const supplyStatusColors: Record<string, string> = {
-  PENDENTE: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300',
-  APROVADO: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-  COMPRADO: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
-  ENTREGUE: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
-  CANCELADO: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
+const supplyStatusStyles: Record<string, BadgeStyle> = {
+  PENDENTE:  { background: 'rgba(234,179,8,0.12)',   color: '#d97706' },
+  APROVADO:  { background: 'rgba(59,130,246,0.12)',  color: '#2563eb' },
+  COMPRADO:  { background: 'rgba(168,85,247,0.12)',  color: '#7c3aed' },
+  ENTREGUE:  { background: 'rgba(34,197,94,0.12)',   color: '#16a34a' },
+  CANCELADO: { background: 'rgba(239,68,68,0.12)',   color: '#ef4444' },
 };
 
 const supplyStatusLabels: Record<string, string> = {
-  PENDENTE: 'Pendente',
-  APROVADO: 'Aprovado',
-  COMPRADO: 'Comprado',
-  ENTREGUE: 'Entregue',
-  CANCELADO: 'Cancelado',
+  PENDENTE: 'Pendente', APROVADO: 'Aprovado', COMPRADO: 'Comprado',
+  ENTREGUE: 'Entregue', CANCELADO: 'Cancelado',
 };
 
 export function SupplyStatusBadge({ status }: { status: string }) {
+  const s = supplyStatusStyles[status] ?? fallback;
   return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-xs ${supplyStatusColors[status] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'}`}>
+    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 500, background: s.background, color: s.color, whiteSpace: 'nowrap' }}>
       {supplyStatusLabels[status] ?? status}
     </span>
   );

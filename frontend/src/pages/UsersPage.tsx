@@ -19,13 +19,22 @@ const roleLabel: Record<string, string> = {
   USER: 'Usuário',
 };
 
-const roleBadge: Record<string, string> = {
-  ADMIN: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-  GESTOR: 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300',
-  USER: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+const rolePill: Record<string, { bg: string; color: string }> = {
+  ADMIN:  { bg: 'rgba(168,85,247,0.15)', color: '#a855f7' },
+  GESTOR: { bg: 'rgba(20,184,166,0.15)', color: '#14b8a6' },
+  USER:   { bg: 'rgba(148,163,184,0.12)', color: 'var(--text-secondary)' },
 };
 
-const inputCls = 'w-full border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500';
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  background: 'var(--bg-primary)',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius-sm)',
+  padding: '8px 12px',
+  fontSize: '13px',
+  color: 'var(--text-primary)',
+  outline: 'none',
+};
 
 function UserModal({
   editing,
@@ -52,21 +61,35 @@ function UserModal({
     };
   }, [onClose]);
 
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: '11px',
+    fontWeight: 500,
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    color: 'var(--text-secondary)',
+    marginBottom: 4,
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden="true" />
 
-      {/* Modal */}
-      <div className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-2xl">
+      <div
+        className="relative w-full max-w-md rounded-2xl shadow-2xl"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700">
-          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
+        <div
+          className="flex items-center justify-between px-6 py-4"
+          style={{ borderBottom: '1px solid var(--border)' }}
+        >
+          <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
             {editing ? 'Editar Usuário' : 'Novo Usuário'}
           </h3>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4, borderRadius: 6 }}
             aria-label="Fechar"
           >
             <X size={18} />
@@ -74,77 +97,53 @@ function UserModal({
         </div>
 
         {/* Body */}
-        <form onSubmit={onSubmit} className="px-6 py-5 space-y-3">
+        <form onSubmit={onSubmit} style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {error && (
-            <div className="px-4 py-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-lg text-red-600 dark:text-red-400 text-sm">
+            <div style={{ padding: '8px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-sm)', color: '#ef4444', fontSize: 13 }}>
               {error}
             </div>
           )}
+
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Nome *</label>
-            <input
-              placeholder="Nome completo"
-              required
-              value={form.name}
-              onChange={(e) => onChange({ ...form, name: e.target.value })}
-              className={inputCls}
-            />
+            <label style={labelStyle}>Nome *</label>
+            <input placeholder="Nome completo" required value={form.name}
+              onChange={(e) => onChange({ ...form, name: e.target.value })} style={inputStyle} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Email *</label>
-            <input
-              type="email"
-              placeholder="email@exemplo.com"
-              required
-              value={form.email}
-              onChange={(e) => onChange({ ...form, email: e.target.value })}
-              className={inputCls}
-            />
+            <label style={labelStyle}>Email *</label>
+            <input type="email" placeholder="email@exemplo.com" required value={form.email}
+              onChange={(e) => onChange({ ...form, email: e.target.value })} style={inputStyle} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-              {editing ? 'Nova senha (deixe vazio para manter)' : 'Senha *'}
-            </label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              required={!editing}
-              value={form.password}
-              onChange={(e) => onChange({ ...form, password: e.target.value })}
-              className={inputCls}
-            />
+            <label style={labelStyle}>{editing ? 'Nova senha (deixe vazio para manter)' : 'Senha *'}</label>
+            <input type="password" placeholder="••••••••" required={!editing} value={form.password}
+              onChange={(e) => onChange({ ...form, password: e.target.value })} style={inputStyle} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">WhatsApp</label>
-            <input
-              placeholder="5511999999999"
-              value={form.phone}
-              onChange={(e) => onChange({ ...form, phone: e.target.value })}
-              className={inputCls}
-            />
+            <label style={labelStyle}>WhatsApp</label>
+            <input placeholder="5511999999999" value={form.phone}
+              onChange={(e) => onChange({ ...form, phone: e.target.value })} style={inputStyle} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">Perfil *</label>
-            <select
-              value={form.role}
-              onChange={(e) => onChange({ ...form, role: e.target.value })}
-              className={inputCls}
-            >
+            <label style={labelStyle}>Perfil *</label>
+            <select value={form.role} onChange={(e) => onChange({ ...form, role: e.target.value })} style={inputStyle}>
               <option value="USER">Usuário Comum</option>
               <option value="GESTOR">Gestor</option>
               <option value="ADMIN">Administrador</option>
             </select>
           </div>
 
-          {/* Footer */}
-          <div className="flex gap-2 pt-2">
-            <button type="submit" className="flex-1 py-2 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800 font-medium transition-colors">
+          <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
+            <button
+              type="submit"
+              style={{ flex: 1, padding: '8px 0', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            >
               {editing ? 'Salvar alterações' : 'Criar usuário'}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              style={{ padding: '8px 16px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-secondary)', borderRadius: 'var(--radius-sm)', fontSize: 13, cursor: 'pointer' }}
             >
               Cancelar
             </button>
@@ -203,13 +202,17 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Usuários</h2>
-        <button onClick={openCreate} className="px-4 py-2 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800">
+    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+      {/* Page header */}
+      <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Usuários</h1>
+        <button
+          onClick={openCreate}
+          style={{ padding: '8px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+        >
           + Novo Usuário
         </button>
-      </div>
+      </header>
 
       {showForm && (
         <UserModal
@@ -223,43 +226,83 @@ export default function UsersPage() {
       )}
 
       {loading ? (
-        <p className="text-slate-500 dark:text-slate-400">Carregando...</p>
+        <p style={{ color: 'var(--text-secondary)' }}>Carregando...</p>
       ) : (
         <>
           {/* Desktop: tabela */}
-          <div className="hidden md:block bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 text-xs uppercase">
-                <tr>
-                  <th className="px-4 py-3 text-left">Nome</th>
-                  <th className="px-4 py-3 text-left">Email</th>
-                  <th className="px-4 py-3 text-left">Perfil</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-left">Ações</th>
+          <div
+            className="hidden md:block rounded-xl overflow-hidden"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}
+          >
+            <table style={{ width: '100%', fontSize: '13px', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'rgba(13,24,37,0.6)' }}>
+                  {['Nome', 'Email', 'Perfil', 'Status', 'Ações'].map((col) => (
+                    <th
+                      key={col}
+                      style={{
+                        padding: '10px 16px',
+                        textAlign: 'left',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.06em',
+                        color: 'var(--text-secondary)',
+                        borderBottom: '1px solid var(--border)',
+                      }}
+                    >
+                      {col}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/40">
-                    <td className="px-4 py-3 font-medium text-slate-800 dark:text-slate-100">{u.name}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-400">{u.email}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${roleBadge[u.role] ?? roleBadge.USER}`}>
+              <tbody>
+                {users.map((u, idx) => (
+                  <tr
+                    key={u.id}
+                    style={{
+                      borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-card-hover)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <td style={{ padding: '12px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>{u.name}</td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{u.email}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span
+                        className="pill"
+                        style={{ ...(rolePill[u.role] ?? rolePill.USER) }}
+                      >
                         {roleLabel[u.role] ?? u.role}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${u.isActive ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400'}`}>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span
+                        className="pill"
+                        style={u.isActive
+                          ? { background: 'rgba(34,197,94,0.15)', color: '#22c55e' }
+                          : { background: 'rgba(239,68,68,0.12)', color: '#ef4444' }
+                        }
+                      >
                         {u.isActive ? 'Ativo' : 'Inativo'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 flex gap-2">
-                      <button onClick={() => openEdit(u)} className="text-blue-600 dark:text-blue-400 hover:underline text-xs">
-                        Editar
-                      </button>
-                      <button onClick={() => toggleActive(u)} className="text-slate-500 dark:text-slate-400 hover:underline text-xs">
-                        {u.isActive ? 'Desativar' : 'Ativar'}
-                      </button>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ display: 'flex', gap: 12 }}>
+                        <button
+                          onClick={() => openEdit(u)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 12, fontWeight: 500, padding: 0 }}
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => toggleActive(u)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 12, padding: 0 }}
+                        >
+                          {u.isActive ? 'Desativar' : 'Ativar'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -268,28 +311,49 @@ export default function UsersPage() {
           </div>
 
           {/* Mobile: cards */}
-          <div className="md:hidden space-y-3">
+          <div className="md:hidden" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {users.map((u) => (
               <div
                 key={u.id}
-                className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 ${!u.isActive ? 'opacity-60' : ''}`}
+                style={{
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  padding: 16,
+                  opacity: u.isActive ? 1 : 0.6,
+                  boxShadow: 'var(--shadow)',
+                }}
               >
-                <div className="flex items-start justify-between gap-2 mb-1">
-                  <span className="font-semibold text-slate-800 dark:text-slate-100 text-sm">{u.name}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs shrink-0 ${roleBadge[u.role] ?? roleBadge.USER}`}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>{u.name}</span>
+                  <span className="pill" style={{ ...(rolePill[u.role] ?? rolePill.USER), flexShrink: 0 }}>
                     {roleLabel[u.role] ?? u.role}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3 truncate">{u.email}</p>
-                <div className="flex items-center justify-between">
-                  <span className={`px-2 py-0.5 rounded-full text-xs ${u.isActive ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400'}`}>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {u.email}
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span
+                    className="pill"
+                    style={u.isActive
+                      ? { background: 'rgba(34,197,94,0.15)', color: '#22c55e' }
+                      : { background: 'rgba(239,68,68,0.12)', color: '#ef4444' }
+                    }
+                  >
                     {u.isActive ? 'Ativo' : 'Inativo'}
                   </span>
-                  <div className="flex gap-3">
-                    <button onClick={() => openEdit(u)} className="text-blue-600 dark:text-blue-400 text-xs font-medium">
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <button
+                      onClick={() => openEdit(u)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 12, fontWeight: 500 }}
+                    >
                       Editar
                     </button>
-                    <button onClick={() => toggleActive(u)} className="text-slate-500 dark:text-slate-400 text-xs">
+                    <button
+                      onClick={() => toggleActive(u)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 12 }}
+                    >
                       {u.isActive ? 'Desativar' : 'Ativar'}
                     </button>
                   </div>
