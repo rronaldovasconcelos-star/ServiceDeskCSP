@@ -2,7 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
-import { sendWhatsApp } from '../../services/whatsapp/index.js';
+import {
+  notifyTicketCreated,
+  notifyStatusChanged,
+  notifyAssigned,
+  notifyComment,
+} from './tickets.notifications.js';
 
 const createSchema = z.object({
   title: z.string().min(3),
@@ -87,17 +92,12 @@ export async function createTicket(req: Request, res: Response, next: NextFuncti
       },
     });
 
-    // Notifica admins e gestores
-    const approvers = await prisma.user.findMany({
-      where: { role: { in: ['ADMIN', 'GESTOR'] }, isActive: true },
-    });
-    const notifMsg = data.category === 'SUPRIMENTOS'
-      ? `🛒 Chamado de compra aguardando aprovação!\n*${ticket.title}*\nUrgência: ${ticket.urgency}\nSolicitante: ${ticket.requester.name}`
-      : `📋 Novo chamado aberto!\n*${ticket.title}*\nCategoria: ${ticket.category}\nUrgência: ${ticket.urgency}\nSolicitante: ${ticket.requester.name}`;
-
-    for (const approver of approvers) {
-      await sendWhatsApp(approver.phone, notifMsg);
-    }
+    // Notifica solicitante (confirmação) + admins/gestores
+    await notifyTicketCreated(
+      { id: ticket.id, title: ticket.title, category: ticket.category, urgency: ticket.urgency, requesterId: ticket.requester.id },
+      ticket.requester.name,
+      ticket.requester.phone,
+    );
 
     res.status(201).json(ticket);
   } catch (err) {
@@ -181,16 +181,11 @@ export async function changeStatus(req: Request, res: Response, next: NextFuncti
       },
     });
 
-    // Notifica solicitante nas transições relevantes
-    if (['APROVADO', 'REJEITADO', 'CONCLUIDO'].includes(status)) {
-      const requester = await prisma.user.findUnique({ where: { id: ticket.requesterId } });
-      const msgs: Record<string, string> = {
-        APROVADO: `✅ Seu chamado foi aprovado!\n*${ticket.title}*\nEm breve será atendido.`,
-        REJEITADO: `❌ Seu chamado foi rejeitado.\n*${ticket.title}*\nEntre em contato para mais informações.`,
-        CONCLUIDO: `✅ Seu chamado foi concluído!\n*${ticket.title}*\nQualquer dúvida, abra um novo chamado.`,
-      };
-      await sendWhatsApp(requester?.phone, msgs[status]);
-    }
+    // Notifica solicitante em toda mudança de status (inclui cancelamento)
+    await notifyStatusChanged(
+      { id: ticket.id, title: ticket.title, category: ticket.category, urgency: ticket.urgency, requesterId: ticket.requesterId },
+      status,
+    );
 
     res.json(updated);
   } catch (err) {
@@ -222,6 +217,11 @@ export async function assignTicket(req: Request, res: Response, next: NextFuncti
       },
     });
 
+    await notifyAssigned(
+      { id: ticket.id, title: ticket.title, category: ticket.category, urgency: ticket.urgency, requesterId: ticket.requesterId },
+      updated.assignee?.name ?? null,
+    );
+
     res.json(updated);
   } catch (err) {
     next(err);
@@ -247,6 +247,14 @@ export async function addComment(req: Request, res: Response, next: NextFunction
         author: { select: { id: true, name: true } },
       },
     });
+
+    await notifyComment(
+      { id: ticket.id, title: ticket.title, category: ticket.category, urgency: ticket.urgency, requesterId: ticket.requesterId },
+      message,
+      entry.author.name,
+      isPrivileged,
+    );
+
     res.status(201).json(entry);
   } catch (err) {
     next(err);

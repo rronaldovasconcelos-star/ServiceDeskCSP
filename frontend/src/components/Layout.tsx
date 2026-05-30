@@ -143,10 +143,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--bg-primary)' }}>
 
-      {/* Sidebar desktop — 160px fixo em md+ */}
+      {/* Sidebar desktop — 192px fixo em md+ */}
       <aside
         className="hidden md:flex flex-col shrink-0"
-        style={{ width: '160px', background: 'var(--bg-sidebar)', boxShadow: '2px 0 8px rgba(0,0,0,0.3)' }}
+        style={{ width: '192px', background: 'var(--bg-sidebar)', boxShadow: '2px 0 8px rgba(0,0,0,0.3)' }}
         aria-label="Menu de navegação"
       >
         {sidebarContent}
