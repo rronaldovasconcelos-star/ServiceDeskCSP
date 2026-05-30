@@ -1,6 +1,29 @@
 import { Request, Response, NextFunction } from 'express';
 import PDFDocument from 'pdfkit';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { prisma } from '../../lib/prisma.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const LOGO_PATH = join(__dirname, '../../../assets/logo.jpg');
+
+function addPdfHeader(doc: InstanceType<typeof PDFDocument>, title: string) {
+  const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  const logoHeight = 50;
+  try {
+    doc.image(LOGO_PATH, doc.page.margins.left, doc.page.margins.top, { height: logoHeight, fit: [logoHeight, logoHeight] });
+  } catch (_) { /* logo não encontrado — continua sem imagem */ }
+  doc.fontSize(16)
+    .text(title, doc.page.margins.left + logoHeight + 12, doc.page.margins.top + (logoHeight / 2) - 8, {
+      width: pageWidth - logoHeight - 12,
+      align: 'left',
+    });
+  doc.moveDown(2.5);
+  doc.moveTo(doc.page.margins.left, doc.y).lineTo(doc.page.margins.left + pageWidth, doc.y).stroke('#cccccc');
+  doc.moveDown(0.8);
+  doc.fontSize(9).fillColor('#666666').text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`);
+  doc.fillColor('#000000').moveDown(0.8);
+}
 
 export async function getMetrics(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -101,10 +124,7 @@ export async function exportPdf(_req: Request, res: Response, next: NextFunction
     res.setHeader('Content-Disposition', 'attachment; filename="chamados.pdf"');
     doc.pipe(res);
 
-    doc.fontSize(18).text('Relatório de Chamados — Colégio Santa Paula', { align: 'center' });
-    doc.moveDown();
-    doc.fontSize(10).text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`);
-    doc.moveDown();
+    addPdfHeader(doc, 'Relatório de Chamados — Colégio Santa Paula');
 
     for (const t of tickets) {
       doc.fontSize(11).text(`• ${t.title}`, { continued: false });
@@ -170,10 +190,7 @@ export async function exportSupplyPdf(_req: Request, res: Response, next: NextFu
     res.setHeader('Content-Disposition', 'attachment; filename="suprimentos.pdf"');
     doc.pipe(res);
 
-    doc.fontSize(18).text('Relatório de Suprimentos — Colégio Santa Paula', { align: 'center' });
-    doc.moveDown();
-    doc.fontSize(10).text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`);
-    doc.moveDown();
+    addPdfHeader(doc, 'Relatório de Suprimentos — Colégio Santa Paula');
 
     for (const r of requests) {
       doc.fontSize(11).text(`• ${r.item.name} (${r.quantity} ${r.item.unit})`, { continued: false });

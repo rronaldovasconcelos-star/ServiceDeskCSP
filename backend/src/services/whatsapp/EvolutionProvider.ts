@@ -12,7 +12,7 @@ export class EvolutionProvider implements WhatsAppProvider {
       },
       body: JSON.stringify({
         number: phone.replace(/\D/g, ''),
-        textMessage: { text },
+        text,
       }),
     });
 
