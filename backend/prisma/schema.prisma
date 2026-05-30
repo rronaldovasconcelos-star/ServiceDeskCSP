@@ -23,6 +23,23 @@ model User {
   history          TicketHistory[]
   supplyRequests   SupplyRequest[]        @relation("SupplyRequests")
   supplyHistory    SupplyRequestHistory[]
+  files            File[]                 @relation("OwnerFiles")
+}
+
+model File {
+  id           String   @id @default(cuid())
+  originalName String
+  storedName   String   // UUID + extensão (nome físico no disco)
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String   // "{ownerId}/{storedName}" — abstrai disco/S3
+  folder       String?  // categoria/pasta (ex: "Provas", "Planos de Aula")
+  ownerId      String
+  uploadedAt   DateTime @default(now())
+
+  owner User @relation("OwnerFiles", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
 }
 
 

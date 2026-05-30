@@ -5,6 +5,7 @@ import usersRouter from './modules/users/users.router.js';
 import ticketsRouter from './modules/tickets/tickets.router.js';
 import reportsRouter from './modules/reports/reports.router.js';
 import suprimesRouter from './modules/suprimentos/suprimentos.router.js';
+import filesRouter from './modules/files/files.router.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
@@ -19,6 +20,7 @@ app.use('/api/users', usersRouter);
 app.use('/api/tickets', ticketsRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/suprimentos', suprimesRouter);
+app.use('/api/files', filesRouter);
 
 app.use(errorHandler);
 

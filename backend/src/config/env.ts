@@ -26,4 +26,9 @@ export const env = {
   evolutionApiUrl: optional('EVOLUTION_API_URL', ''),
   evolutionApiKey: optional('EVOLUTION_API_KEY', ''),
   evolutionInstance: optional('EVOLUTION_INSTANCE', ''),
+
+  // Uploads (Repositório de arquivos)
+  uploadDir: optional('UPLOAD_DIR', 'uploads'),
+  maxFileSizeMb: parseInt(optional('MAX_FILE_SIZE_MB', '100'), 10),
+  storageProvider: optional('STORAGE_PROVIDER', 'local'), // 'local' | 's3' (futuro)
 };

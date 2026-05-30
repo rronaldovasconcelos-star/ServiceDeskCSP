@@ -13,6 +13,8 @@ import SuprimentosPage from './pages/SuprimentosPage';
 import SuprimentosFormPage from './pages/SuprimentosFormPage';
 import SuprimentosDetailPage from './pages/SuprimentosDetailPage';
 import SuprimentosCatalogoPage from './pages/SuprimentosCatalogoPage';
+import MeusArquivosPage from './pages/MeusArquivosPage';
+import RepositorioPage from './pages/RepositorioPage';
 
 export default function App() {
   return (
@@ -90,6 +92,22 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Layout><SuprimentosDetailPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/arquivos"
+            element={
+              <ProtectedRoute>
+                <Layout><MeusArquivosPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/repositorio"
+            element={
+              <ProtectedRoute adminOnly>
+                <Layout><RepositorioPage /></Layout>
               </ProtectedRoute>
             }
           />

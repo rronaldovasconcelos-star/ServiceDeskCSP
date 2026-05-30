@@ -5,6 +5,10 @@ node_modules/
 dist/
 build/
 
+# Uploads (repositório de arquivos dos professores)
+uploads/
+backend/uploads/
+
 # Environment
 .env
 .env.local

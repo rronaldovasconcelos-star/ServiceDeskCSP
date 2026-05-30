@@ -8,6 +8,8 @@ import {
   PlusCircle,
   Package,
   BookOpen,
+  FolderOpen,
+  HardDrive,
   Users,
   LogOut,
   ChevronRight,
@@ -23,6 +25,8 @@ const navItems = [
   { to: '/tickets/new', label: 'Novo Chamado', icon: PlusCircle, adminOnly: false },
   { to: '/suprimentos', label: 'Suprimentos', icon: Package, adminOnly: false },
   { to: '/suprimentos/catalogo', label: 'Catálogo', icon: BookOpen, adminOnly: true },
+  { to: '/arquivos', label: 'Meus Arquivos', icon: FolderOpen, adminOnly: false },
+  { to: '/repositorio', label: 'Repositório', icon: HardDrive, adminOnly: true },
   { to: '/users', label: 'Usuários', icon: Users, adminOnly: true },
 ];
 
