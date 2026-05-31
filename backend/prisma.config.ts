@@ -1,18 +1,17 @@
-import path from 'node:path';
 import { defineConfig } from 'prisma/config';
 import { PrismaLibSql } from '@prisma/adapter-libsql';
+import { createClient } from '@libsql/client';
 
-const dbFile = path.resolve(process.cwd(), 'prisma/dev.db').replace(/\\/g, '/');
-const dbUrl = `file:${dbFile}`;
+const DB_URL = process.env.DATABASE_URL ?? 'file:./prisma/dev.db';
 
 export default defineConfig({
-  schema: './prisma/schema.prisma',
   datasource: {
-    url: dbUrl,
+    url: DB_URL,
   },
   migrate: {
     async adapter() {
-      return new PrismaLibSql({ url: dbUrl });
+      const libsql = createClient({ url: DB_URL });
+      return new PrismaLibSql(libsql);
     },
   },
 });
