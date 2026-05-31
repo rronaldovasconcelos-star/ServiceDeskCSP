@@ -7,6 +7,7 @@ import reportsRouter from './modules/reports/reports.router.js';
 import suprimesRouter from './modules/suprimentos/suprimentos.router.js';
 import filesRouter from './modules/files/files.router.js';
 import whatsappRouter from './modules/whatsapp/whatsapp.router.js';
+import agentRouter from './modules/agent/agent.router.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
@@ -23,6 +24,7 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/suprimentos', suprimesRouter);
 app.use('/api/files', filesRouter);
 app.use('/api/whatsapp', whatsappRouter);
+app.use('/api/agent', agentRouter);
 
 app.use(errorHandler);
 

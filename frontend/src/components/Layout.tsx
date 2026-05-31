@@ -18,6 +18,7 @@ import {
   Sun,
   Moon,
   MessageSquare,
+  Bot,
 } from 'lucide-react';
 
 const navItems = [
@@ -30,6 +31,7 @@ const navItems = [
   { to: '/repositorio', label: 'Repositório', icon: HardDrive, adminOnly: true, gestorAllowed: true },
   { to: '/users', label: 'Usuários', icon: Users, adminOnly: true },
   { to: '/whatsapp', label: 'WhatsApp', icon: MessageSquare, adminOnly: true },
+  { to: '/agente', label: 'Agente IA', icon: Bot, adminOnly: true },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {

@@ -13,6 +13,12 @@ backend/uploads/
 .env
 .env.local
 .env.*.local
+.env.production
+
+# Testes E2E locais (não fazem parte da aplicação)
+e2e_whatsapp*.py
+e2e_shots/
+e2e_screens/
 
 # Database (SQLite)
 *.db

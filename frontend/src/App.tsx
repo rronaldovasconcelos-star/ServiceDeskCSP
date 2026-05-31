@@ -18,6 +18,7 @@ import SuprimentosCatalogoPage from './pages/SuprimentosCatalogoPage';
 import MeusArquivosPage from './pages/MeusArquivosPage';
 import RepositorioPage from './pages/RepositorioPage';
 import WhatsAppPage from './pages/WhatsAppPage';
+import AgentePage from './pages/AgentePage';
 
 export default function App() {
   return (
@@ -121,6 +122,14 @@ export default function App() {
             element={
               <ProtectedRoute adminOnly>
                 <Layout><WhatsAppPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/agente"
+            element={
+              <ProtectedRoute adminOnly>
+                <Layout><AgentePage /></Layout>
               </ProtectedRoute>
             }
           />

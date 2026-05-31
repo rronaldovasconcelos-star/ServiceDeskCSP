@@ -31,6 +31,10 @@ export const env = {
   evolutionApiKey: optional('EVOLUTION_API_KEY', ''),
   evolutionInstance: optional('EVOLUTION_INSTANCE', ''),
 
+  // Agente IA (Sofia) — Central de Comando. Proxy para a API admin do bot.
+  agentAdminUrl: optional('AGENT_ADMIN_URL', ''),        // ex: http://IP_DO_VPS:3001
+  agentAdminSecret: optional('AGENT_ADMIN_SECRET', ''),  // = WEBHOOK_SECRET do bot
+
   // Uploads (Repositório de arquivos)
   uploadDir: optional('UPLOAD_DIR', 'uploads'),
   maxFileSizeMb: parseInt(optional('MAX_FILE_SIZE_MB', '100'), 10),
