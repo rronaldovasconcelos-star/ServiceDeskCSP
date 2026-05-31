@@ -45,6 +45,11 @@ interface SimpleUser {
   name: string;
 }
 
+const CATEGORIAS = [
+  'Provas', 'Planos de Aula', 'Material de Apoio', 'Trabalhos', 'Documentos',
+  'Atividades de Sala', 'Projetos', 'Capas', 'Para Casa', 'Simulados',
+];
+
 export default function RepositorioPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [users, setUsers] = useState<SimpleUser[]>([]);
@@ -52,6 +57,9 @@ export default function RepositorioPage() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [ownerId, setOwnerId] = useState('');
+  const [categoria, setCategoria] = useState('');
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
 
   function loadMetrics() {
     api.get('/files/metrics').then((r) => setMetrics(r.data));
@@ -77,6 +85,18 @@ export default function RepositorioPage() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, ownerId]);
+
+  // Filtragem local: categoria e data aplicadas sobre os arquivos já carregados
+  const filteredFiles = files.filter((f) => {
+    if (categoria && f.folder !== categoria) return false;
+    if (dataInicio && new Date(f.uploadedAt) < new Date(dataInicio)) return false;
+    if (dataFim) {
+      const fim = new Date(dataFim);
+      fim.setHours(23, 59, 59, 999);
+      if (new Date(f.uploadedAt) > fim) return false;
+    }
+    return true;
+  });
 
   async function handleDelete(f: FileRecord) {
     if (!confirm(`Excluir "${f.originalName}" de ${f.owner.name}? Esta ação não pode ser desfeita.`)) return;
@@ -151,22 +171,52 @@ export default function RepositorioPage() {
       )}
 
       {/* Filtros */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px', alignItems: 'center' }}>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Buscar por nome..."
-          style={{ ...selectStyle, minWidth: '200px' }}
+          style={{ ...selectStyle, minWidth: '180px' }}
         />
         <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} style={selectStyle}>
           <option value="">Todos os professores</option>
           {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
         </select>
+        <select value={categoria} onChange={(e) => setCategoria(e.target.value)} style={selectStyle}>
+          <option value="">Todas as categorias</option>
+          {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>De</span>
+          <input
+            type="date"
+            value={dataInicio}
+            onChange={(e) => setDataInicio(e.target.value)}
+            style={{ ...selectStyle, colorScheme: 'dark' }}
+          />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Até</span>
+          <input
+            type="date"
+            value={dataFim}
+            onChange={(e) => setDataFim(e.target.value)}
+            style={{ ...selectStyle, colorScheme: 'dark' }}
+          />
+        </div>
+        {(categoria || dataInicio || dataFim) && (
+          <button
+            onClick={() => { setCategoria(''); setDataInicio(''); setDataFim(''); }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-secondary)', padding: '6px 4px', textDecoration: 'underline' }}
+          >
+            Limpar filtros
+          </button>
+        )}
       </div>
 
       {loading ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Carregando...</p>
-      ) : files.length === 0 ? (
+      ) : filteredFiles.length === 0 ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhum arquivo encontrado.</p>
       ) : (
         <>
@@ -184,7 +234,7 @@ export default function RepositorioPage() {
                 </tr>
               </thead>
               <tbody>
-                {files.map((f, i) => (
+                {filteredFiles.map((f, i) => (
                   <tr key={f.id} className="table-row" style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined }}>
                     <td style={{ padding: '10px 16px', color: 'var(--text-primary)', fontWeight: 500 }}>{f.originalName}</td>
                     <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{f.owner.name}</td>
@@ -203,7 +253,7 @@ export default function RepositorioPage() {
 
           {/* Mobile: cards */}
           <div className="md:hidden space-y-3">
-            {files.map((f) => (
+            {filteredFiles.map((f) => (
               <div key={f.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
                   <div style={{ minWidth: 0 }}>
