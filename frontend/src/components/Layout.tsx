@@ -17,6 +17,7 @@ import {
   X,
   Sun,
   Moon,
+  MessageSquare,
 } from 'lucide-react';
 
 const navItems = [
@@ -28,6 +29,7 @@ const navItems = [
   { to: '/arquivos', label: 'Meus Arquivos', icon: FolderOpen, adminOnly: false },
   { to: '/repositorio', label: 'Repositório', icon: HardDrive, adminOnly: true, gestorAllowed: true },
   { to: '/users', label: 'Usuários', icon: Users, adminOnly: true },
+  { to: '/whatsapp', label: 'WhatsApp', icon: MessageSquare, adminOnly: true },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {

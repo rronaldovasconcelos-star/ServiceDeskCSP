@@ -17,6 +17,7 @@ import SuprimentosDetailPage from './pages/SuprimentosDetailPage';
 import SuprimentosCatalogoPage from './pages/SuprimentosCatalogoPage';
 import MeusArquivosPage from './pages/MeusArquivosPage';
 import RepositorioPage from './pages/RepositorioPage';
+import WhatsAppPage from './pages/WhatsAppPage';
 
 export default function App() {
   return (
@@ -112,6 +113,14 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['ADMIN', 'GESTOR']}>
                 <Layout><RepositorioPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/whatsapp"
+            element={
+              <ProtectedRoute adminOnly>
+                <Layout><WhatsAppPage /></Layout>
               </ProtectedRoute>
             }
           />
