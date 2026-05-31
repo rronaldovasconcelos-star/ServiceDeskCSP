@@ -25,7 +25,15 @@ const statusFilterLabel: Record<string, string> = {
   CONCLUIDO: 'Concluído',
   CANCELADO: 'Cancelado',
 };
-const categories = ['', 'TI', 'SUPRIMENTOS'];
+const categories = ['', 'TI', 'MANUTENCAO', 'PEDAGOGICO', 'ADMINISTRATIVO', 'OUTROS'];
+const categoryLabel: Record<string, string> = {
+  '': 'Todas as categorias',
+  TI: 'TI',
+  MANUTENCAO: 'Manutenção',
+  PEDAGOGICO: 'Pedagógico',
+  ADMINISTRATIVO: 'Administrativo',
+  OUTROS: 'Outros',
+};
 
 const selectStyle: React.CSSProperties = {
   border: '1px solid var(--border)',
@@ -81,7 +89,7 @@ export default function TicketsPage() {
           {statuses.map((s) => <option key={s} value={s}>{statusFilterLabel[s]}</option>)}
         </select>
         <select value={category} onChange={(e) => setCategory(e.target.value)} style={selectStyle}>
-          {categories.map((c) => <option key={c} value={c}>{c || 'Todas as categorias'}</option>)}
+          {categories.map((c) => <option key={c} value={c}>{categoryLabel[c]}</option>)}
         </select>
       </div>
 
@@ -112,7 +120,7 @@ export default function TicketsPage() {
                         {t.title}
                       </Link>
                     </td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-primary)' }}>{t.category}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-primary)' }}>{categoryLabel[t.category] ?? t.category}</td>
                     <td style={{ padding: '10px 16px' }}><UrgencyBadge urgency={t.urgency} /></td>
                     <td style={{ padding: '10px 16px' }}><StatusBadge status={t.status} /></td>
                     <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{t.requester.name}</td>

@@ -12,7 +12,7 @@ import {
 const createSchema = z.object({
   title: z.string().min(3),
   description: z.string().min(5),
-  category: z.enum(['TI', 'SUPRIMENTOS']),
+  category: z.enum(['TI', 'MANUTENCAO', 'PEDAGOGICO', 'ADMINISTRATIVO', 'OUTROS']),
   urgency: z.enum(['BAIXA', 'MEDIA', 'ALTA', 'URGENTE']),
 });
 
@@ -70,25 +70,18 @@ export async function createTicket(req: Request, res: Response, next: NextFuncti
   try {
     const data = createSchema.parse(req.body);
 
-    // Chamados de compra entram em fila de aprovação automaticamente
-    const initialStatus = data.category === 'SUPRIMENTOS' ? 'AGUARDANDO_APROVACAO' : 'ABERTO';
-
     const ticket = await prisma.ticket.create({
-      data: { ...data, status: initialStatus, requesterId: req.user!.sub },
+      data: { ...data, status: 'ABERTO', requesterId: req.user!.sub },
       select: ticketSelect,
     });
-
-    const historyMessage = data.category === 'SUPRIMENTOS'
-      ? 'Chamado aberto — aguardando aprovação'
-      : 'Chamado aberto';
 
     await prisma.ticketHistory.create({
       data: {
         ticketId: ticket.id,
         authorId: req.user!.sub,
         type: 'STATUS_CHANGE',
-        message: historyMessage,
-        toStatus: initialStatus,
+        message: 'Chamado aberto',
+        toStatus: 'ABERTO',
       },
     });
 

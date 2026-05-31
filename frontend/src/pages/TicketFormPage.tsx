@@ -130,7 +130,10 @@ export default function TicketFormPage() {
                 style={inputStyle}
               >
                 <option value="TI">TI</option>
-                <option value="SUPRIMENTOS">Compra de Suprimentos</option>
+                <option value="MANUTENCAO">Manutenção</option>
+                <option value="PEDAGOGICO">Pedagógico</option>
+                <option value="ADMINISTRATIVO">Administrativo</option>
+                <option value="OUTROS">Outros</option>
               </select>
             </div>
             <div>

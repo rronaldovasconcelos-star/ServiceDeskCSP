@@ -52,15 +52,11 @@ export async function notifyTicketCreated(
   requesterPhone: string | null | undefined,
 ): Promise<void> {
   // Confirmação para o solicitante
-  const requesterMsg = ticket.category === 'SUPRIMENTOS'
-    ? `🛒 Seu chamado de compra foi registrado e aguarda aprovação.\n*${ticket.title}*\nUrgência: ${ticket.urgency}\nVocê será avisado a cada atualização.`
-    : `📋 Seu chamado foi aberto com sucesso!\n*${ticket.title}*\nCategoria: ${ticket.category}\nUrgência: ${ticket.urgency}\nVocê será avisado a cada atualização.`;
+  const requesterMsg = `📋 Seu chamado foi aberto com sucesso!\n*${ticket.title}*\nCategoria: ${ticket.category}\nUrgência: ${ticket.urgency}\nVocê será avisado a cada atualização.`;
   await sendWhatsApp(requesterPhone, requesterMsg);
 
   // Alerta para admins/gestores
-  const approverMsg = ticket.category === 'SUPRIMENTOS'
-    ? `🛒 Chamado de compra aguardando aprovação!\n*${ticket.title}*\nUrgência: ${ticket.urgency}\nSolicitante: ${requesterName}`
-    : `📋 Novo chamado aberto!\n*${ticket.title}*\nCategoria: ${ticket.category}\nUrgência: ${ticket.urgency}\nSolicitante: ${requesterName}`;
+  const approverMsg = `📋 Novo chamado aberto!\n*${ticket.title}*\nCategoria: ${ticket.category}\nUrgência: ${ticket.urgency}\nSolicitante: ${requesterName}`;
   await notifyPhones(await getApproverPhones(), approverMsg);
 }
 

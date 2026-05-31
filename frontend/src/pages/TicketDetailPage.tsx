@@ -4,6 +4,14 @@ import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { StatusBadge, UrgencyBadge } from '../components/StatusBadge';
 
+const categoryLabel: Record<string, string> = {
+  TI: 'TI',
+  MANUTENCAO: 'Manutenção',
+  PEDAGOGICO: 'Pedagógico',
+  ADMINISTRATIVO: 'Administrativo',
+  OUTROS: 'Outros',
+};
+
 interface HistoryEntry {
   id: string;
   type: string;
@@ -126,7 +134,7 @@ export default function TicketDetailPage() {
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
           <div>
             <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>{ticket.title}</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>{ticket.category}</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>{categoryLabel[ticket.category] ?? ticket.category}</p>
           </div>
           <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
             <UrgencyBadge urgency={ticket.urgency} />
