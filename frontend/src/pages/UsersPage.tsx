@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 
 interface User {
   id: string;
@@ -168,12 +169,14 @@ function UserModal({
 }
 
 export default function UsersPage() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const load = () => {
     api.get('/users').then((r) => setUsers(r.data)).finally(() => setLoading(false));
@@ -214,6 +217,32 @@ export default function UsersPage() {
     load();
   };
 
+  const resetPassword = async (u: User) => {
+    if (!confirm(`Enviar um código de redefinição de senha para ${u.name} via WhatsApp?\n\nA senha atual continua válida até o usuário concluir a troca.`)) return;
+    setNotice('');
+    try {
+      const res = await api.post(`/users/${u.id}/reset-password`);
+      setNotice(res.data?.message ?? `Código de redefinição enviado para ${u.name}.`);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      setNotice(msg ?? 'Erro ao enviar o código de redefinição.');
+    }
+  };
+
+  const removeUser = async (u: User) => {
+    if (!confirm(`Excluir PERMANENTEMENTE o usuário "${u.name}"?\n\nIsto apaga também todos os chamados, arquivos e histórico dele. Esta ação NÃO pode ser desfeita.`)) return;
+    if (!confirm(`Confirma a exclusão definitiva de "${u.name}"? Última chance.`)) return;
+    setNotice('');
+    try {
+      await api.delete(`/users/${u.id}`);
+      setNotice(`Usuário "${u.name}" excluído.`);
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      setNotice(msg ?? 'Erro ao excluir o usuário.');
+    }
+  };
+
   return (
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
       {/* Page header */}
@@ -226,6 +255,34 @@ export default function UsersPage() {
           + Novo Usuário
         </button>
       </header>
+
+      {notice && (
+        <div
+          style={{
+            marginBottom: 16,
+            padding: '10px 14px',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderLeft: '3px solid var(--accent)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--text-primary)',
+            fontSize: 13,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}
+        >
+          <span>{notice}</span>
+          <button
+            onClick={() => setNotice('')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 0, display: 'flex' }}
+            aria-label="Fechar aviso"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {showForm && (
         <UserModal
@@ -296,7 +353,7 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', gap: 12 }}>
+                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                         <button
                           onClick={() => openEdit(u)}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 12, fontWeight: 500, padding: 0 }}
@@ -309,6 +366,20 @@ export default function UsersPage() {
                         >
                           {toggleLabel(u)}
                         </button>
+                        <button
+                          onClick={() => resetPassword(u)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 400, padding: 0 }}
+                        >
+                          Redefinir senha
+                        </button>
+                        {currentUser?.id !== u.id && (
+                          <button
+                            onClick={() => removeUser(u)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 12, fontWeight: 500, padding: 0 }}
+                          >
+                            Excluir
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -344,7 +415,7 @@ export default function UsersPage() {
                   <span className="pill" style={statusInfo(u).style}>
                     {statusInfo(u).label}
                   </span>
-                  <div style={{ display: 'flex', gap: 12 }}>
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     <button
                       onClick={() => openEdit(u)}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 12, fontWeight: 500 }}
@@ -357,6 +428,20 @@ export default function UsersPage() {
                     >
                       {toggleLabel(u)}
                     </button>
+                    <button
+                      onClick={() => resetPassword(u)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 12, fontWeight: 400 }}
+                    >
+                      Redefinir senha
+                    </button>
+                    {currentUser?.id !== u.id && (
+                      <button
+                        onClick={() => removeUser(u)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 12, fontWeight: 500 }}
+                      >
+                        Excluir
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

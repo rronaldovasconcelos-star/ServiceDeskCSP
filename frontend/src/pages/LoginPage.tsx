@@ -120,7 +120,13 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="text-center text-sm text-slate-500 mt-6">
+          <p className="text-center text-sm text-slate-500 mt-4">
+            <Link to="/redefinir-senha" className="font-medium hover:underline" style={{ color: '#2e6db4' }}>
+              Esqueci minha senha
+            </Link>
+          </p>
+
+          <p className="text-center text-sm text-slate-500 mt-2">
             Não tem uma conta?{' '}
             <Link to="/register" className="font-semibold hover:underline" style={{ color: '#2e6db4' }}>
               Criar conta
