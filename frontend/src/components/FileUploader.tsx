@@ -2,7 +2,18 @@ import { useRef, useState } from 'react';
 import { UploadCloud } from 'lucide-react';
 import api from '../lib/api';
 
-const CATEGORIA_SUGESTOES = ['Provas', 'Planos de Aula', 'Material de Apoio', 'Trabalhos', 'Documentos'];
+const CATEGORIA_SUGESTOES = [
+  'Provas',
+  'Planos de Aula',
+  'Material de Apoio',
+  'Trabalhos',
+  'Documentos',
+  'Atividades de Sala',
+  'Projetos',
+  'Capas',
+  'Para Casa',
+  'Simulados',
+];
 
 export default function FileUploader({ onUploaded }: { onUploaded: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -14,10 +25,15 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
   async function send(list: FileList | File[]) {
     const files = Array.from(list);
     if (files.length === 0) return;
+    if (!folder.trim()) {
+      setError('Selecione uma categoria antes de enviar.');
+      if (inputRef.current) inputRef.current.value = '';
+      return;
+    }
     setError('');
     const fd = new FormData();
     files.forEach((f) => fd.append('files', f));
-    if (folder.trim()) fd.append('folder', folder.trim());
+    fd.append('folder', folder.trim());
 
     setProgress(0);
     try {
@@ -55,13 +71,12 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
         <label
           style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '6px' }}
         >
-          Categoria (opcional)
+          Categoria <span style={{ color: '#ef4444' }}>*</span>
         </label>
-        <input
+        <select
           value={folder}
           onChange={(e) => setFolder(e.target.value)}
-          list="categorias-arquivo"
-          placeholder="Ex: Provas, Planos de Aula..."
+          disabled={uploading}
           style={{
             width: '100%',
             maxWidth: '320px',
@@ -70,14 +85,14 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
             padding: '8px 12px',
             fontSize: '13px',
             background: 'var(--bg-primary)',
-            color: 'var(--text-primary)',
+            color: folder ? 'var(--text-primary)' : 'var(--text-secondary)',
             outline: 'none',
             boxSizing: 'border-box',
           }}
-        />
-        <datalist id="categorias-arquivo">
-          {CATEGORIA_SUGESTOES.map((c) => <option key={c} value={c} />)}
-        </datalist>
+        >
+          <option value="">Selecione uma categoria...</option>
+          {CATEGORIA_SUGESTOES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
 
       {/* Área drag-and-drop */}
