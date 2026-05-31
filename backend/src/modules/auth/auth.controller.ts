@@ -79,22 +79,47 @@ const registerSchema = z.object({
 
 const OTP_LENGTH = 6;
 
-/** Gera, persiste e envia um código OTP para o usuário. Lança erro se o envio falhar. */
-async function issueOtp(userId: string, phone: string, name: string): Promise<void> {
+/**
+ * Gera, persiste e envia um código OTP para o usuário. Lança erro se o envio falhar.
+ * `type` distingue o OTP de cadastro ("REGISTER") do de redefinição de senha ("RESET").
+ * `buildMessage` permite customizar o texto enviado por WhatsApp (default: cadastro).
+ */
+async function issueOtp(
+  userId: string,
+  phone: string,
+  name: string,
+  type: 'REGISTER' | 'RESET' = 'REGISTER',
+  buildMessage?: (code: string, firstName: string) => string,
+): Promise<void> {
   const code = String(randomInt(0, 10 ** OTP_LENGTH)).padStart(OTP_LENGTH, '0');
   const codeHash = await bcrypt.hash(code, 10);
   const expiresAt = new Date(Date.now() + env.otpExpiresMinutes * 60_000);
 
-  // Remove códigos antigos e grava o novo.
+  // Remove códigos antigos e grava o novo (um código ativo por usuário).
   await prisma.verificationCode.deleteMany({ where: { userId } });
-  await prisma.verificationCode.create({ data: { userId, codeHash, expiresAt } });
+  await prisma.verificationCode.create({ data: { userId, codeHash, type, expiresAt } });
 
   const firstName = name.split(' ')[0] ?? name;
-  await sendWhatsAppStrict(
-    phone,
-    `Olá, ${firstName}! Seu código de verificação do Portal CSP é: *${code}*\n\n` +
-      `Ele expira em ${env.otpExpiresMinutes} minutos. Se você não solicitou, ignore esta mensagem.`,
+  const message = buildMessage
+    ? buildMessage(code, firstName)
+    : `Olá, ${firstName}! Seu código de verificação do Portal CSP é: *${code}*\n\n` +
+      `Ele expira em ${env.otpExpiresMinutes} minutos. Se você não solicitou, ignore esta mensagem.`;
+  await sendWhatsAppStrict(phone, message);
+}
+
+/** Mensagem WhatsApp do código de redefinição de senha. Exportada p/ uso pelo módulo de usuários. */
+export function resetOtpMessage(code: string, firstName: string): string {
+  return (
+    `Olá, ${firstName}! Foi solicitada a redefinição da sua senha no Portal CSP.\n\n` +
+    `Seu código é: *${code}*\n\n` +
+    `Acesse "Esqueci minha senha" no portal e informe este código. ` +
+    `Ele expira em ${env.otpExpiresMinutes} minutos. Se você não solicitou, ignore esta mensagem.`
   );
+}
+
+/** Dispara um OTP de redefinição de senha. Exportada p/ uso pelo módulo de usuários (admin). */
+export async function issueResetOtp(userId: string, phone: string, name: string): Promise<void> {
+  await issueOtp(userId, phone, name, 'RESET', resetOtpMessage);
 }
 
 export async function register(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -271,6 +296,114 @@ export async function resendOtp(req: Request, res: Response, next: NextFunction)
     }
 
     res.json({ message: 'Novo código enviado por WhatsApp.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Redefinição de senha via OTP por WhatsApp
+// ---------------------------------------------------------------------------
+
+const requestResetSchema = z.object({ email: z.string().email() });
+
+/**
+ * Solicita um código de redefinição de senha (fluxo público "Esqueci minha senha").
+ * Resposta sempre genérica para não revelar quais e-mails existem.
+ */
+export async function requestPasswordReset(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { email } = requestResetSchema.parse(req.body);
+    const genericMsg = 'Se houver uma conta com este e-mail, enviaremos um código por WhatsApp.';
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user || !user.phone) {
+      res.json({ message: genericMsg });
+      return;
+    }
+
+    // Rate-limit: bloqueia novo envio se o último código foi criado há menos de 60s.
+    const last = await prisma.verificationCode.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (last && Date.now() - last.createdAt.getTime() < 60_000) {
+      const wait = Math.ceil((60_000 - (Date.now() - last.createdAt.getTime())) / 1000);
+      res.status(429).json({ error: `Aguarde ${wait}s para solicitar um novo código.` });
+      return;
+    }
+
+    try {
+      await issueResetOtp(user.id, user.phone, user.name);
+    } catch (err) {
+      console.error('[WhatsApp][RESET]', err instanceof Error ? err.message : err);
+      // Mantém resposta genérica para não vazar existência da conta.
+    }
+
+    res.json({ message: genericMsg });
+  } catch (err) {
+    next(err);
+  }
+}
+
+const resetPasswordSchema = z.object({
+  email: z.string().email(),
+  code: z.string().min(1),
+  password: z.string().min(6),
+});
+
+/** Conclui a redefinição: valida o código RESET e grava a nova senha. */
+export async function resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { email, code, password } = resetPasswordSchema.parse(req.body);
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      res.status(400).json({ error: 'Código inválido ou expirado.' });
+      return;
+    }
+
+    const record = await prisma.verificationCode.findFirst({
+      where: { userId: user.id, type: 'RESET' },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!record) {
+      res.status(400).json({ error: 'Nenhum código pendente. Solicite um novo código.' });
+      return;
+    }
+    if (record.expiresAt.getTime() < Date.now()) {
+      res.status(400).json({ error: 'Código expirado. Solicite um novo código.' });
+      return;
+    }
+    if (record.attempts >= 5) {
+      res.status(429).json({ error: 'Muitas tentativas. Solicite um novo código.' });
+      return;
+    }
+
+    const valid = await bcrypt.compare(code, record.codeHash);
+    if (!valid) {
+      await prisma.verificationCode.update({
+        where: { id: record.id },
+        data: { attempts: record.attempts + 1 },
+      });
+      res.status(400).json({ error: 'Código incorreto.' });
+      return;
+    }
+
+    // Sucesso: grava nova senha e limpa os códigos pendentes.
+    const passwordHash = await bcrypt.hash(password, 10);
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
+
+    // Confirmação por WhatsApp (fire-and-forget).
+    const firstName = user.name.split(' ')[0] ?? user.name;
+    void sendWhatsApp(
+      user.phone,
+      `✅ ${firstName}, sua senha do Portal CSP foi redefinida com sucesso.\n\n` +
+        `Se não foi você, entre em contato com o administrador imediatamente.`,
+    );
+
+    res.json({ message: 'Senha redefinida com sucesso! Você já pode entrar.' });
   } catch (err) {
     next(err);
   }

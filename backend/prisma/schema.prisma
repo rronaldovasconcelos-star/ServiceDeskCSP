@@ -32,6 +32,7 @@ model VerificationCode {
   id        String   @id @default(cuid())
   userId    String
   codeHash  String // bcrypt do código de 6 dígitos
+  type      String   @default("REGISTER") // REGISTER | RESET
   expiresAt DateTime
   attempts  Int      @default(0)
   createdAt DateTime @default(now())
