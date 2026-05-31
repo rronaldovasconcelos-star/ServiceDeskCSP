@@ -13,7 +13,7 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get('/metrics', requireRole('ADMIN'), fileMetrics); // antes das rotas com :id
+router.get('/metrics', requireRole('ADMIN', 'GESTOR'), fileMetrics); // antes das rotas com :id
 router.get('/', listFiles);
 router.post('/', upload.array('files', 20), uploadFiles);
 router.get('/:id/download', downloadFile);

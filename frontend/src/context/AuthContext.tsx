@@ -33,6 +33,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, [token]);
 
+  // Detecta restauração do bfcache (botão voltar após logout)
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted && !localStorage.getItem('token')) {
+        setUser(null);
+        setToken(null);
+      }
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
+
   const login = async (email: string, password: string) => {
     const res = await api.post('/auth/login', { email, password });
     const { token: t, user: u } = res.data;

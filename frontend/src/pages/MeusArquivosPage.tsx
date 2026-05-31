@@ -3,6 +3,7 @@ import { Download, Trash2 } from 'lucide-react';
 import api from '../lib/api';
 import FileUploader from '../components/FileUploader';
 import { formatBytes, downloadFile, type FileRecord } from '../lib/files';
+import { useAuth } from '../context/AuthContext';
 
 const selectStyle: React.CSSProperties = {
   border: '1px solid var(--border)',
@@ -48,6 +49,8 @@ function shortType(mime: string): string {
 }
 
 export default function MeusArquivosPage() {
+  const { user } = useAuth();
+  const canDelete = user?.role === 'ADMIN' || user?.role === 'USER';
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
@@ -131,7 +134,7 @@ export default function MeusArquivosPage() {
                     <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{new Date(f.uploadedAt).toLocaleDateString('pt-BR')}</td>
                     <td style={{ padding: '10px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <button onClick={() => downloadFile(f.id, f.originalName)} style={iconBtnStyle} title="Baixar" aria-label="Baixar"><Download size={16} /></button>
-                      <button onClick={() => handleDelete(f)} style={{ ...iconBtnStyle, color: '#ef4444' }} title="Excluir" aria-label="Excluir"><Trash2 size={16} /></button>
+                      {canDelete && <button onClick={() => handleDelete(f)} style={{ ...iconBtnStyle, color: '#ef4444' }} title="Excluir" aria-label="Excluir"><Trash2 size={16} /></button>}
                     </td>
                   </tr>
                 ))}
@@ -147,7 +150,7 @@ export default function MeusArquivosPage() {
                   <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '13px', wordBreak: 'break-word' }}>{f.originalName}</span>
                   <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
                     <button onClick={() => downloadFile(f.id, f.originalName)} style={iconBtnStyle} title="Baixar" aria-label="Baixar"><Download size={16} /></button>
-                    <button onClick={() => handleDelete(f)} style={{ ...iconBtnStyle, color: '#ef4444' }} title="Excluir" aria-label="Excluir"><Trash2 size={16} /></button>
+                    {canDelete && <button onClick={() => handleDelete(f)} style={{ ...iconBtnStyle, color: '#ef4444' }} title="Excluir" aria-label="Excluir"><Trash2 size={16} /></button>}
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>

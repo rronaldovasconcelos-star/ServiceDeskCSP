@@ -199,11 +199,11 @@ export default function DashboardPage() {
 
           {/* Exportar chamados */}
           <button
-            onClick={() => handleExport('/reports/export/csv', 'chamados.csv')}
+            onClick={() => handleExport('/reports/export/csv', 'chamados.xlsx')}
             className="btn-export btn-export-csv"
-            aria-label="Exportar chamados em CSV"
+            aria-label="Exportar chamados em Excel"
           >
-            Exportar CSV
+            Exportar Excel
           </button>
           <button
             onClick={() => handleExport('/reports/export/pdf', 'chamados.pdf')}
@@ -330,11 +330,11 @@ export default function DashboardPage() {
             <p id="section-kpi-suprimentos" className="section-label" style={{ margin: 0 }}>Pedidos de Suprimentos</p>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
-                onClick={() => handleExport('/reports/export/suprimentos/csv', 'suprimentos.csv')}
+                onClick={() => handleExport('/reports/export/suprimentos/csv', 'suprimentos.xlsx')}
                 className="btn-export btn-export-csv"
-                aria-label="Exportar suprimentos em CSV"
+                aria-label="Exportar suprimentos em Excel"
               >
-                Exportar CSV
+                Exportar Excel
               </button>
               <button
                 onClick={() => handleExport('/reports/export/suprimentos/pdf', 'suprimentos.pdf')}

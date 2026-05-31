@@ -110,7 +110,7 @@ export default function App() {
           <Route
             path="/repositorio"
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute allowedRoles={['ADMIN', 'GESTOR']}>
                 <Layout><RepositorioPage /></Layout>
               </ProtectedRoute>
             }

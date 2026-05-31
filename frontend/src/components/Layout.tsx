@@ -26,7 +26,7 @@ const navItems = [
   { to: '/suprimentos', label: 'Suprimentos', icon: Package, adminOnly: false },
   { to: '/suprimentos/catalogo', label: 'Catálogo', icon: BookOpen, adminOnly: true },
   { to: '/arquivos', label: 'Meus Arquivos', icon: FolderOpen, adminOnly: false },
-  { to: '/repositorio', label: 'Repositório', icon: HardDrive, adminOnly: true },
+  { to: '/repositorio', label: 'Repositório', icon: HardDrive, adminOnly: true, gestorAllowed: true },
   { to: '/users', label: 'Usuários', icon: Users, adminOnly: true },
 ];
 
@@ -55,9 +55,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     return () => { document.body.style.overflow = ''; };
   }, [sidebarOpen]);
 
-  const handleLogout = () => { logout(); navigate('/login'); };
+  const handleLogout = () => { logout(); navigate('/login', { replace: true }); };
 
-  const filteredNav = navItems.filter((item) => !item.adminOnly || user?.role === 'ADMIN');
+  const filteredNav = navItems.filter((item) =>
+    !item.adminOnly ||
+    user?.role === 'ADMIN' ||
+    (item.gestorAllowed && user?.role === 'GESTOR')
+  );
 
   const sidebarContent = (
     <>

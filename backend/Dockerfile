@@ -24,6 +24,7 @@ COPY package.json ./
 
 COPY start.sh ./
 RUN chmod +x start.sh
+COPY assets ./assets
 
 EXPOSE 3001
 CMD ["./start.sh"]

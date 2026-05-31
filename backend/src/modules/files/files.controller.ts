@@ -22,11 +22,12 @@ const fileSelect = {
 
 export async function listFiles(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const isAdmin = req.user!.role === 'ADMIN';
+    const role = req.user!.role;
+    const isPrivileged = role === 'ADMIN' || role === 'GESTOR';
     const { q, type, ownerId, folder } = req.query as Record<string, string | undefined>;
 
     const where: Record<string, unknown> = {};
-    if (!isAdmin) {
+    if (!isPrivileged) {
       where.ownerId = req.user!.sub;
     } else if (ownerId) {
       where.ownerId = ownerId;
@@ -96,7 +97,8 @@ export async function downloadFile(req: Request, res: Response, next: NextFuncti
       res.status(404).json({ error: 'Arquivo não encontrado' });
       return;
     }
-    if (req.user!.role !== 'ADMIN' && file.ownerId !== req.user!.sub) {
+    const canDownload = req.user!.role === 'ADMIN' || req.user!.role === 'GESTOR' || file.ownerId === req.user!.sub;
+    if (!canDownload) {
       res.status(403).json({ error: 'Acesso negado' });
       return;
     }

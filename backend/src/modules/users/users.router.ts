@@ -4,13 +4,13 @@ import { listUsers, createUser, updateUser, toggleActive, deleteUser, forcePassw
 
 const router = Router();
 
-router.use(authenticate, requireRole('ADMIN'));
+router.use(authenticate);
 
-router.get('/', listUsers);
-router.post('/', createUser);
-router.put('/:id', updateUser);
-router.patch('/:id/toggle-active', toggleActive);
-router.post('/:id/reset-password', forcePasswordReset);
-router.delete('/:id', deleteUser);
+router.get('/', requireRole('ADMIN', 'GESTOR'), listUsers);
+router.post('/', requireRole('ADMIN'), createUser);
+router.put('/:id', requireRole('ADMIN'), updateUser);
+router.patch('/:id/toggle-active', requireRole('ADMIN'), toggleActive);
+router.post('/:id/reset-password', requireRole('ADMIN'), forcePasswordReset);
+router.delete('/:id', requireRole('ADMIN'), deleteUser);
 
 export default router;
