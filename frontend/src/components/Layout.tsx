@@ -228,7 +228,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           className="shrink-0"
           style={{ background: 'var(--bg-sidebar)', borderTop: '1px solid var(--border)', padding: '10px 24px' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
+          <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '4px' }}>
             <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0 }}>
               © 2026 <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>Colégio Santa Paula</span>
               {' '}· Portal de Chamados · Todos os direitos reservados
