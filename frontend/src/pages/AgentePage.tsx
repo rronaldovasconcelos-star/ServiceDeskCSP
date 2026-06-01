@@ -571,13 +571,44 @@ export default function AgentePage() {
             <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 12 }}>
               PDF, imagem ou folder que a Sofia poderá enviar nas conversas. A descrição diz a ela quando usar.
             </p>
+            {/* Input nativo escondido — acionado pela área clicável abaixo */}
             <input
               ref={fileInput}
               type="file"
               onChange={(e) => setPendingFile(e.target.files?.[0] ?? null)}
-              className="block w-full text-sm mb-3"
-              style={{ color: 'var(--text-secondary)' }}
+              style={{ display: 'none' }}
             />
+            <button
+              type="button"
+              onClick={() => fileInput.current?.click()}
+              className="flex flex-col items-center justify-center gap-2 w-full rounded-lg mb-3 transition"
+              style={{
+                background: 'var(--bg-primary)',
+                border: `2px dashed ${pendingFile ? 'var(--accent)' : 'rgba(255,255,255,0.2)'}`,
+                padding: '24px 16px',
+                cursor: 'pointer',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <Upload size={22} style={{ color: 'var(--accent)' }} />
+              {pendingFile ? (
+                <>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem' }}>
+                    {pendingFile.name}
+                  </span>
+                  <span style={{ fontSize: '0.75rem' }}>
+                    {formatBytes(pendingFile.size)} · clique para trocar
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem' }}>
+                    Clique para escolher um arquivo
+                  </span>
+                  <span style={{ fontSize: '0.75rem' }}>PDF, imagem, vídeo ou documento</span>
+                </>
+              )}
+            </button>
             <input
               type="text"
               value={pendingDesc}
@@ -603,7 +634,9 @@ export default function AgentePage() {
               Arquivos cadastrados ({files.length})
             </p>
             {files.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhum arquivo cadastrado ainda.</p>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                Nenhum arquivo ainda. Use a área acima para enviar o primeiro.
+              </p>
             ) : (
               <div className="flex flex-col gap-2">
                 {files.map((f) => (
