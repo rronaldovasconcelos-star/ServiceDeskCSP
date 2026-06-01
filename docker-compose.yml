@@ -27,11 +27,14 @@ services:
       GOOGLE_OAUTH_CLIENT_ID: "${GOOGLE_OAUTH_CLIENT_ID:-}"
       GOOGLE_OAUTH_CLIENT_SECRET: "${GOOGLE_OAUTH_CLIENT_SECRET:-}"
       GOOGLE_OAUTH_REFRESH_TOKEN: "${GOOGLE_OAUTH_REFRESH_TOKEN:-}"
+      AGENT_ADMIN_URL: "${AGENT_ADMIN_URL:-}"
+      AGENT_ADMIN_SECRET: "${AGENT_ADMIN_SECRET:-}"
     volumes:
       - csp-db:/app/prisma
       - csp-uploads:/app/uploads
     networks:
       - csp-internal
+      - agente-pessoal-net
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
@@ -73,6 +76,9 @@ volumes:
 
 networks:
   coolify:
+    external: true
+  # Rede do bot Sofia (AGENTE CSP) — permite ao backend alcançar a API admin do bot
+  agente-pessoal-net:
     external: true
   csp-internal:
     driver: bridge
