@@ -2,13 +2,33 @@
 Deploy de atualizacao para servicedeskcsp.com.br
 Uso: python update.py
 """
-import tarfile, os, paramiko
+import tarfile, os, sys, paramiko
 
 PROJECT = r"c:\Users\rrona\Desktop\ATENDIMENTO CSP"
 ARCHIVE = r"c:\Users\rrona\AppData\Local\Temp\csp-deploy.tar.gz"
-VPS_IP  = "2.24.115.74"
-VPS_USER = "root"
-VPS_PASS = "CspDeploy2026.Admin"
+
+# Credenciais do deploy vêm de .deploy.env (NÃO versionado) ou de variáveis de
+# ambiente. Nunca hardcode a senha do VPS aqui — vazaria no histórico do git.
+def _load_deploy_env():
+    base = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else os.getcwd()
+    path = os.path.join(base, ".deploy.env")
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip())
+
+_load_deploy_env()
+
+VPS_IP   = os.environ.get("CSP_VPS_HOST", "2.24.115.74")
+VPS_USER = os.environ.get("CSP_VPS_USER", "root")
+VPS_PASS = os.environ.get("CSP_VPS_PASS")
+if not VPS_PASS:
+    sys.exit("ERRO: senha do VPS ausente. Crie .deploy.env (copie de .deploy.env.example) com CSP_VPS_PASS=...")
 
 EXCLUDE_DIRS  = {"node_modules", ".git", "dist", "__pycache__"}
 EXCLUDE_FILES = {"dev.db", "dev.db-shm", "dev.db-wal"}

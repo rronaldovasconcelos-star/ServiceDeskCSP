@@ -15,6 +15,9 @@ backend/uploads/
 .env.*.local
 .env.production
 
+# Credenciais de deploy (update.py) — senha do VPS, NUNCA commitar
+.deploy.env
+
 # Testes E2E locais (não fazem parte da aplicação)
 e2e_whatsapp*.py
 e2e_shots/
