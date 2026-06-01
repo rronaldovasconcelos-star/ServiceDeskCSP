@@ -59,6 +59,15 @@ export async function updateConfig(req: Request, res: Response): Promise<void> {
   }
 }
 
+export async function getLeads(_req: Request, res: Response): Promise<void> {
+  if (!ensureConfigured(res)) return;
+  try {
+    res.json(await agentRequest('/admin/leads'));
+  } catch (err) {
+    fail(res, err);
+  }
+}
+
 export async function listFiles(_req: Request, res: Response): Promise<void> {
   if (!ensureConfigured(res)) return;
   try {

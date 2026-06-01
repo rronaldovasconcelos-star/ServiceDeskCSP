@@ -5,6 +5,7 @@ import {
   getStatus,
   getConfig,
   updateConfig,
+  getLeads,
   listFiles,
   uploadFile,
   deleteFile,
@@ -24,6 +25,7 @@ router.use(authenticate, requireRole('ADMIN'));
 router.get('/status', getStatus);
 router.get('/config', getConfig);
 router.put('/config', updateConfig);
+router.get('/leads', getLeads);
 router.get('/files', listFiles);
 router.post('/files', upload.single('file'), uploadFile);
 router.delete('/files/:id', deleteFile);

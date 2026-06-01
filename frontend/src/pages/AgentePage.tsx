@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Bot, Activity, FileText, Sparkles, Cpu, Save, Loader2, RefreshCw,
   Upload, Trash2, Paperclip, Smartphone, Wifi, WifiOff, LogOut, RotateCcw, QrCode,
+  Users, Mail, Phone, CalendarCheck,
 } from 'lucide-react';
 import api from '../lib/api';
 
@@ -30,7 +31,43 @@ interface AgentFile {
   uploadedAt: string;
 }
 
-type Tab = 'status' | 'prompt' | 'contexto' | 'arquivos' | 'conexao';
+interface Lead {
+  phone: string;
+  name: string | null;
+  email: string | null;
+  children: { name: string; age: number }[];
+  leadInterest: 'imediato' | 'proximo_semestre' | 'proximo_ano' | null;
+  gradeInterest: string | null;
+  visitsCount: number;
+  lastVisit: { date: string; time: string; childName: string } | null;
+  updatedAt: string | null;
+}
+
+type Tab = 'status' | 'prompt' | 'contexto' | 'arquivos' | 'conexao' | 'leads';
+
+const INTEREST_LABEL: Record<NonNullable<Lead['leadInterest']>, string> = {
+  imediato: 'Imediato',
+  proximo_semestre: 'Próximo semestre',
+  proximo_ano: 'Próximo ano',
+};
+
+const INTEREST_COLOR: Record<NonNullable<Lead['leadInterest']>, { bg: string; fg: string }> = {
+  imediato: { bg: 'rgba(34,197,94,0.12)', fg: '#86efac' },
+  proximo_semestre: { bg: 'rgba(234,179,8,0.12)', fg: '#fde047' },
+  proximo_ano: { bg: 'rgba(96,165,250,0.12)', fg: '#93c5fd' },
+};
+
+// Formata telefone BR (ex 553195478946 → +55 31 9547-8946) de forma tolerante.
+function formatPhone(raw: string): string {
+  const d = raw.replace(/\D/g, '');
+  const local = d.startsWith('55') ? d.slice(2) : d;
+  if (local.length >= 10) {
+    const ddd = local.slice(0, 2);
+    const rest = local.slice(2);
+    return `(${ddd}) ${rest.slice(0, rest.length - 4)}-${rest.slice(-4)}`;
+  }
+  return raw;
+}
 
 type ConnState = 'open' | 'connecting' | 'close' | 'unknown';
 
@@ -77,6 +114,7 @@ export default function AgentePage() {
   const [status, setStatus] = useState<AgentStatus | null>(null);
   const [config, setConfig] = useState<AgentConfig | null>(null);
   const [files, setFiles] = useState<AgentFile[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [prompt, setPrompt] = useState('');
   const [extraContext, setExtraContext] = useState('');
   const [model, setModel] = useState('');
@@ -127,6 +165,18 @@ export default function AgentePage() {
     }
   }, []);
 
+  const fetchLeads = useCallback(async () => {
+    setLoad('leads', true);
+    try {
+      const res = await api.get<{ total: number; leads: Lead[] }>('/agent/leads');
+      setLeads(res.data.leads);
+    } catch (err) {
+      notify(errMsg(err, 'Erro ao carregar leads'), 'err');
+    } finally {
+      setLoad('leads', false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStatus();
     fetchConfig();
@@ -134,6 +184,34 @@ export default function AgentePage() {
     const id = setInterval(fetchStatus, 15000);
     return () => clearInterval(id);
   }, [fetchStatus, fetchConfig, fetchFiles]);
+
+  useEffect(() => {
+    if (tab === 'leads') fetchLeads();
+  }, [tab, fetchLeads]);
+
+  const exportLeadsCsv = () => {
+    const header = ['Nome', 'Telefone', 'E-mail', 'Filhos', 'Interesse', 'Serie', 'Visitas', 'Ultima visita', 'Atualizado'];
+    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const rows = leads.map((l) => [
+      l.name ?? '',
+      l.phone,
+      l.email ?? '',
+      l.children.map((c) => `${c.name}${c.age ? ` (${c.age})` : ''}`).join('; '),
+      l.leadInterest ? INTEREST_LABEL[l.leadInterest] : '',
+      l.gradeInterest ?? '',
+      String(l.visitsCount),
+      l.lastVisit ? `${l.lastVisit.date} ${l.lastVisit.time}` : '',
+      l.updatedAt ?? '',
+    ].map(esc).join(','));
+    const csv = '﻿' + [header.map(esc).join(','), ...rows].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `leads-sofia-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const savePrompt = async () => {
     setLoad('prompt', true);
@@ -275,6 +353,7 @@ export default function AgentePage() {
   const TABS: { key: Tab; label: string; icon: typeof Activity }[] = [
     { key: 'status', label: 'Status', icon: Activity },
     { key: 'conexao', label: 'Conexão', icon: Smartphone },
+    { key: 'leads', label: 'Leads', icon: Users },
     { key: 'prompt', label: 'Prompt', icon: FileText },
     { key: 'contexto', label: 'Contexto', icon: Sparkles },
     { key: 'arquivos', label: 'Arquivos', icon: Paperclip },
@@ -367,6 +446,122 @@ export default function AgentePage() {
               Não foi possível obter o status do agente. Verifique se o bot está online e configurado.
             </p>
           )}
+        </div>
+      )}
+
+      {/* ── Leads ── */}
+      {tab === 'leads' && (
+        <div className="flex flex-col gap-4">
+          {/* Resumo + ações */}
+          <div className="rounded-xl p-5" style={card}>
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                Leads captados ({leads.length})
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={exportLeadsCsv}
+                  disabled={leads.length === 0}
+                  className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
+                  style={{
+                    background: 'var(--bg-card-hover)', color: 'var(--text-primary)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    opacity: leads.length === 0 ? 0.5 : 1, cursor: leads.length === 0 ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  <FileText size={14} /> Exportar CSV
+                </button>
+                <button
+                  onClick={fetchLeads}
+                  className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
+                  style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}
+                >
+                  {loading['leads'] ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Atualizar
+                </button>
+              </div>
+            </div>
+            {/* Contadores por interesse */}
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+              {(['imediato', 'proximo_semestre', 'proximo_ano'] as const).map((k) => {
+                const count = leads.filter((l) => l.leadInterest === k).length;
+                const c = INTEREST_COLOR[k];
+                return (
+                  <div key={k} className="rounded-lg p-3" style={{ background: 'var(--bg-primary)' }}>
+                    <span style={{ fontSize: '0.72rem', color: c.fg, background: c.bg, padding: '2px 8px', borderRadius: 6 }}>
+                      {INTEREST_LABEL[k]}
+                    </span>
+                    <p style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '1.4rem', marginTop: 8 }}>{count}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Lista de leads */}
+          <div className="rounded-xl p-5" style={card}>
+            {loading['leads'] && leads.length === 0 ? (
+              <div className="flex items-center gap-2" style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                <Loader2 size={15} className="animate-spin" /> Carregando leads…
+              </div>
+            ) : leads.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                Nenhum lead captado ainda. Conforme os responsáveis conversarem com a Sofia, eles aparecem aqui automaticamente.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {leads.map((l) => (
+                  <div key={l.phone} className="rounded-lg p-3" style={{ background: 'var(--bg-primary)' }}>
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.92rem' }}>
+                            {l.name || 'Sem nome'}
+                          </span>
+                          {l.leadInterest && (
+                            <span style={{
+                              fontSize: '0.68rem', color: INTEREST_COLOR[l.leadInterest].fg,
+                              background: INTEREST_COLOR[l.leadInterest].bg, padding: '2px 8px', borderRadius: 6,
+                            }}>
+                              {INTEREST_LABEL[l.leadInterest]}
+                            </span>
+                          )}
+                          {l.gradeInterest && (
+                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: 6 }}>
+                              {l.gradeInterest}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 mt-1.5 flex-wrap" style={{ color: 'var(--text-muted)', fontSize: '0.76rem' }}>
+                          <span className="flex items-center gap-1"><Phone size={12} /> {formatPhone(l.phone)}</span>
+                          {l.email && <span className="flex items-center gap-1"><Mail size={12} /> {l.email}</span>}
+                          {l.children.length > 0 && (
+                            <span>👦 {l.children.map((c) => `${c.name}${c.age ? ` (${c.age})` : ''}`).join(', ')}</span>
+                          )}
+                        </div>
+                        {l.lastVisit && (
+                          <div className="flex items-center gap-1 mt-1.5" style={{ color: 'var(--status-concluido)', fontSize: '0.76rem' }}>
+                            <CalendarCheck size={12} /> Visita: {l.lastVisit.date} às {l.lastVisit.time}
+                          </div>
+                        )}
+                      </div>
+                      <a
+                        href={`https://wa.me/${l.phone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg px-3 py-1.5 text-sm flex items-center gap-1.5 flex-shrink-0"
+                        style={{ background: 'rgba(34,197,94,0.12)', color: '#86efac', border: '1px solid rgba(34,197,94,0.25)' }}
+                      >
+                        <Smartphone size={13} /> WhatsApp
+                      </a>
+                    </div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.68rem', marginTop: 8 }}>
+                      Atualizado: {formatDate(l.updatedAt)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
