@@ -1,6 +1,16 @@
 #!/bin/sh
 set -e
 
+# O volume csp-db é montado em /app/prisma e sobrepõe as migrations da imagem.
+# Sincroniza as migrations/schema "baked" (fora do volume) para dentro dele, sem
+# tocar no dev.db, garantindo que migrações novas cheguem ao migrate deploy.
+echo "[start] Sincronizando migrations para o volume..."
+if [ -d /app/prisma-baked ]; then
+  mkdir -p /app/prisma/migrations
+  cp -rf /app/prisma-baked/migrations/. /app/prisma/migrations/ 2>/dev/null || true
+  cp -f /app/prisma-baked/schema.prisma /app/prisma/schema.prisma 2>/dev/null || true
+fi
+
 echo "[start] Running Prisma migrations..."
 DATABASE_URL="file:/app/prisma/dev.db" npx prisma migrate deploy
 

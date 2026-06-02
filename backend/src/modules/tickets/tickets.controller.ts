@@ -1,19 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
-import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import {
-  notifyTicketCreated,
   notifyStatusChanged,
   notifyAssigned,
   notifyComment,
 } from './tickets.notifications.js';
+import { createTicketForUser, ticketSelect, TICKET_CATEGORIES, TICKET_URGENCIES } from './tickets.service.js';
 
 const createSchema = z.object({
   title: z.string().min(3),
   description: z.string().min(5),
-  category: z.enum(['TI', 'MANUTENCAO', 'PEDAGOGICO', 'ADMINISTRATIVO', 'OUTROS']),
-  urgency: z.enum(['BAIXA', 'MEDIA', 'ALTA', 'URGENTE']),
+  category: z.enum(TICKET_CATEGORIES),
+  urgency: z.enum(TICKET_URGENCIES),
 });
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -28,20 +27,6 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 
 // Transições que exigem papel ADMIN ou GESTOR
 const APPROVAL_TRANSITIONS = new Set(['APROVADO', 'REJEITADO']);
-
-const ticketSelect = {
-  id: true,
-  title: true,
-  description: true,
-  category: true,
-  urgency: true,
-  status: true,
-  createdAt: true,
-  updatedAt: true,
-  resolvedAt: true,
-  requester: { select: { id: true, name: true, email: true, phone: true } },
-  assignee: { select: { id: true, name: true, email: true } },
-} satisfies Prisma.TicketSelect;
 
 export async function listTickets(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -69,29 +54,7 @@ export async function listTickets(req: Request, res: Response, next: NextFunctio
 export async function createTicket(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const data = createSchema.parse(req.body);
-
-    const ticket = await prisma.ticket.create({
-      data: { ...data, status: 'ABERTO', requesterId: req.user!.sub },
-      select: ticketSelect,
-    });
-
-    await prisma.ticketHistory.create({
-      data: {
-        ticketId: ticket.id,
-        authorId: req.user!.sub,
-        type: 'STATUS_CHANGE',
-        message: 'Chamado aberto',
-        toStatus: 'ABERTO',
-      },
-    });
-
-    // Notifica solicitante (confirmação) + admins/gestores
-    await notifyTicketCreated(
-      { id: ticket.id, title: ticket.title, category: ticket.category, urgency: ticket.urgency, requesterId: ticket.requester.id },
-      ticket.requester.name,
-      ticket.requester.phone,
-    );
-
+    const ticket = await createTicketForUser(req.user!.sub, data);
     res.status(201).json(ticket);
   } catch (err) {
     next(err);

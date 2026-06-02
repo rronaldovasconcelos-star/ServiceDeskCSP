@@ -19,6 +19,10 @@ WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
+# Cópia das migrations/schema FORA de /app/prisma — este path não é coberto pelo
+# volume csp-db (montado em /app/prisma), então o start.sh consegue sincronizar
+# migrações novas para dentro do volume a cada deploy.
+COPY --from=builder /app/prisma ./prisma-baked
 COPY --from=builder /app/prisma.config.ts ./
 COPY package.json ./
 

@@ -126,6 +126,21 @@ export default function App() {
             }
           />
           <Route
+            path="/whatsapp-suporte"
+            element={
+              <ProtectedRoute adminOnly>
+                <Layout>
+                  <WhatsAppPage
+                    apiBase="/bot/connection"
+                    title="WhatsApp — Bot de Suporte"
+                    instanceLabel="csp-suporte"
+                    purpose="recebendo mensagens e abrindo chamados"
+                  />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/agente"
             element={
               <ProtectedRoute adminOnly>

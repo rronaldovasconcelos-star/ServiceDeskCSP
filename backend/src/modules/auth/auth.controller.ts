@@ -80,17 +80,11 @@ const registerSchema = z.object({
 const OTP_LENGTH = 6;
 
 /**
- * Gera, persiste e envia um código OTP para o usuário. Lança erro se o envio falhar.
- * `type` distingue o OTP de cadastro ("REGISTER") do de redefinição de senha ("RESET").
- * `buildMessage` permite customizar o texto enviado por WhatsApp (default: cadastro).
+ * Gera e persiste um código OTP (6 dígitos) para o usuário, garantindo um único
+ * código ativo por vez. Não envia nada — devolve o código em texto plano para
+ * que o chamador decida o canal/mensagem de entrega.
  */
-async function issueOtp(
-  userId: string,
-  phone: string,
-  name: string,
-  type: 'REGISTER' | 'RESET' = 'REGISTER',
-  buildMessage?: (code: string, firstName: string) => string,
-): Promise<void> {
+export async function generateOtp(userId: string, type: 'REGISTER' | 'RESET' = 'REGISTER'): Promise<string> {
   const code = String(randomInt(0, 10 ** OTP_LENGTH)).padStart(OTP_LENGTH, '0');
   const codeHash = await bcrypt.hash(code, 10);
   const expiresAt = new Date(Date.now() + env.otpExpiresMinutes * 60_000);
@@ -99,12 +93,55 @@ async function issueOtp(
   await prisma.verificationCode.deleteMany({ where: { userId } });
   await prisma.verificationCode.create({ data: { userId, codeHash, type, expiresAt } });
 
+  return code;
+}
+
+export type OtpCheck = 'OK' | 'NONE' | 'EXPIRED' | 'TOO_MANY' | 'WRONG';
+
+/**
+ * Valida um código OTP digitado pelo usuário (sem expor req/res). Em caso de erro
+ * de código incorreto, incrementa o contador de tentativas. Em sucesso, NÃO limpa
+ * os códigos — o chamador decide o que fazer depois (marcar verificado, etc).
+ */
+export async function verifyOtpCode(userId: string, code: string, type: 'REGISTER' | 'RESET' = 'REGISTER'): Promise<OtpCheck> {
+  const record = await prisma.verificationCode.findFirst({
+    where: { userId, type },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (!record) return 'NONE';
+  if (record.expiresAt.getTime() < Date.now()) return 'EXPIRED';
+  if (record.attempts >= 5) return 'TOO_MANY';
+
+  const valid = await bcrypt.compare(code, record.codeHash);
+  if (!valid) {
+    await prisma.verificationCode.update({ where: { id: record.id }, data: { attempts: record.attempts + 1 } });
+    return 'WRONG';
+  }
+  return 'OK';
+}
+
+/**
+ * Gera, persiste e envia um código OTP para o usuário. Lança erro se o envio falhar.
+ * `type` distingue o OTP de cadastro ("REGISTER") do de redefinição de senha ("RESET").
+ * `buildMessage` permite customizar o texto enviado por WhatsApp (default: cadastro).
+ * `send` permite trocar o canal de envio (default: WhatsApp da instância de notificações).
+ */
+async function issueOtp(
+  userId: string,
+  phone: string,
+  name: string,
+  type: 'REGISTER' | 'RESET' = 'REGISTER',
+  buildMessage?: (code: string, firstName: string) => string,
+  send: (phone: string, text: string) => Promise<void> = sendWhatsAppStrict,
+): Promise<void> {
+  const code = await generateOtp(userId, type);
+
   const firstName = name.split(' ')[0] ?? name;
   const message = buildMessage
     ? buildMessage(code, firstName)
     : `Olá, ${firstName}! Seu código de verificação do Portal CSP é: *${code}*\n\n` +
       `Ele expira em ${env.otpExpiresMinutes} minutos. Se você não solicitou, ignore esta mensagem.`;
-  await sendWhatsAppStrict(phone, message);
+  await send(phone, message);
 }
 
 /** Mensagem WhatsApp do código de redefinição de senha. Exportada p/ uso pelo módulo de usuários. */

@@ -29,6 +29,11 @@ services:
       GOOGLE_OAUTH_REFRESH_TOKEN: "${GOOGLE_OAUTH_REFRESH_TOKEN:-}"
       AGENT_ADMIN_URL: "${AGENT_ADMIN_URL:-}"
       AGENT_ADMIN_SECRET: "${AGENT_ADMIN_SECRET:-}"
+      BOT_ENABLED: "${BOT_ENABLED:-false}"
+      BOT_WEBHOOK_SECRET: "${BOT_WEBHOOK_SECRET:-}"
+      SUPPORT_EVOLUTION_INSTANCE: "${SUPPORT_EVOLUTION_INSTANCE:-}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-claude-haiku-4-5}"
     volumes:
       - csp-db:/app/prisma
       - csp-uploads:/app/uploads
