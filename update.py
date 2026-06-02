@@ -6,7 +6,6 @@ import tarfile, os, sys, paramiko
 
 PROJECT = r"c:\Users\rrona\Desktop\ATENDIMENTO CSP"
 ARCHIVE = r"c:\Users\rrona\AppData\Local\Temp\csp-deploy.tar.gz"
-
 # Credenciais do deploy vêm de .deploy.env (NÃO versionado) ou de variáveis de
 # ambiente. Nunca hardcode a senha do VPS aqui — vazaria no histórico do git.
 def _load_deploy_env():
