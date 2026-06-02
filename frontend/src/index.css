@@ -309,8 +309,31 @@ html, body {
   border-radius: 0 0 var(--radius) var(--radius);
   border: 1px solid var(--border);
   min-height: 180px;
+  /* Altura máxima: a coluna nunca cresce além da viewport — o scroll
+     interno mantém o board compacto e o rodapé sempre acessível. */
+  max-height: calc(100vh - 240px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   transition: background 0.15s;
   background: var(--kanban-col-bg);
+}
+
+/* Scrollbar discreta no tema escuro */
+.kanban-col-body::-webkit-scrollbar {
+  width: 8px;
+}
+.kanban-col-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.kanban-col-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.kanban-col-body::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+  background-clip: padding-box;
 }
 .kanban-col-body.over {
   background: rgba(77,142,240,0.06);
@@ -338,6 +361,26 @@ html, body {
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
   opacity: 0.85;
   transform: rotate(1deg);
+}
+
+/* ── Botão "ver mais" das colunas de histórico ── */
+.kanban-show-more {
+  width: 100%;
+  padding: 8px;
+  margin-top: 2px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.kanban-show-more:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
 }
 
 /* ── Pill badges ── */

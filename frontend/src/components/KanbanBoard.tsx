@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useDroppable, useDraggable, DndContext } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
 import { Link } from 'react-router-dom';
+import { ChevronDown } from 'lucide-react';
 
 interface Ticket {
   id: string;
@@ -24,6 +26,11 @@ const COLUMNS = [
   { id: 'CONCLUIDO',    label: 'Concluído',    color: 'var(--status-concluido)' },
   { id: 'CANCELADO',    label: 'Cancelado',    color: 'var(--status-cancelado)' },
 ];
+
+/* Colunas de histórico (não-ativas): mostram só os N mais recentes
+   e expandem sob demanda via "ver mais". */
+const COLLAPSIBLE_COLUMNS = new Set(['CONCLUIDO', 'CANCELADO']);
+const COLLAPSED_LIMIT = 5;
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   ABERTO:       ['EM_ANDAMENTO', 'CANCELADO'],
@@ -146,14 +153,26 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
 /* ── Coluna Kanban ── */
 function KanbanColumn({ col, tickets }: { col: typeof COLUMNS[number]; tickets: Ticket[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.id });
+  const [expanded, setExpanded] = useState(false);
+
+  const collapsible = COLLAPSIBLE_COLUMNS.has(col.id);
+  const hasOverflow = collapsible && tickets.length > COLLAPSED_LIMIT;
+  const isCollapsed = hasOverflow && !expanded;
+  const visibleTickets = isCollapsed ? tickets.slice(0, COLLAPSED_LIMIT) : tickets;
+  const hiddenCount = tickets.length - COLLAPSED_LIMIT;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-      {/* Header da coluna */}
+      {/* Header da coluna — clicável quando há itens ocultos */}
       <div
         className="kanban-col-header"
-        style={{ borderTop: `3px solid ${col.color}` }}
+        style={{ borderTop: `3px solid ${col.color}`, cursor: hasOverflow ? 'pointer' : 'default' }}
         aria-label={`Coluna ${col.label}: ${tickets.length} chamado(s)`}
+        onClick={hasOverflow ? () => setExpanded((v) => !v) : undefined}
+        role={hasOverflow ? 'button' : undefined}
+        tabIndex={hasOverflow ? 0 : undefined}
+        onKeyDown={hasOverflow ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded((v) => !v); } } : undefined}
+        title={hasOverflow ? (expanded ? 'Recolher' : `Mostrar mais ${hiddenCount}`) : undefined}
       >
         <span
           style={{ width: 8, height: 8, borderRadius: '50%', background: col.color, flexShrink: 0, display: 'inline-block' }}
@@ -162,6 +181,23 @@ function KanbanColumn({ col, tickets }: { col: typeof COLUMNS[number]; tickets: 
         <span style={{ color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600, flex: 1 }}>
           {col.label}
         </span>
+
+        {/* Chip "+N ocultos" no topo — admin vê sem rolar */}
+        {hasOverflow && !expanded && (
+          <span
+            style={{
+              background: 'rgba(245,158,11,0.15)',
+              color: '#f59e0b',
+              fontSize: '11px',
+              fontWeight: 700,
+              padding: '1px 7px',
+              borderRadius: 12,
+            }}
+          >
+            +{hiddenCount}
+          </span>
+        )}
+
         <span
           style={{
             background: `${col.color}22`,
@@ -174,6 +210,20 @@ function KanbanColumn({ col, tickets }: { col: typeof COLUMNS[number]; tickets: 
         >
           {tickets.length}
         </span>
+
+        {/* Seta indicadora de expandir/recolher */}
+        {hasOverflow && (
+          <ChevronDown
+            size={15}
+            style={{
+              color: 'var(--text-secondary)',
+              flexShrink: 0,
+              transition: 'transform 0.2s',
+              transform: expanded ? 'rotate(180deg)' : 'none',
+            }}
+            aria-hidden="true"
+          />
+        )}
       </div>
 
       {/* Corpo da coluna — droppable */}
@@ -186,9 +236,20 @@ function KanbanColumn({ col, tickets }: { col: typeof COLUMNS[number]; tickets: 
             Nenhum chamado
           </p>
         )}
-        {tickets.map((t) => (
+        {visibleTickets.map((t) => (
           <TicketCard key={t.id} ticket={t} />
         ))}
+
+        {/* Botão ver mais / ver menos para colunas de histórico */}
+        {collapsible && tickets.length > COLLAPSED_LIMIT && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="kanban-show-more"
+          >
+            {expanded ? 'Ver menos' : `Ver mais (+${hiddenCount})`}
+          </button>
+        )}
       </div>
     </div>
   );
