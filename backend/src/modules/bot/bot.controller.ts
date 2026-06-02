@@ -12,6 +12,24 @@ function extractText(message: Record<string, unknown> | undefined): string | nul
   return null;
 }
 
+// Dedupe de entregas duplicadas do Baileys/Evolution (mesmo message.id chega 2x+).
+// Set em memória com janela limitada — suficiente para um único container.
+const seenIds: string[] = [];
+const seenSet = new Set<string>();
+function alreadySeen(id: string): boolean {
+  if (seenSet.has(id)) return true;
+  seenSet.add(id);
+  seenIds.push(id);
+  if (seenIds.length > 1000) {
+    const old = seenIds.shift();
+    if (old) seenSet.delete(old);
+  }
+  return false;
+}
+
+// Conjunto de números ignorados (outros bots), normalizado só com dígitos.
+const ignoredDigits = new Set(env.botIgnoredNumbers);
+
 /**
  * Webhook do Evolution (evento `messages.upsert`) para o bot de suporte.
  * Responde 200 imediatamente e processa a mensagem de forma assíncrona, para
@@ -31,7 +49,7 @@ export function botWebhook(req: Request, res: Response): void {
     const body = req.body as {
       event?: string;
       data?: {
-        key?: { remoteJid?: string; fromMe?: boolean };
+        key?: { remoteJid?: string; fromMe?: boolean; id?: string };
         message?: Record<string, unknown>;
       };
     };
@@ -45,6 +63,9 @@ export function botWebhook(req: Request, res: Response): void {
     const remoteJid = key.remoteJid ?? '';
     if (!remoteJid || remoteJid.endsWith('@g.us')) return; // ignora grupos
 
+    // Dedupe: a mesma mensagem pode ser entregue várias vezes (Baileys).
+    if (key.id && alreadySeen(key.id)) return;
+
     const text = extractText(data?.message);
     if (!text || !text.trim()) return; // ignora mensagens sem texto (mídia, etc.)
 
@@ -52,6 +73,12 @@ export function botWebhook(req: Request, res: Response): void {
     const phone = normalizeBrazilPhone(rawNumber);
     if (!phone) {
       console.error('[Bot] remetente com número inválido:', remoteJid);
+      return;
+    }
+
+    // Ignora outros bots (evita loop bot-a-bot, ex: Sofia).
+    if (ignoredDigits.has(phone.replace(/\D/g, ''))) {
+      console.log('[Bot] número ignorado (lista de bots):', phone);
       return;
     }
 

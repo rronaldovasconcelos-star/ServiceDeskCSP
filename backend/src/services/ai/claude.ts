@@ -34,8 +34,10 @@ const SYSTEM_PROMPT =
   `- ALTA: impacta o trabalho agora.\n` +
   `- URGENTE: paralisa atividade/aula ou tem risco.\n\n` +
   `Gere um título curto (3 a 8 palavras) e uma descrição objetiva em português. ` +
-  `Se a mensagem for vaga demais para classificar (sem dizer o que/onde está o problema), ` +
-  `marque needsClarification=true e escreva uma pergunta única e curta para esclarecer.`;
+  `IMPORTANTE: prefira sempre inferir e abrir o chamado. Só marque needsClarification=true ` +
+  `quando for realmente IMPOSSÍVEL saber o que precisa ser feito (ex: mensagem vazia, só uma ` +
+  `saudação, ou sem nenhum assunto). Na menor dúvida, classifique com o melhor palpite e ` +
+  `needsClarification=false. Quando precisar esclarecer, faça UMA pergunta única e curta.`;
 
 const TOOL_NAME = 'registrar_chamado';
 

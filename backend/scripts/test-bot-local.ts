@@ -29,12 +29,14 @@ async function post(body: unknown): Promise<number> {
   return res.status;
 }
 
+let msgSeq = 0;
 function upsert(rawNumber: string, text: string) {
+  msgSeq += 1;
   return {
     event: 'messages.upsert',
     instance: 'csp-suporte-test',
     data: {
-      key: { remoteJid: `${rawNumber}@s.whatsapp.net`, fromMe: false, id: 'x' },
+      key: { remoteJid: `${rawNumber}@s.whatsapp.net`, fromMe: false, id: `msg-${msgSeq}` },
       pushName: 'Teste',
       message: { conversation: text },
     },
@@ -97,6 +99,22 @@ async function main() {
     check(!!ticket, 'chamado criado no banco');
     check(ticket?.status === 'ABERTO', 'chamado com status ABERTO');
 
+    // ---- Correção do loop: descrição direta no IDLE vai direto p/ CONFIRMING ----
+    await post(upsert(KNOWN_RAW, 'o ar condicionado da biblioteca parou de gelar'));
+    await sleep(300);
+    s = await prisma.botSession.findUnique({ where: { phone: KNOWN_PHONE } });
+    check(s?.state === 'CONFIRMING', 'descrição direta no IDLE → CONFIRMING (sem rodada extra)');
+
+    // ---- Dedupe: o MESMO evento (mesmo id) não é reprocessado ----
+    const before = await prisma.ticket.count({ where: { requesterId: known.id } });
+    const dup = upsert(KNOWN_RAW, 'sim'); // confirma o chamado acima
+    await post(dup);
+    await sleep(300);
+    await post(dup); // id repetido → ignorado
+    await sleep(300);
+    const after = await prisma.ticket.count({ where: { requesterId: known.id } });
+    check(after - before === 1, 'dedupe: evento repetido não cria chamado duplicado');
+
     // ---- Fluxo de número desconhecido: inicia auto-cadastro ----
     check((await post(upsert(UNKNOWN_RAW, 'oi'))) === 200, 'webhook (desconhecido) responde 200');
     await sleep(200);
@@ -111,11 +129,8 @@ async function main() {
     });
     check(bad.status === 404, 'segredo inválido → 404');
 
-    // ---- Limpeza ----
-    if (ticket) {
-      await prisma.ticketHistory.deleteMany({ where: { ticketId: ticket.id } });
-      await prisma.ticket.delete({ where: { id: ticket.id } });
-    }
+    // ---- Limpeza (history cai em cascata ao apagar o ticket) ----
+    await prisma.ticket.deleteMany({ where: { requesterId: known.id } });
     await prisma.botSession.deleteMany({ where: { phone: { in: [KNOWN_PHONE, '+' + UNKNOWN_RAW] } } });
     await prisma.user.delete({ where: { id: known.id } });
 

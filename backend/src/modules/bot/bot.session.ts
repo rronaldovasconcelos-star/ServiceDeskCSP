@@ -14,6 +14,10 @@ export interface BotSessionData {
   draft?: { title: string; description: string; category: string; urgency: string };
   // Cadastro em andamento
   reg?: { name?: string; email?: string; userId?: string };
+  // Texto do problema acumulado entre mensagens (para classificar com contexto)
+  problem?: string;
+  // Quantas perguntas de esclarecimento já foram feitas (limite para não entrar em loop)
+  clarifyCount?: number;
 }
 
 export interface LoadedSession {

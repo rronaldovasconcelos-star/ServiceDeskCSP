@@ -15,14 +15,23 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const REG_STATES: BotState[] = ['REG_NAME', 'REG_EMAIL', 'REG_OTP'];
 
+// No máximo 1 pergunta de esclarecimento — depois abre com o melhor palpite,
+// para nunca entrar em loop pedindo o problema.
+const MAX_CLARIFY = 1;
+
 function isAffirmative(text: string): boolean {
-  return /^(sim|s|ok|confirmar|confirmo|isso|pode|claro|yes|y|👍)$/i.test(text.trim());
+  return /\b(sim|s|ok|confirm\w*|isso|pode|claro|positivo|yes|y|👍|✅)\b/i.test(text.trim());
 }
 function isNegative(text: string): boolean {
-  return /^(n[ãa]o|n|corrigir|cancelar|errado|nope)$/i.test(text.trim());
+  return /\b(n[ãa]o|n|corrig\w*|errad\w*|nope|negativo)\b/i.test(text.trim());
 }
 function isCancel(text: string): boolean {
-  return /^(cancelar|sair|parar|cancela)$/i.test(text.trim());
+  return /^(cancelar|sair|parar|cancela|encerrar)$/i.test(text.trim());
+}
+function isGreetingOnly(text: string): boolean {
+  const t = text.trim();
+  const words = t.split(/\s+/);
+  return words.length <= 3 && /^(oi+|ol[áa]|ola|opa|e?\s*a[ií]|bom dia|boa tarde|boa noite|hey|hi|menu|in[ií]cio|come[çc]ar|teste)\b/i.test(t);
 }
 
 function summary(draft: { title: string; description: string; category: string; urgency: string }): string {
@@ -34,6 +43,30 @@ function summary(draft: { title: string; description: string; category: string; 
     `⚡ Urgência: ${URGENCY_LABELS[draft.urgency] ?? draft.urgency}\n\n` +
     `Posso confirmar? Responda *SIM* para abrir ou *NÃO* para corrigir.`
   );
+}
+
+/**
+ * Classifica o texto acumulado do problema e decide o próximo passo:
+ * - se faltar informação E ainda não atingiu o limite de esclarecimentos → pergunta;
+ * - caso contrário → monta o rascunho e vai para CONFIRMING (sempre fecha o ciclo).
+ */
+async function processProblem(phone: string, accumulatedText: string, clarifyCount: number): Promise<void> {
+  const c = await classifyTicket(accumulatedText);
+
+  if (c.needsClarification && clarifyCount < MAX_CLARIFY) {
+    await saveSession(phone, 'AWAITING_PROBLEM', { problem: accumulatedText, clarifyCount: clarifyCount + 1 });
+    await sendBotReply(phone, c.clarifyQuestion || 'Pode me dar mais detalhes sobre o problema (o que está acontecendo e onde)?');
+    return;
+  }
+
+  const draft = {
+    title: c.title,
+    description: c.description && c.description.length >= accumulatedText.length ? c.description : accumulatedText,
+    category: c.category,
+    urgency: c.urgency,
+  };
+  await saveSession(phone, 'CONFIRMING', { draft });
+  await sendBotReply(phone, summary(draft));
 }
 
 /**
@@ -77,24 +110,26 @@ export async function handleIncomingMessage(phone: string, text: string): Promis
 
   switch (session.state) {
     case 'IDLE': {
-      await saveSession(phone, 'AWAITING_PROBLEM', {});
-      await sendBotReply(
-        phone,
-        `Olá, ${firstName}! 👋 Sou a assistente de suporte do CSP.\n\n` +
-          `Descreva o problema ou a solicitação que você precisa registrar (ex: "a impressora da sala 12 não imprime").`,
-      );
+      // Saudação pura → cumprimenta e pede o problema.
+      if (isGreetingOnly(text)) {
+        await saveSession(phone, 'AWAITING_PROBLEM', {});
+        await sendBotReply(
+          phone,
+          `Olá, ${firstName}! 👋 Sou a assistente de suporte do CSP.\n\n` +
+            `Descreva o problema ou a solicitação que você precisa registrar ` +
+            `(ex: "a impressora da sala 12 não imprime").`,
+        );
+        return;
+      }
+      // Já veio com conteúdo → trata como o problema diretamente (sem desperdiçar uma rodada).
+      await processProblem(phone, text, 0);
       return;
     }
 
     case 'AWAITING_PROBLEM': {
-      const c = await classifyTicket(text);
-      if (c.needsClarification) {
-        await sendBotReply(phone, c.clarifyQuestion || 'Pode me dar mais detalhes sobre o problema?');
-        return; // permanece em AWAITING_PROBLEM
-      }
-      const draft = { title: c.title, description: c.description, category: c.category, urgency: c.urgency };
-      await saveSession(phone, 'CONFIRMING', { draft });
-      await sendBotReply(phone, summary(draft));
+      // Acumula o que já foi dito + a nova mensagem, e reclassifica com contexto.
+      const accumulated = (session.data.problem ? session.data.problem + '\n' : '') + text;
+      await processProblem(phone, accumulated, session.data.clarifyCount ?? 0);
       return;
     }
 
@@ -105,7 +140,9 @@ export async function handleIncomingMessage(phone: string, text: string): Promis
         await sendBotReply(phone, 'Vamos recomeçar: descreva o problema que você precisa registrar.');
         return;
       }
-      if (isAffirmative(text)) {
+      // Só interpreta SIM/NÃO em respostas curtas; frases longas são correções.
+      const short = text.trim().split(/\s+/).length <= 4;
+      if (short && isAffirmative(text)) {
         const ticket = await createTicketForUser(user.id, {
           title: draft.title,
           description: draft.description,
@@ -120,17 +157,17 @@ export async function handleIncomingMessage(phone: string, text: string): Promis
         );
         return;
       }
-      if (isNegative(text)) {
+      if (short && isNegative(text)) {
         await saveSession(phone, 'AWAITING_PROBLEM', {});
         await sendBotReply(phone, 'Sem problema! Descreva novamente o que você precisa, com mais detalhes.');
         return;
       }
-      await sendBotReply(phone, 'Por favor, responda *SIM* para abrir o chamado ou *NÃO* para corrigir.');
+      // Texto livre → trata como nova descrição/correção e reclassifica.
+      await processProblem(phone, text, 0);
       return;
     }
 
     default: {
-      // Estado desconhecido — reinicia com segurança.
       await resetSession(phone);
       await sendBotReply(phone, `Olá, ${firstName}! Descreva o problema que você precisa registrar.`);
     }
