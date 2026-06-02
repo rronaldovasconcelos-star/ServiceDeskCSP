@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 import { User, Mail, Lock, Phone, ArrowRight, ArrowLeft, Loader2, ShieldCheck, CheckCircle2 } from 'lucide-react';
 
 type Step = 'form' | 'otp' | 'done';
@@ -21,6 +23,7 @@ const ringStyle = { '--tw-ring-color': '#2e6db4' } as React.CSSProperties;
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const { loginWithGoogle } = useAuth();
   const [step, setStep] = useState<Step>('form');
 
   // Passo 1
@@ -106,6 +109,22 @@ export default function RegisterPage() {
       setLoading(false);
     }
   };
+
+  const handleGoogle = useCallback(async (credential: string) => {
+    setError('');
+    setInfo('');
+    try {
+      await loginWithGoogle(credential);
+      navigate('/'); // conta já ativa → entra direto
+    } catch (err) {
+      // 403 = conta criada/aguardando aprovação → mostra tela de conclusão.
+      if (axios.isAxiosError(err) && err.response?.status === 403) {
+        setStep('done');
+        return;
+      }
+      setError(apiError(err, 'Não foi possível entrar com o Google.'));
+    }
+  }, [loginWithGoogle, navigate]);
 
   const handleResend = async () => {
     if (cooldown > 0) return;
@@ -224,6 +243,14 @@ export default function RegisterPage() {
                   {loading ? <Loader2 size={16} className="animate-spin" /> : (<>Continuar <ArrowRight size={16} /></>)}
                 </button>
               </form>
+
+              {/* Divisor + cadastro com Google */}
+              <div className="flex items-center gap-3 my-5">
+                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-xs text-slate-400">ou</span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
+              <GoogleSignInButton onCredential={handleGoogle} text="signup_with" />
             </>
           )}
 
@@ -281,8 +308,8 @@ export default function RegisterPage() {
               </div>
               <h2 className="text-slate-800 text-lg font-semibold mb-2">Cadastro enviado!</h2>
               <p className="text-slate-500 text-sm mb-6">
-                Seu telefone foi verificado. Sua conta está <strong>aguardando a aprovação</strong> de um
-                administrador. Você poderá entrar assim que for aprovada.
+                Sua conta está <strong>aguardando a aprovação</strong> de um administrador.
+                Você poderá entrar assim que for aprovada.
               </p>
               <button
                 onClick={() => navigate('/login')}

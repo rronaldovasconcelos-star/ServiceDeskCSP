@@ -27,6 +27,8 @@ services:
       GOOGLE_OAUTH_CLIENT_ID: "${GOOGLE_OAUTH_CLIENT_ID:-}"
       GOOGLE_OAUTH_CLIENT_SECRET: "${GOOGLE_OAUTH_CLIENT_SECRET:-}"
       GOOGLE_OAUTH_REFRESH_TOKEN: "${GOOGLE_OAUTH_REFRESH_TOKEN:-}"
+      # Login com Google (audience do ID token). Default = mesmo client do Drive.
+      GOOGLE_LOGIN_CLIENT_ID: "${GOOGLE_LOGIN_CLIENT_ID:-${GOOGLE_OAUTH_CLIENT_ID:-}}"
       AGENT_ADMIN_URL: "${AGENT_ADMIN_URL:-}"
       AGENT_ADMIN_SECRET: "${AGENT_ADMIN_SECRET:-}"
       BOT_ENABLED: "${BOT_ENABLED:-false}"
@@ -51,6 +53,10 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        # Client ID público do login com Google (embutido no bundle).
+        # Default = mesmo client do Drive.
+        VITE_GOOGLE_CLIENT_ID: "${VITE_GOOGLE_CLIENT_ID:-${GOOGLE_OAUTH_CLIENT_ID:-}}"
     container_name: csp-frontend
     restart: unless-stopped
     depends_on:

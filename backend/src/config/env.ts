@@ -59,4 +59,8 @@ export const env = {
   googleOauthClientId: optional('GOOGLE_OAUTH_CLIENT_ID', ''),
   googleOauthClientSecret: optional('GOOGLE_OAUTH_CLIENT_SECRET', ''),
   googleOauthRefreshToken: optional('GOOGLE_OAUTH_REFRESH_TOKEN', ''),
+
+  // Login com Google (Google Identity Services). Client ID tipo "Web" cujo
+  // token é validado como audience. Pode ser o mesmo do Drive se for Web.
+  googleLoginClientId: optional('GOOGLE_LOGIN_CLIENT_ID', '') || optional('GOOGLE_OAUTH_CLIENT_ID', ''),
 };

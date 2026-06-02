@@ -1,16 +1,28 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleGoogle = useCallback(async (credential: string) => {
+    setError('');
+    try {
+      await loginWithGoogle(credential);
+      navigate('/');
+    } catch (err) {
+      const apiError = axios.isAxiosError(err) ? err.response?.data?.error : undefined;
+      setError(apiError ?? 'Não foi possível entrar com o Google.');
+    }
+  }, [loginWithGoogle, navigate]);
 
   const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault();
@@ -120,7 +132,15 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <p className="text-center text-sm text-slate-500 mt-4">
+          {/* Divisor + login com Google */}
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-xs text-slate-400">ou</span>
+            <div className="flex-1 h-px bg-slate-200" />
+          </div>
+          <GoogleSignInButton onCredential={handleGoogle} text="continue_with" />
+
+          <p className="text-center text-sm text-slate-500 mt-5">
             <Link to="/redefinir-senha" className="font-medium hover:underline" style={{ color: '#2e6db4' }}>
               Esqueci minha senha
             </Link>

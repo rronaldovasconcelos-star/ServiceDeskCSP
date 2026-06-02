@@ -2,7 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { randomInt } from 'node:crypto';
+import { randomInt, randomBytes } from 'node:crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { env } from '../../config/env.js';
@@ -36,6 +37,105 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
         ? 'Verifique seu telefone para concluir o cadastro.'
         : 'Conta aguardando aprovação do administrador.';
       res.status(403).json({ error });
+      return;
+    }
+
+    const token = jwt.sign(
+      { sub: user.id, email: user.email, role: user.role, name: user.name },
+      env.jwtSecret,
+      { expiresIn: env.jwtExpiresIn } as jwt.SignOptions,
+    );
+
+    res.json({
+      token,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Login com Google (Google Identity Services)
+// ---------------------------------------------------------------------------
+
+const googleSchema = z.object({ credential: z.string().min(1) });
+
+// Cliente reutilizável p/ validar os ID tokens emitidos pelo Google.
+const googleClient = new OAuth2Client(env.googleLoginClientId);
+
+/**
+ * Login/cadastro via Google. O frontend envia o `credential` (ID token JWT do
+ * Google Identity Services); validamos a assinatura e a audience, e então:
+ *  - e-mail já existe e ativo   → emite JWT (login direto)
+ *  - e-mail existe mas inativo  → 403 (aguardando aprovação)
+ *  - e-mail novo                → cria conta inativa (USER) e notifica admins
+ */
+export async function googleLogin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!env.googleLoginClientId) {
+      res.status(503).json({ error: 'Login com Google não está configurado.' });
+      return;
+    }
+
+    const { credential } = googleSchema.parse(req.body);
+
+    let payload: import('google-auth-library').TokenPayload | undefined;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: env.googleLoginClientId,
+      });
+      payload = ticket.getPayload();
+    } catch {
+      res.status(401).json({ error: 'Token do Google inválido.' });
+      return;
+    }
+
+    if (!payload?.email || !payload.email_verified) {
+      res.status(401).json({ error: 'Conta Google sem e-mail verificado.' });
+      return;
+    }
+
+    const email = payload.email.toLowerCase();
+    const name = payload.name ?? email.split('@')[0];
+
+    let user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      // Primeiro acesso: cria conta inativa (aguarda aprovação do admin).
+      // Sem senha utilizável (hash aleatório); e-mail já verificado pelo Google.
+      const randomHash = await bcrypt.hash(randomBytes(32).toString('hex'), 10);
+      user = await prisma.user.create({
+        data: {
+          name,
+          email,
+          passwordHash: randomHash,
+          role: 'USER',
+          isActive: false,
+          phoneVerified: true,
+        },
+      });
+
+      // Notifica admins sobre o novo cadastro pendente (fire-and-forget).
+      const admins = await prisma.user.findMany({
+        where: { role: 'ADMIN', isActive: true },
+        select: { phone: true },
+      });
+      for (const admin of admins) {
+        void sendWhatsApp(
+          admin.phone,
+          `🔔 Novo cadastro (via Google) aguardando aprovação no Portal CSP:\n` +
+            `*${user.name}* (${user.email})\n\nAcesse "Usuários" para aprovar.`,
+        );
+      }
+
+      res.status(403).json({ error: 'Conta criada! Aguarde a aprovação do administrador.' });
+      return;
+    }
+
+    if (!user.isActive) {
+      res.status(403).json({ error: 'Conta aguardando aprovação do administrador.' });
       return;
     }
 
