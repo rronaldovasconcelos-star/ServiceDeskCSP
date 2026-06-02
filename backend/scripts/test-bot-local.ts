@@ -115,6 +115,13 @@ async function main() {
     const after = await prisma.ticket.count({ where: { requesterId: known.id } });
     check(after - before === 1, 'dedupe: evento repetido não cria chamado duplicado');
 
+    // ---- Anti-loop: notificação do próprio sistema é ignorada ----
+    const beforeSys = await prisma.ticket.count({ where: { requesterId: known.id } });
+    await post(upsert(KNOWN_RAW, '📋 *Novo chamado aberto!*\nProjetor da sala 3\nCategoria: TI\nUrgência: MEDIA\nSolicitante: Fulano'));
+    await sleep(300);
+    const afterSys = await prisma.ticket.count({ where: { requesterId: known.id } });
+    check(afterSys === beforeSys, 'notificação do sistema é ignorada (não vira chamado)');
+
     // ---- Fluxo de número desconhecido: inicia auto-cadastro ----
     check((await post(upsert(UNKNOWN_RAW, 'oi'))) === 200, 'webhook (desconhecido) responde 200');
     await sleep(200);

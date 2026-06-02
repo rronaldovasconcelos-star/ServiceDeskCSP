@@ -30,6 +30,26 @@ function alreadySeen(id: string): boolean {
 // Conjunto de números ignorados (outros bots), normalizado só com dígitos.
 const ignoredDigits = new Set(env.botIgnoredNumbers);
 
+// Assinaturas de mensagens emitidas pelo PRÓPRIO sistema (notificações de chamado,
+// cadastro, etc.). Quando a linha do bot também é de um admin, esses textos chegam
+// como mensagem de entrada e gerariam um loop — então são ignorados.
+const SYSTEM_SIGNATURES = [
+  'Seu chamado foi aberto',
+  'Novo chamado aberto',
+  'Status do seu chamado',
+  'Seu chamado foi atribuído',
+  'responsável pelo seu chamado',
+  'Nova mensagem no chamado',
+  'Novo cadastro',
+  'código de verificação',
+  'sua senha do Portal CSP',
+  'Chamado aberto com sucesso',
+  'Vou abrir este chamado',
+];
+function looksLikeSystemMessage(text: string): boolean {
+  return SYSTEM_SIGNATURES.some((sig) => text.includes(sig));
+}
+
 /**
  * Webhook do Evolution (evento `messages.upsert`) para o bot de suporte.
  * Responde 200 imediatamente e processa a mensagem de forma assíncrona, para
@@ -68,6 +88,13 @@ export function botWebhook(req: Request, res: Response): void {
 
     const text = extractText(data?.message);
     if (!text || !text.trim()) return; // ignora mensagens sem texto (mídia, etc.)
+
+    // Ignora notificações do próprio sistema que possam ter chegado à linha do bot
+    // (evita loop quando o número do bot também recebe alertas de chamado/cadastro).
+    if (looksLikeSystemMessage(text)) {
+      console.log('[Bot] mensagem ignorada (notificação do próprio sistema)');
+      return;
+    }
 
     const rawNumber = remoteJid.split('@')[0] ?? '';
     const phone = normalizeBrazilPhone(rawNumber);
