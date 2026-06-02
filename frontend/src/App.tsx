@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import DashboardPage from './pages/DashboardPage';
+import ReportsPage from './pages/ReportsPage';
 import TicketsPage from './pages/TicketsPage';
 import TicketFormPage from './pages/TicketFormPage';
 import TicketDetailPage from './pages/TicketDetailPage';
@@ -34,6 +35,14 @@ export default function App() {
             element={
               <ProtectedRoute adminOnly>
                 <Layout><DashboardPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/relatorios"
+            element={
+              <ProtectedRoute adminOnly>
+                <Layout><ReportsPage /></Layout>
               </ProtectedRoute>
             }
           />

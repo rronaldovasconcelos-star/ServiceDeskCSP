@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import {
   LayoutDashboard,
+  BarChart3,
   Ticket,
   PlusCircle,
   Package,
@@ -23,6 +24,7 @@ import {
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, adminOnly: true },
+  { to: '/relatorios', label: 'Relatórios', icon: BarChart3, adminOnly: true },
   { to: '/tickets', label: 'Chamados', icon: Ticket, adminOnly: false },
   { to: '/tickets/new', label: 'Novo Chamado', icon: PlusCircle, adminOnly: false },
   { to: '/suprimentos', label: 'Suprimentos', icon: Package, adminOnly: false },
