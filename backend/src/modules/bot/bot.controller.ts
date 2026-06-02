@@ -27,8 +27,20 @@ function alreadySeen(id: string): boolean {
   return false;
 }
 
-// Conjunto de números ignorados (outros bots), normalizado só com dígitos.
-const ignoredDigits = new Set(env.botIgnoredNumbers);
+/**
+ * Forma canônica de um número BR para comparação tolerante ao "nono dígito":
+ * garante DDI 55 e remove o 9 de celular após o DDD (13 → 12 dígitos). Assim
+ * 5531988031221 e 553188031221 são considerados o mesmo número.
+ */
+function canonicalBr(input: string): string {
+  let d = input.replace(/\D/g, '');
+  if (!d.startsWith('55')) d = '55' + d;
+  if (d.length === 13 && d[4] === '9') d = d.slice(0, 4) + d.slice(5);
+  return d;
+}
+
+// Conjunto de números ignorados (outros bots), em forma canônica.
+const ignoredCanon = new Set(env.botIgnoredNumbers.map(canonicalBr));
 
 // Assinaturas de mensagens emitidas pelo PRÓPRIO sistema (notificações de chamado,
 // cadastro, etc.). Quando a linha do bot também é de um admin, esses textos chegam
@@ -103,8 +115,8 @@ export function botWebhook(req: Request, res: Response): void {
       return;
     }
 
-    // Ignora outros bots (evita loop bot-a-bot, ex: Sofia).
-    if (ignoredDigits.has(phone.replace(/\D/g, ''))) {
+    // Ignora outros bots (evita loop bot-a-bot, ex: Sofia). Tolerante ao 9º dígito.
+    if (ignoredCanon.has(canonicalBr(phone))) {
       console.log('[Bot] número ignorado (lista de bots):', phone);
       return;
     }
