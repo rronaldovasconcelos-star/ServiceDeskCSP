@@ -103,7 +103,10 @@ export async function googleLogin(req: Request, res: Response, next: NextFunctio
     let user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
-      // Primeiro acesso: cria conta inativa (aguarda aprovação do admin).
+      // Primeiro acesso: cria conta inativa, ainda SEM telefone verificado.
+      // O WhatsApp é obrigatório (canal de notificações) e será coletado +
+      // verificado por OTP logo abaixo, via fluxo `need_phone`. A notificação
+      // aos admins acontece só após a verificação do OTP (em `verifyOtp`).
       // Sem senha utilizável (hash aleatório); e-mail já verificado pelo Google.
       const randomHash = await bcrypt.hash(randomBytes(32).toString('hex'), 10);
       user = await prisma.user.create({
@@ -113,24 +116,16 @@ export async function googleLogin(req: Request, res: Response, next: NextFunctio
           passwordHash: randomHash,
           role: 'USER',
           isActive: false,
-          phoneVerified: true,
+          phoneVerified: false,
         },
       });
+    }
 
-      // Notifica admins sobre o novo cadastro pendente (fire-and-forget).
-      const admins = await prisma.user.findMany({
-        where: { role: 'ADMIN', isActive: true },
-        select: { phone: true },
-      });
-      for (const admin of admins) {
-        void sendWhatsApp(
-          admin.phone,
-          `🔔 Novo cadastro (via Google) aguardando aprovação no Portal CSP:\n` +
-            `*${user.name}* (${user.email})\n\nAcesse "Usuários" para aprovar.`,
-        );
-      }
-
-      res.status(403).json({ error: 'Conta criada! Aguarde a aprovação do administrador.' });
+    // Portão de WhatsApp: enquanto não houver telefone verificado, exige a coleta
+    // + verificação por OTP. Cobre cadastros novos e contas antigas (criadas via
+    // Google sem telefone), forçando o preenchimento no próximo login.
+    if (!user.phone || !user.phoneVerified) {
+      res.json({ status: 'need_phone', userId: user.id, name: user.name });
       return;
     }
 
@@ -433,6 +428,53 @@ export async function resendOtp(req: Request, res: Response, next: NextFunction)
     }
 
     res.json({ message: 'Novo código enviado por WhatsApp.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+const googlePhoneSchema = z.object({
+  userId: z.string().min(1),
+  phone: z.string().min(1),
+});
+
+/**
+ * Grava o WhatsApp de um usuário criado via Google (ainda não verificado) e
+ * dispara o OTP. Espelha a parte de telefone/OTP do `register`. Endpoint público
+ * (o usuário ainda não está logado): só aceita contas com `phoneVerified: false`,
+ * impedindo trocar o telefone de contas já verificadas.
+ */
+export async function setGooglePhone(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const data = googlePhoneSchema.parse(req.body);
+
+    const user = await prisma.user.findUnique({ where: { id: data.userId } });
+    if (!user) {
+      res.status(404).json({ error: 'Cadastro não encontrado.' });
+      return;
+    }
+    if (user.phoneVerified) {
+      res.status(409).json({ error: 'Telefone já verificado.' });
+      return;
+    }
+
+    const phone = normalizeBrazilPhone(data.phone);
+    if (!phone) {
+      res.status(400).json({ error: 'Telefone inválido. Informe DDD + número (ex: (31) 98436-7833).' });
+      return;
+    }
+
+    await prisma.user.update({ where: { id: user.id }, data: { phone } });
+
+    try {
+      await issueOtp(user.id, phone, user.name);
+    } catch (err) {
+      console.error('[WhatsApp][OTP]', err instanceof Error ? err.message : err);
+      res.status(502).json({ error: 'Não foi possível enviar o código por WhatsApp. Verifique o número e tente novamente.' });
+      return;
+    }
+
+    res.status(200).json({ userId: user.id, message: 'Código de verificação enviado por WhatsApp.' });
   } catch (err) {
     next(err);
   }

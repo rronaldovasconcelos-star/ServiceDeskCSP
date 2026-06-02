@@ -10,11 +10,16 @@ interface AuthUser {
   phone?: string;
 }
 
+/** Resultado do login com Google: ou autentica, ou exige coleta do WhatsApp. */
+export type GoogleLoginResult =
+  | { status: 'ok' }
+  | { status: 'need_phone'; userId: string; name?: string };
+
 interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: (credential: string) => Promise<void>;
+  loginWithGoogle: (credential: string) => Promise<GoogleLoginResult>;
   logout: () => void;
   loading: boolean;
 }
@@ -54,12 +59,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
   };
 
-  const loginWithGoogle = async (credential: string) => {
+  const loginWithGoogle = async (credential: string): Promise<GoogleLoginResult> => {
     const res = await api.post('/auth/google', { credential });
+    // Conta sem WhatsApp verificado: o backend pede a coleta do telefone.
+    if (res.data?.status === 'need_phone') {
+      return { status: 'need_phone', userId: res.data.userId, name: res.data.name };
+    }
     const { token: t, user: u } = res.data;
     localStorage.setItem('token', t);
     setToken(t);
     setUser(u);
+    return { status: 'ok' };
   };
 
   const logout = () => {

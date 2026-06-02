@@ -1,12 +1,17 @@
 import { useState, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import { User, Mail, Lock, Phone, ArrowRight, ArrowLeft, Loader2, ShieldCheck, CheckCircle2 } from 'lucide-react';
 
-type Step = 'form' | 'otp' | 'done';
+type Step = 'form' | 'google-phone' | 'otp' | 'done';
+
+/** Estado opcional recebido da LoginPage quando o Google exige coleta de telefone. */
+interface GooglePhoneState {
+  googlePhone?: { userId: string; name?: string };
+}
 
 /** Formata os dígitos do telefone (sem DDI) como (DD) 9XXXX-XXXX. */
 function formatPhone(digits: string): string {
@@ -23,8 +28,15 @@ const ringStyle = { '--tw-ring-color': '#2e6db4' } as React.CSSProperties;
 
 export default function RegisterPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { loginWithGoogle } = useAuth();
-  const [step, setStep] = useState<Step>('form');
+
+  // Vindo da LoginPage via Google (conta sem telefone): inicia na coleta do WhatsApp.
+  const googleState = (location.state as GooglePhoneState | null)?.googlePhone;
+
+  const [step, setStep] = useState<Step>(googleState ? 'google-phone' : 'form');
+  // Distingue o fluxo Google (volta para 'google-phone') do cadastro normal (volta para 'form').
+  const [fromGoogle, setFromGoogle] = useState(Boolean(googleState));
 
   // Passo 1
   const [name, setName] = useState('');
@@ -34,7 +46,7 @@ export default function RegisterPage() {
   const [confirm, setConfirm] = useState('');
 
   // Passo 2
-  const [userId, setUserId] = useState('');
+  const [userId, setUserId] = useState(googleState?.userId ?? '');
   const [code, setCode] = useState('');
   const [cooldown, setCooldown] = useState(0);
 
@@ -114,10 +126,17 @@ export default function RegisterPage() {
     setError('');
     setInfo('');
     try {
-      await loginWithGoogle(credential);
+      const result = await loginWithGoogle(credential);
+      if (result.status === 'need_phone') {
+        // Conta sem WhatsApp verificado → coleta o telefone antes de prosseguir.
+        setUserId(result.userId);
+        setFromGoogle(true);
+        setStep('google-phone');
+        return;
+      }
       navigate('/'); // conta já ativa → entra direto
     } catch (err) {
-      // 403 = conta criada/aguardando aprovação → mostra tela de conclusão.
+      // 403 = conta aguardando aprovação → mostra tela de conclusão.
       if (axios.isAxiosError(err) && err.response?.status === 403) {
         setStep('done');
         return;
@@ -125,6 +144,29 @@ export default function RegisterPage() {
       setError(apiError(err, 'Não foi possível entrar com o Google.'));
     }
   }, [loginWithGoogle, navigate]);
+
+  const handleGooglePhone = async (e: { preventDefault(): void }) => {
+    e.preventDefault();
+    setError('');
+    setInfo('');
+
+    if (phoneDigits.length < 10 || phoneDigits.length > 11) {
+      setError('Informe um telefone válido com DDD (ex: (31) 98436-7833).');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.post('/auth/google/phone', { userId, phone: '+55' + phoneDigits });
+      setStep('otp');
+      setInfo('Enviamos um código de 6 dígitos para o seu WhatsApp.');
+      startCooldown();
+    } catch (err) {
+      setError(apiError(err, 'Não foi possível enviar o código.'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleResend = async () => {
     if (cooldown > 0) return;
@@ -254,6 +296,44 @@ export default function RegisterPage() {
             </>
           )}
 
+          {/* --------------------- COLETA DE TELEFONE (GOOGLE) --------------------- */}
+          {step === 'google-phone' && (
+            <>
+              <div className="flex justify-center mb-3">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: '#e8f1fb' }}>
+                  <Phone size={24} style={{ color: '#2e6db4' }} />
+                </div>
+              </div>
+              <h2 className="text-slate-800 text-lg font-semibold mb-1 text-center">Informe seu WhatsApp</h2>
+              <p className="text-slate-400 text-sm mb-6 text-center">
+                Precisamos do seu número para enviar as notificações dos seus chamados.
+              </p>
+
+              <form onSubmit={handleGooglePhone} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">WhatsApp</label>
+                  <div className="relative">
+                    <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <span className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-slate-500 pointer-events-none">+55</span>
+                    <input
+                      type="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} required autoFocus
+                      className={inputClass + ' pl-16'} style={ringStyle} placeholder="(31) 98436-7833"
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">Você receberá um código de verificação neste número.</p>
+                </div>
+
+                <button
+                  type="submit" disabled={loading}
+                  className="w-full text-white py-2.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60 shadow-md hover:shadow-lg"
+                  style={{ background: 'linear-gradient(90deg, #1a3a8a, #2e6db4)' }}
+                >
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : (<>Enviar código <ArrowRight size={16} /></>)}
+                </button>
+              </form>
+            </>
+          )}
+
           {/* ----------------------------- PASSO 2 ----------------------------- */}
           {step === 'otp' && (
             <>
@@ -284,7 +364,7 @@ export default function RegisterPage() {
               </form>
 
               <div className="flex items-center justify-between mt-5 text-sm">
-                <button onClick={() => { setStep('form'); setError(''); setInfo(''); }} className="text-slate-500 hover:underline flex items-center gap-1">
+                <button onClick={() => { setStep(fromGoogle ? 'google-phone' : 'form'); setError(''); setInfo(''); }} className="text-slate-500 hover:underline flex items-center gap-1">
                   <ArrowLeft size={14} /> Voltar
                 </button>
                 <button

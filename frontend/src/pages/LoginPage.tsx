@@ -17,7 +17,12 @@ export default function LoginPage() {
   const handleGoogle = useCallback(async (credential: string) => {
     setError('');
     try {
-      await loginWithGoogle(credential);
+      const result = await loginWithGoogle(credential);
+      if (result.status === 'need_phone') {
+        // Conta sem WhatsApp verificado → coleta o telefone na tela de cadastro.
+        navigate('/register', { state: { googlePhone: { userId: result.userId, name: result.name } } });
+        return;
+      }
       navigate('/');
     } catch (err) {
       const apiError = axios.isAxiosError(err) ? err.response?.data?.error : undefined;
