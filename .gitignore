@@ -43,3 +43,6 @@ backend/credentials/
 # Misc
 *.pem
 coverage/
+
+# Credenciais de deploy (NUNCA commitar)
+.deploy.env

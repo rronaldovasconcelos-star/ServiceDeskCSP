@@ -150,7 +150,7 @@ export default function ReportsPage() {
       parts.push(`Tempo médio de resolução: ${avg.value}h (${dir} vs. período anterior). `);
     }
     if (cat) parts.push(`Categoria ${CAT_LABEL[cat[0]] ?? cat[0]} concentra ${Math.round((cat[1] / total) * 100)}% da demanda. `);
-    if (overview.backlog.value > 0) parts.push(`Backlog atual: ${overview.backlog.value} em aberto.`);
+    if ((overview.backlog.value ?? 0) > 0) parts.push(`Backlog atual: ${overview.backlog.value} em aberto.`);
     return parts.join('');
   }, [overview, sla]);
 
@@ -164,6 +164,7 @@ export default function ReportsPage() {
     : [];
 
   const fmtTick = (d: string) => d.slice(8, 10) + '/' + d.slice(5, 7);
+  const fmtLabel = (d: unknown) => fmtTick(String(d));
 
   return (
     <div>
@@ -256,7 +257,7 @@ export default function ReportsPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,.12)" vertical={false} />
                     <XAxis dataKey="date" tickFormatter={fmtTick} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} interval="preserveStartEnd" minTickGap={28} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
-                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} labelFormatter={fmtTick} />
+                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} labelFormatter={fmtLabel} />
                     <Line type="monotone" dataKey="opened" name="Abertos" stroke={ACCENT} strokeWidth={2} dot={false} />
                     <Line type="monotone" dataKey="resolved" name="Resolvidos" stroke={GREEN} strokeWidth={2} dot={false} />
                   </LineChart>
@@ -301,7 +302,7 @@ export default function ReportsPage() {
                     <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
                     <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} cursor={{ fill: 'rgba(77,142,240,.08)' }} />
-                    <Bar dataKey="value" name="Chamados" fill={ACCENT} radius={[5, 5, 0, 0]} maxBarThickness={42} />
+                    <Bar dataKey="value" name="Chamados" fill={ACCENT} radius={[5, 5, 0, 0]} maxBarSize={42} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -318,7 +319,7 @@ export default function ReportsPage() {
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,.12)" vertical={false} />
                     <XAxis dataKey="date" tickFormatter={fmtTick} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} interval="preserveStartEnd" minTickGap={28} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
-                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} labelFormatter={fmtTick} />
+                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} labelFormatter={fmtLabel} />
                     <Area type="monotone" dataKey="backlog" name="Backlog" stroke={AMBER} strokeWidth={2} fill="url(#bk)" />
                   </AreaChart>
                 </ResponsiveContainer>

@@ -6,9 +6,24 @@ import tarfile, os, paramiko
 
 PROJECT = r"c:\Users\rrona\Desktop\ATENDIMENTO CSP"
 ARCHIVE = r"c:\Users\rrona\AppData\Local\Temp\csp-deploy.tar.gz"
-VPS_IP  = "2.24.115.74"
-VPS_USER = "root"
-VPS_PASS = "CspDeploy2026.Admin"
+def _load_deploy_env():
+    creds = {}
+    path = os.path.join(PROJECT, ".deploy.env")
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    creds[k.strip()] = v.strip()
+    return creds
+
+_creds = _load_deploy_env()
+VPS_IP  = _creds.get("CSP_VPS_HOST")
+VPS_USER = _creds.get("CSP_VPS_USER")
+VPS_PASS = _creds.get("CSP_VPS_PASS")
+if not all([VPS_IP, VPS_USER, VPS_PASS]):
+    raise SystemExit("Credenciais ausentes: defina CSP_VPS_HOST/USER/PASS em .deploy.env")
 
 EXCLUDE_DIRS  = {"node_modules", ".git", "dist", "__pycache__"}
 EXCLUDE_FILES = {"dev.db", "dev.db-shm", "dev.db-wal"}
