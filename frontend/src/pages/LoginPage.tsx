@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+import DevCredit from '../components/DevCredit';
 import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
@@ -152,6 +153,11 @@ export default function LoginPage() {
               Criar conta
             </Link>
           </p>
+        </div>
+
+        {/* Crédito do desenvolvedor */}
+        <div className="text-center mt-5">
+          <DevCredit variant="onDark" />
         </div>
       </div>
     </div>

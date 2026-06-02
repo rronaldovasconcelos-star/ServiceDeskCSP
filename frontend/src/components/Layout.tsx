@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import DevCredit from './DevCredit';
 import {
   LayoutDashboard,
   BarChart3,
@@ -246,8 +247,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               {' '}· Portal de Chamados · Todos os direitos reservados
             </p>
             <p style={{ color: 'var(--text-secondary)', fontSize: '11px', margin: 0 }}>
-              Desenvolvido por{' '}
-              <span style={{ color: 'var(--accent)', fontWeight: 500 }}>Ronaldo Vasconcelos</span>
+              <DevCredit variant="onSurface" />
               {' '}· v1.0
             </p>
           </div>
