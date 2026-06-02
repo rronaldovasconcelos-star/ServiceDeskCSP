@@ -28,6 +28,14 @@ model User {
   verificationCodes VerificationCode[]
 }
 
+model BotSession {
+  phone     String   @id // +55DDNNNNNNNNN (normalizado)
+  state     String   @default("IDLE") // estado da máquina de conversa do bot de suporte
+  data      String   @default("{}") // JSON: rascunho do chamado ou do cadastro em andamento
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
 model VerificationCode {
   id        String   @id @default(cuid())
   userId    String
@@ -63,7 +71,7 @@ model Ticket {
   id          String    @id @default(cuid())
   title       String
   description String
-  category    String    // TI | SUPRIMENTOS
+  category    String    // TI | MANUTENCAO | PEDAGOGICO | ADMINISTRATIVO | OUTROS
   urgency     String    // BAIXA | MEDIA | ALTA | URGENTE
   status      String    @default("ABERTO") // ABERTO | EM_ANDAMENTO | CONCLUIDO | CANCELADO
   requesterId String

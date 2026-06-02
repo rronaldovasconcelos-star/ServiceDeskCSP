@@ -28,7 +28,23 @@ const STATE_COLOR: Record<ConnState, string> = {
   unknown: 'var(--text-muted)',
 };
 
-export default function WhatsAppPage() {
+interface WhatsAppPanelProps {
+  /** Prefixo das rotas de conexão na API (default: '/whatsapp' = instância csp-portal). */
+  apiBase?: string;
+  /** Título exibido no cabeçalho. */
+  title?: string;
+  /** Nome da instância Evolution mostrado no subtítulo. */
+  instanceLabel?: string;
+  /** Texto que descreve a finalidade do número quando conectado. */
+  purpose?: string;
+}
+
+export default function WhatsAppPage({
+  apiBase = '/whatsapp',
+  title = 'WhatsApp — Gestão de Conexão',
+  instanceLabel = 'csp-portal',
+  purpose = 'enviando notificações normalmente',
+}: WhatsAppPanelProps = {}) {
   const [state, setState] = useState<ConnState>('unknown');
   const [phone, setPhone] = useState<string | null>(null);
   const [qrcode, setQrcode] = useState<string | null>(null);
@@ -45,19 +61,19 @@ export default function WhatsAppPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await api.get<StatusData>('/whatsapp/status');
+      const res = await api.get<StatusData>(`${apiBase}/status`);
       setState(res.data.state);
       setPhone(res.data.phone ?? null);
     } catch {
       setState('unknown');
     }
-  }, []);
+  }, [apiBase]);
 
   const fetchQr = useCallback(async () => {
     setLoad('qr', true);
     setQrcode(null);
     try {
-      const res = await api.get<QrData>('/whatsapp/qrcode');
+      const res = await api.get<QrData>(`${apiBase}/qrcode`);
       setState(res.data.state);
       setQrcode(res.data.qrcode);
     } catch (err: unknown) {
@@ -66,12 +82,12 @@ export default function WhatsAppPage() {
     } finally {
       setLoad('qr', false);
     }
-  }, []);
+  }, [apiBase]);
 
   const disconnect = async () => {
     setLoad('disconnect', true);
     try {
-      await api.post('/whatsapp/disconnect');
+      await api.post(`${apiBase}/disconnect`);
       notify('Instância desconectada com sucesso.', 'ok');
       setQrcode(null);
       await fetchStatus();
@@ -85,7 +101,7 @@ export default function WhatsAppPage() {
   const restart = async () => {
     setLoad('restart', true);
     try {
-      await api.post('/whatsapp/restart');
+      await api.post(`${apiBase}/restart`);
       notify('Reconexão iniciada. Aguarde alguns segundos…', 'ok');
       setTimeout(fetchStatus, 3000);
     } catch {
@@ -111,10 +127,10 @@ export default function WhatsAppPage() {
         <MessageSquare size={28} style={{ color: 'var(--accent)' }} />
         <div>
           <h1 style={{ color: 'var(--text-primary)', fontSize: '1.4rem', fontWeight: 700, lineHeight: 1 }}>
-            WhatsApp — Gestão de Conexão
+            {title}
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: 4 }}>
-            Instância: <code style={{ color: 'var(--accent)' }}>csp-portal</code>
+            Instância: <code style={{ color: 'var(--accent)' }}>{instanceLabel}</code>
           </p>
         </div>
       </div>
@@ -249,7 +265,7 @@ export default function WhatsAppPage() {
           }}
         >
           <p style={{ color: '#86efac', fontSize: '0.85rem' }}>
-            <strong>Tudo certo!</strong> O número {phone ?? '–'} está conectado e enviando notificações normalmente.
+            <strong>Tudo certo!</strong> O número {phone ?? '–'} está conectado e {purpose}.
             Clique em <strong>Reiniciar conexão</strong> se houver falha no envio de mensagens sem desconectar.
             Use <strong>Desconectar</strong> apenas para trocar de número — será necessário escanear um novo QR Code.
           </p>

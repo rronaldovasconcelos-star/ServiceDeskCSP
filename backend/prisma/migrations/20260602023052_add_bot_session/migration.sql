@@ -1,0 +1,8 @@
+-- CreateTable
+CREATE TABLE "BotSession" (
+    "phone" TEXT NOT NULL PRIMARY KEY,
+    "state" TEXT NOT NULL DEFAULT 'IDLE',
+    "data" TEXT NOT NULL DEFAULT '{}',
+    "updatedAt" DATETIME NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

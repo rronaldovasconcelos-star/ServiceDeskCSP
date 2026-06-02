@@ -31,6 +31,20 @@ export const env = {
   evolutionApiKey: optional('EVOLUTION_API_KEY', ''),
   evolutionInstance: optional('EVOLUTION_INSTANCE', ''),
 
+  // Bot de suporte (recebe mensagens e abre chamados via WhatsApp)
+  botEnabled: optional('BOT_ENABLED', 'false') === 'true',
+  botWebhookSecret: optional('BOT_WEBHOOK_SECRET', ''),
+  // Números que o bot NUNCA deve atender (ex: outros bots no mesmo WhatsApp/Evolution),
+  // para evitar loops bot-a-bot. CSV de números; normalizados na comparação.
+  // Default inclui a Sofia (admissões) — 5531988031221.
+  botIgnoredNumbers: (optional('BOT_IGNORED_NUMBERS', '') + ',553188031221')
+    .split(',').map((s) => s.replace(/\D/g, '')).filter(Boolean),
+  // Instância Evolution dedicada ao bot de suporte. Vazio = reusa a de notificações.
+  supportEvolutionInstance: optional('SUPPORT_EVOLUTION_INSTANCE', '') || optional('EVOLUTION_INSTANCE', ''),
+  // Anthropic Claude — classificação de chamados a partir de texto livre
+  anthropicApiKey: optional('ANTHROPIC_API_KEY', ''),
+  anthropicModel: optional('ANTHROPIC_MODEL', 'claude-haiku-4-5'),
+
   // Agente IA (Sofia) — Central de Comando. Proxy para a API admin do bot.
   agentAdminUrl: optional('AGENT_ADMIN_URL', ''),        // ex: http://IP_DO_VPS:3001
   agentAdminSecret: optional('AGENT_ADMIN_SECRET', ''),  // = WEBHOOK_SECRET do bot

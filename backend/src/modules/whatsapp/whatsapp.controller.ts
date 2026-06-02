@@ -2,7 +2,6 @@ import { Request, Response } from 'express';
 import { env } from '../../config/env.js';
 
 const BASE = env.evolutionApiUrl;
-const INSTANCE = env.evolutionInstance;
 const HEADERS = { apikey: env.evolutionApiKey, 'Content-Type': 'application/json' };
 
 async function evolutionRequest(path: string, method = 'GET', body?: unknown) {
@@ -31,62 +30,75 @@ function formatPhone(ownerJid?: string): string | null {
   return `+${ddi} ${dd} ${formatted}`;
 }
 
-export async function getStatus(req: Request, res: Response): Promise<void> {
-  try {
-    const [stateData, instanceData] = await Promise.allSettled([
-      evolutionRequest(`/instance/connectionState/${INSTANCE}`),
-      evolutionRequest(`/instance/fetchInstances?instanceName=${INSTANCE}`),
-    ]);
+/**
+ * Cria os handlers de gestão de conexão para uma instância Evolution específica.
+ * Usado tanto pela instância de notificações (csp-portal) quanto pelo bot de
+ * suporte (csp-suporte), que compartilham a mesma lógica.
+ */
+export function makeWhatsappControllers(instance: string) {
+  async function getStatus(_req: Request, res: Response): Promise<void> {
+    try {
+      const [stateData, instanceData] = await Promise.allSettled([
+        evolutionRequest(`/instance/connectionState/${instance}`),
+        evolutionRequest(`/instance/fetchInstances?instanceName=${instance}`),
+      ]);
 
-    const state =
-      stateData.status === 'fulfilled'
-        ? (stateData.value?.instance?.state ?? stateData.value?.state ?? 'unknown')
-        : 'unknown';
+      const state =
+        stateData.status === 'fulfilled'
+          ? (stateData.value?.instance?.state ?? stateData.value?.state ?? 'unknown')
+          : 'unknown';
 
-    // fetchInstances retorna array; pega o primeiro item
-    let phone: string | null = null;
-    if (instanceData.status === 'fulfilled') {
-      const arr = Array.isArray(instanceData.value) ? instanceData.value : [instanceData.value];
-      const inst = arr.find((i: Record<string, unknown>) => i.name === INSTANCE || i.instanceName === INSTANCE) ?? arr[0];
-      phone = formatPhone(inst?.ownerJid as string | undefined);
+      let phone: string | null = null;
+      if (instanceData.status === 'fulfilled') {
+        const arr = Array.isArray(instanceData.value) ? instanceData.value : [instanceData.value];
+        const inst = arr.find((i: Record<string, unknown>) => i.name === instance || i.instanceName === instance) ?? arr[0];
+        phone = formatPhone(inst?.ownerJid as string | undefined);
+      }
+
+      res.json({ state, phone });
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Erro ao consultar Evolution API' });
     }
-
-    res.json({ state, phone });
-  } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : 'Erro ao consultar Evolution API' });
   }
-}
 
-export async function getQrCode(req: Request, res: Response): Promise<void> {
-  try {
-    const data = await evolutionRequest(`/instance/connect/${INSTANCE}`);
-    // Quando desconectado: { base64: "data:image/png;base64,..." }
-    // Quando conectado: { instance: { state: "open" } }
-    if (data?.base64) {
-      res.json({ qrcode: data.base64, state: 'connecting' });
-    } else {
-      const state = data?.instance?.state ?? 'open';
-      res.json({ qrcode: null, state });
+  async function getQrCode(_req: Request, res: Response): Promise<void> {
+    try {
+      const data = await evolutionRequest(`/instance/connect/${instance}`);
+      if (data?.base64) {
+        res.json({ qrcode: data.base64, state: 'connecting' });
+      } else {
+        const state = data?.instance?.state ?? 'open';
+        res.json({ qrcode: null, state });
+      }
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Erro ao gerar QR code' });
     }
-  } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : 'Erro ao gerar QR code' });
   }
+
+  async function disconnectInstance(_req: Request, res: Response): Promise<void> {
+    try {
+      await evolutionRequest(`/instance/logout/${instance}`, 'DELETE');
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Erro ao desconectar' });
+    }
+  }
+
+  async function restartInstance(_req: Request, res: Response): Promise<void> {
+    try {
+      await evolutionRequest(`/instance/restart/${instance}`, 'PUT');
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Erro ao reiniciar instância' });
+    }
+  }
+
+  return { getStatus, getQrCode, disconnectInstance, restartInstance };
 }
 
-export async function disconnectInstance(req: Request, res: Response): Promise<void> {
-  try {
-    await evolutionRequest(`/instance/logout/${INSTANCE}`, 'DELETE');
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : 'Erro ao desconectar' });
-  }
-}
-
-export async function restartInstance(req: Request, res: Response): Promise<void> {
-  try {
-    await evolutionRequest(`/instance/restart/${INSTANCE}`, 'PUT');
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(502).json({ error: err instanceof Error ? err.message : 'Erro ao reiniciar instância' });
-  }
-}
+// Handlers da instância de notificações (csp-portal) — preservam a API existente.
+const portal = makeWhatsappControllers(env.evolutionInstance);
+export const getStatus = portal.getStatus;
+export const getQrCode = portal.getQrCode;
+export const disconnectInstance = portal.disconnectInstance;
+export const restartInstance = portal.restartInstance;
