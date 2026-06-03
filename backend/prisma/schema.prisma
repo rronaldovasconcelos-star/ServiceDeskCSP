@@ -26,6 +26,8 @@ model User {
   supplyHistory     SupplyRequestHistory[]
   files             File[]                 @relation("OwnerFiles")
   verificationCodes VerificationCode[]
+  maintenancesResponsavel ScheduledMaintenance[] @relation("MaintenanceResponsavel")
+  maintenancesCreated     ScheduledMaintenance[] @relation("MaintenanceCreator")
 }
 
 model BotSession {
@@ -140,4 +142,24 @@ model TicketHistory {
 
   ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   author User   @relation(fields: [authorId], references: [id])
+}
+
+model ScheduledMaintenance {
+  id            String   @id @default(cuid())
+  name          String
+  description   String
+  urgency       String   @default("MEDIA")  // BAIXA | MEDIA | ALTA | URGENTE (vai pro chamado)
+  recurrence    String   @default("NONE")   // NONE | DAILY | WEEKLY | MONTHLY | QUARTERLY | SEMIANNUAL | ANNUAL
+  nextRunAt     DateTime                     // prazo de início da próxima ocorrência (gatilho)
+  leadDays      Int      @default(0)         // antecedência do lembrete em dias (0 = sem lembrete)
+  reminderSent  Boolean  @default(false)     // lembrete da ocorrência atual já enviado (reset ao reagendar)
+  status        String   @default("ACTIVE")  // ACTIVE | PAUSED | DONE | CANCELLED
+  lastTicketId  String?
+  responsavelId String
+  createdById   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  responsavel User @relation("MaintenanceResponsavel", fields: [responsavelId], references: [id])
+  createdBy   User @relation("MaintenanceCreator", fields: [createdById], references: [id])
 }

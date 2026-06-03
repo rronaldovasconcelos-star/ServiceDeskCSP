@@ -44,6 +44,9 @@ export const env = {
   corsOrigins: optional('CORS_ALLOWED_ORIGINS', 'https://servicedeskcsp.com.br')
     .split(',').map((s) => s.trim()).filter(Boolean),
 
+  // Scheduler de manutenções programadas (gera chamados no vencimento)
+  maintenanceSchedulerEnabled: optional('MAINTENANCE_SCHEDULER_ENABLED', 'true') === 'true',
+
   // Auto-cadastro / OTP
   otpExpiresMinutes: parseInt(optional('OTP_EXPIRES_MINUTES', '10'), 10),
   allowSelfRegistration: optional('ALLOW_SELF_REGISTRATION', 'true') === 'true',

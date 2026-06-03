@@ -16,6 +16,7 @@ import SuprimentosPage from './pages/SuprimentosPage';
 import SuprimentosFormPage from './pages/SuprimentosFormPage';
 import SuprimentosDetailPage from './pages/SuprimentosDetailPage';
 import SuprimentosCatalogoPage from './pages/SuprimentosCatalogoPage';
+import ManutencoesPage from './pages/ManutencoesPage';
 import MeusArquivosPage from './pages/MeusArquivosPage';
 import RepositorioPage from './pages/RepositorioPage';
 import WhatsAppPage from './pages/WhatsAppPage';
@@ -91,6 +92,14 @@ export default function App() {
             element={
               <ProtectedRoute adminOnly>
                 <Layout><SuprimentosCatalogoPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manutencoes"
+            element={
+              <ProtectedRoute adminOnly>
+                <Layout><ManutencoesPage /></Layout>
               </ProtectedRoute>
             }
           />
