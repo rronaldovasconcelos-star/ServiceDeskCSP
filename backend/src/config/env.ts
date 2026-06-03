@@ -47,6 +47,11 @@ export const env = {
   // Scheduler de manutenções programadas (gera chamados no vencimento)
   maintenanceSchedulerEnabled: optional('MAINTENANCE_SCHEDULER_ENABLED', 'true') === 'true',
 
+  // Backup automático para o Google Drive
+  backupSchedulerEnabled: optional('BACKUP_SCHEDULER_ENABLED', 'true') === 'true',
+  backupHour: parseInt(optional('BACKUP_HOUR', '3'), 10),        // hora local do servidor (0-23)
+  backupRetention: parseInt(optional('BACKUP_RETENTION', '30'), 10), // qtd de backups mantidos no Drive
+
   // Auto-cadastro / OTP
   otpExpiresMinutes: parseInt(optional('OTP_EXPIRES_MINUTES', '10'), 10),
   allowSelfRegistration: optional('ALLOW_SELF_REGISTRATION', 'true') === 'true',

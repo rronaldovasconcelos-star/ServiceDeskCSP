@@ -17,6 +17,7 @@ import SuprimentosFormPage from './pages/SuprimentosFormPage';
 import SuprimentosDetailPage from './pages/SuprimentosDetailPage';
 import SuprimentosCatalogoPage from './pages/SuprimentosCatalogoPage';
 import ManutencoesPage from './pages/ManutencoesPage';
+import BackupPage from './pages/BackupPage';
 import MeusArquivosPage from './pages/MeusArquivosPage';
 import RepositorioPage from './pages/RepositorioPage';
 import WhatsAppPage from './pages/WhatsAppPage';
@@ -132,6 +133,14 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['ADMIN', 'GESTOR']}>
                 <Layout><RepositorioPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/backups"
+            element={
+              <ProtectedRoute adminOnly>
+                <Layout><BackupPage /></Layout>
               </ProtectedRoute>
             }
           />

@@ -10,6 +10,7 @@ import whatsappRouter from './modules/whatsapp/whatsapp.router.js';
 import agentRouter from './modules/agent/agent.router.js';
 import botRouter from './modules/bot/bot.router.js';
 import maintenancesRouter from './modules/maintenances/maintenances.router.js';
+import backupRouter from './modules/backup/backup.router.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { env } from './config/env.js';
 
@@ -48,6 +49,7 @@ app.use('/api/whatsapp', whatsappRouter);
 app.use('/api/agent', agentRouter);
 app.use('/api/bot', botRouter);
 app.use('/api/maintenances', maintenancesRouter);
+app.use('/api/backup', backupRouter);
 
 app.use(errorHandler);
 

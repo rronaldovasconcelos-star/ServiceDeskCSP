@@ -39,6 +39,10 @@ services:
       SUPPORT_EVOLUTION_INSTANCE: "${SUPPORT_EVOLUTION_INSTANCE:-}"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-claude-haiku-4-5}"
+      # Backup automático do banco para o Google Drive (pasta "Backups CSP")
+      BACKUP_SCHEDULER_ENABLED: "${BACKUP_SCHEDULER_ENABLED:-true}"
+      BACKUP_HOUR: "${BACKUP_HOUR:-3}"
+      BACKUP_RETENTION: "${BACKUP_RETENTION:-30}"
     volumes:
       - csp-db:/app/prisma
       - csp-uploads:/app/uploads
