@@ -12,9 +12,19 @@ const dbUrl = pathToFileURL(dbFile).href;
 const adapter = new PrismaLibSql({ url: dbUrl });
 const prisma = new PrismaClient({ adapter } as never);
 
-const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@santiagopaula.com.br';
-const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'Admin@123';
+const INSECURE_ADMIN_PASSWORD = 'Admin@123';
+const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@santapaula.com.br';
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? INSECURE_ADMIN_PASSWORD;
 const ADMIN_NAME = process.env.SEED_ADMIN_NAME ?? 'Administrador';
+
+// Em produção, recusa criar o admin com a senha default pública conhecida.
+if (process.env.NODE_ENV === 'production' && ADMIN_PASSWORD === INSECURE_ADMIN_PASSWORD) {
+  console.error(
+    '[seed] SEED_ADMIN_PASSWORD não definido (ou igual ao default inseguro) em produção. ' +
+      'Defina uma senha forte antes de rodar o seed.',
+  );
+  process.exit(1);
+}
 
 const SUPPLY_ITEMS = [
   // PAPEL

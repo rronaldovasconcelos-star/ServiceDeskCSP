@@ -10,11 +10,39 @@ function optional(key: string, fallback: string): string {
   return process.env[key] ?? fallback;
 }
 
+const isProduction = optional('NODE_ENV', 'development') === 'production';
+
+// Valor default histórico do JWT_SECRET — rejeitado em produção para impedir que
+// tokens sejam forjados com um segredo público conhecido.
+const INSECURE_JWT_DEFAULT = 'change-me-in-production-super-secret-key';
+
+/**
+ * Lê um segredo que NÃO pode ficar no valor default em produção. Em dev usa o
+ * fallback; em produção, exige um valor próprio e aborta o boot se ausente ou
+ * igual ao default inseguro.
+ */
+function requiredSecretInProd(key: string, devFallback: string): string {
+  const value = process.env[key];
+  if (isProduction) {
+    if (!value) throw new Error(`Missing required env variable in production: ${key}`);
+    if (value === devFallback) {
+      throw new Error(`${key} está com o valor default inseguro — defina um segredo próprio em produção.`);
+    }
+    return value;
+  }
+  return value ?? devFallback;
+}
+
 export const env = {
   port: parseInt(optional('PORT', '3001'), 10),
-  jwtSecret: optional('JWT_SECRET', 'change-me-in-production-super-secret-key'),
+  jwtSecret: requiredSecretInProd('JWT_SECRET', INSECURE_JWT_DEFAULT),
   jwtExpiresIn: optional('JWT_EXPIRES_IN', '8h'),
   nodeEnv: optional('NODE_ENV', 'development'),
+
+  // Origens permitidas pelo CORS em produção (CSV). Em desenvolvimento qualquer
+  // origem é liberada (ver app.ts). Default = domínio oficial do portal.
+  corsOrigins: optional('CORS_ALLOWED_ORIGINS', 'https://servicedeskcsp.com.br')
+    .split(',').map((s) => s.trim()).filter(Boolean),
 
   // Auto-cadastro / OTP
   otpExpiresMinutes: parseInt(optional('OTP_EXPIRES_MINUTES', '10'), 10),
