@@ -1,5 +1,6 @@
 import { prisma } from '../../lib/prisma.js';
 import { sendWhatsApp } from '../../services/whatsapp/index.js';
+import { normalizeBrazilPhone } from '../../lib/phone.js';
 
 /**
  * Centraliza as notificações WhatsApp de chamados.
@@ -26,12 +27,18 @@ interface TicketRef {
   requesterId: string;
 }
 
-/** Envia a mesma mensagem para vários telefones, ignorando os nulos. */
+/**
+ * Envia a mesma mensagem para vários telefones, deduplicando pelo número
+ * normalizado (+55DDN...) — evita duplicar quando o mesmo WhatsApp está gravado
+ * em formatos diferentes (ex.: "5531..." e "+5531...").
+ */
 async function notifyPhones(phones: Array<string | null | undefined>, text: string): Promise<void> {
   const seen = new Set<string>();
   for (const phone of phones) {
-    if (!phone || seen.has(phone)) continue;
-    seen.add(phone);
+    if (!phone) continue;
+    const key = normalizeBrazilPhone(phone) ?? phone;
+    if (seen.has(key)) continue;
+    seen.add(key);
     await sendWhatsApp(phone, text);
   }
 }
