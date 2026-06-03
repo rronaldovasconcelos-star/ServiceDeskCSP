@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 
 interface SupplyItem {
   id: string;
@@ -129,7 +130,19 @@ const thStyle: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
+const selectStyle: React.CSSProperties = {
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius-sm)',
+  padding: '6px 12px',
+  fontSize: '13px',
+  background: 'var(--bg-card)',
+  color: 'var(--text-primary)',
+  outline: 'none',
+};
+
 export default function SuprimentosCatalogoPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const [items, setItems] = useState<SupplyItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -138,12 +151,67 @@ export default function SuprimentosCatalogoPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  // Exclusão em massa (admin)
+  const [bulkFrom, setBulkFrom] = useState('');
+  const [bulkTo, setBulkTo] = useState('');
+  const [bulkCategory, setBulkCategory] = useState('');
+  const [bulkPreview, setBulkPreview] = useState<{ count: number; blocked: number } | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+
   const load = () => {
     setLoading(true);
     api.get('/suprimentos/items').then((r) => setItems(r.data)).finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
+
+  const bulkParams = () => {
+    const params: Record<string, string> = {};
+    if (bulkFrom) params.from = bulkFrom;
+    if (bulkTo) params.to = bulkTo;
+    if (bulkCategory) params.category = bulkCategory;
+    return params;
+  };
+  const hasBulkFilter = Boolean(bulkFrom || bulkTo || bulkCategory);
+
+  useEffect(() => { setBulkPreview(null); }, [bulkFrom, bulkTo, bulkCategory]);
+
+  const previewBulk = async () => {
+    setBulkBusy(true);
+    try {
+      const r = await api.get('/suprimentos/items/admin/bulk-preview', { params: bulkParams() });
+      setBulkPreview(r.data);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkDelete = async () => {
+    if (!bulkPreview) return;
+    if (!window.confirm(`Excluir permanentemente ${bulkPreview.count} item(ns) do catálogo? Esta ação não pode ser desfeita.`)) return;
+    setBulkBusy(true);
+    try {
+      await api.delete('/suprimentos/items/admin/bulk', { params: bulkParams() });
+      setBulkPreview(null);
+      setBulkFrom('');
+      setBulkTo('');
+      setBulkCategory('');
+      load();
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const deleteItem = async (id: string, name: string) => {
+    if (!window.confirm(`Excluir o item "${name}" do catálogo? Esta ação não pode ser desfeita.`)) return;
+    try {
+      await api.delete(`/suprimentos/items/${id}`);
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      alert(msg ?? 'Erro ao excluir item.');
+    }
+  };
 
   const openNew = () => { setEditId(null); setForm(emptyForm); setError(''); setShowForm(true); };
   const openEdit = (item: SupplyItem) => {
@@ -206,6 +274,58 @@ export default function SuprimentosCatalogoPage() {
         <ItemModal editId={editId} form={form} saving={saving} error={error} onChange={setForm} onSubmit={handleSubmit} onClose={closeModal} />
       )}
 
+      {/* Exclusão em massa — restrito ao ADMIN */}
+      {isAdmin && (
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px', marginBottom: '16px' }}>
+          <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>
+            Excluir itens em massa
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+            <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+              De{' '}
+              <input type="date" value={bulkFrom} onChange={(e) => setBulkFrom(e.target.value)} style={selectStyle} />
+            </label>
+            <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+              Até{' '}
+              <input type="date" value={bulkTo} onChange={(e) => setBulkTo(e.target.value)} style={selectStyle} />
+            </label>
+            <select value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} style={selectStyle}>
+              <option value="">Todas as categorias</option>
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <button
+              onClick={previewBulk}
+              disabled={!hasBulkFilter || bulkBusy}
+              style={{ padding: '6px 14px', background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: hasBulkFilter && !bulkBusy ? 'pointer' : 'not-allowed', opacity: hasBulkFilter && !bulkBusy ? 1 : 0.5 }}
+            >
+              Pré-visualizar
+            </button>
+            {bulkPreview && (
+              <button
+                onClick={runBulkDelete}
+                disabled={bulkPreview.count === 0 || bulkBusy}
+                style={{ padding: '6px 14px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: bulkPreview.count > 0 && !bulkBusy ? 'pointer' : 'not-allowed', opacity: bulkPreview.count > 0 && !bulkBusy ? 1 : 0.5 }}
+              >
+                Excluir {bulkPreview.count}
+              </button>
+            )}
+          </div>
+          {bulkPreview && (
+            <p style={{ fontSize: '12px', color: bulkPreview.count > 0 ? '#ef4444' : 'var(--text-secondary)', margin: '10px 0 0' }}>
+              {bulkPreview.count > 0
+                ? `${bulkPreview.count} item(ns) serão excluídos.`
+                : 'Nenhum item elegível para exclusão.'}
+              {bulkPreview.blocked > 0 && ` ${bulkPreview.blocked} item(ns) com pedidos vinculados serão ignorados.`}
+            </p>
+          )}
+          {!hasBulkFilter && (
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '10px 0 0' }}>
+              Informe ao menos um filtro (período ou tipo). Itens com pedidos vinculados não são excluídos.
+            </p>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Carregando...</p>
       ) : items.length === 0 ? (
@@ -241,6 +361,11 @@ export default function SuprimentosCatalogoPage() {
                         <button onClick={() => toggleActive(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12px', padding: 0 }}>
                           {item.isActive ? 'Desativar' : 'Ativar'}
                         </button>
+                        {isAdmin && (
+                          <button onClick={() => deleteItem(item.id, item.name)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', padding: 0, fontWeight: 500 }}>
+                            Excluir
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -274,6 +399,11 @@ export default function SuprimentosCatalogoPage() {
                   <button onClick={() => toggleActive(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12px', padding: 0 }}>
                     {item.isActive ? 'Desativar' : 'Ativar'}
                   </button>
+                  {isAdmin && (
+                    <button onClick={() => deleteItem(item.id, item.name)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', padding: 0, fontWeight: 500 }}>
+                      Excluir
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

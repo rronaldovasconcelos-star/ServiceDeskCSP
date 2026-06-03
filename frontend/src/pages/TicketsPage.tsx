@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 import { StatusBadge, UrgencyBadge } from '../components/StatusBadge';
 
 interface Ticket {
@@ -57,10 +58,65 @@ const thStyle: React.CSSProperties = {
 };
 
 export default function TicketsPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
   const [category, setCategory] = useState('');
+
+  // Exclusão em massa (admin)
+  const [bulkFrom, setBulkFrom] = useState('');
+  const [bulkTo, setBulkTo] = useState('');
+  const [bulkCategory, setBulkCategory] = useState('');
+  const [bulkCount, setBulkCount] = useState<number | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const bulkParams = () => {
+    const params: Record<string, string> = {};
+    if (bulkFrom) params.from = bulkFrom;
+    if (bulkTo) params.to = bulkTo;
+    if (bulkCategory) params.category = bulkCategory;
+    return params;
+  };
+  const hasBulkFilter = Boolean(bulkFrom || bulkTo || bulkCategory);
+
+  const previewBulk = async () => {
+    setBulkBusy(true);
+    try {
+      const r = await api.get('/tickets/admin/bulk-preview', { params: bulkParams() });
+      setBulkCount(r.data.count);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkDelete = async () => {
+    if (bulkCount === null) return;
+    if (!window.confirm(`Excluir permanentemente ${bulkCount} chamado(s)? Esta ação não pode ser desfeita.`)) return;
+    setBulkBusy(true);
+    try {
+      await api.delete('/tickets/admin/bulk', { params: bulkParams() });
+      setBulkCount(null);
+      setBulkFrom('');
+      setBulkTo('');
+      setBulkCategory('');
+      setReloadKey((k) => k + 1);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const deleteOne = async (id: string, title: string) => {
+    if (!window.confirm(`Excluir o chamado "${title}" permanentemente? Esta ação não pode ser desfeita.`)) return;
+    await api.delete(`/tickets/${id}`);
+    setReloadKey((k) => k + 1);
+  };
+
+  useEffect(() => {
+    setBulkCount(null);
+  }, [bulkFrom, bulkTo, bulkCategory]);
 
   useEffect(() => {
     setLoading(true);
@@ -70,7 +126,7 @@ export default function TicketsPage() {
     api.get('/tickets', { params })
       .then((r) => setTickets(r.data))
       .finally(() => setLoading(false));
-  }, [status, category]);
+  }, [status, category, reloadKey]);
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
@@ -93,6 +149,56 @@ export default function TicketsPage() {
         </select>
       </div>
 
+      {/* Exclusão em massa — restrito ao ADMIN */}
+      {isAdmin && (
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px', marginBottom: '16px' }}>
+          <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>
+            Excluir em massa
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+            <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+              De{' '}
+              <input type="date" value={bulkFrom} onChange={(e) => setBulkFrom(e.target.value)} style={selectStyle} />
+            </label>
+            <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+              Até{' '}
+              <input type="date" value={bulkTo} onChange={(e) => setBulkTo(e.target.value)} style={selectStyle} />
+            </label>
+            <select value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} style={selectStyle}>
+              {categories.map((c) => <option key={c} value={c}>{categoryLabel[c]}</option>)}
+            </select>
+            <button
+              onClick={previewBulk}
+              disabled={!hasBulkFilter || bulkBusy}
+              style={{ padding: '6px 14px', background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: hasBulkFilter && !bulkBusy ? 'pointer' : 'not-allowed', opacity: hasBulkFilter && !bulkBusy ? 1 : 0.5 }}
+            >
+              Pré-visualizar
+            </button>
+            {bulkCount !== null && (
+              <button
+                onClick={runBulkDelete}
+                disabled={bulkCount === 0 || bulkBusy}
+                style={{ padding: '6px 14px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: bulkCount > 0 && !bulkBusy ? 'pointer' : 'not-allowed', opacity: bulkCount > 0 && !bulkBusy ? 1 : 0.5 }}
+              >
+                Excluir {bulkCount}
+              </button>
+            )}
+          </div>
+          {bulkCount !== null && (
+            <p style={{ fontSize: '12px', color: bulkCount > 0 ? '#ef4444' : 'var(--text-secondary)', margin: '10px 0 0' }}>
+              {bulkCount > 0
+                ? `${bulkCount} chamado(s) serão excluídos com os filtros selecionados.`
+                : 'Nenhum chamado corresponde aos filtros selecionados.'}
+            </p>
+          )}
+          {!hasBulkFilter && (
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '10px 0 0' }}>
+              Informe ao menos um filtro (período ou tipo) para excluir em massa.
+            </p>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Carregando...</p>
       ) : tickets.length === 0 ? (
@@ -110,6 +216,7 @@ export default function TicketsPage() {
                   <th style={thStyle}>Status</th>
                   <th style={thStyle}>Solicitante</th>
                   <th style={thStyle}>Aberto em</th>
+                  {isAdmin && <th style={thStyle}>Ações</th>}
                 </tr>
               </thead>
               <tbody>
@@ -127,6 +234,13 @@ export default function TicketsPage() {
                     <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>
                       {new Date(t.createdAt).toLocaleDateString('pt-BR')}
                     </td>
+                    {isAdmin && (
+                      <td style={{ padding: '10px 16px' }}>
+                        <button onClick={() => deleteOne(t.id, t.title)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', padding: 0, fontWeight: 500 }}>
+                          Excluir
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -136,26 +250,34 @@ export default function TicketsPage() {
           {/* Mobile: cards */}
           <div className="md:hidden space-y-3">
             {tickets.map((t) => (
-              <Link
+              <div
                 key={t.id}
-                to={`/tickets/${t.id}`}
-                style={{ display: 'block', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px', textDecoration: 'none' }}
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px' }}
               >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--accent)', fontSize: '13px', lineHeight: 1.4 }}>{t.title}</span>
-                  <StatusBadge status={t.status} />
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
-                  <UrgencyBadge urgency={t.urgency} />
-                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>
-                    {t.category}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                  <span>{t.requester.name}</span>
-                  <span>{new Date(t.createdAt).toLocaleDateString('pt-BR')}</span>
-                </div>
-              </Link>
+                <Link to={`/tickets/${t.id}`} style={{ display: 'block', textDecoration: 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                    <span style={{ fontWeight: 600, color: 'var(--accent)', fontSize: '13px', lineHeight: 1.4 }}>{t.title}</span>
+                    <StatusBadge status={t.status} />
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
+                    <UrgencyBadge urgency={t.urgency} />
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>
+                      {t.category}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                    <span>{t.requester.name}</span>
+                    <span>{new Date(t.createdAt).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                </Link>
+                {isAdmin && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+                    <button onClick={() => deleteOne(t.id, t.title)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', padding: 0, fontWeight: 500 }}>
+                      Excluir
+                    </button>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </>

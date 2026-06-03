@@ -81,6 +81,12 @@ export default function SuprimentosDetailPage() {
     load();
   };
 
+  const deleteRequest = async () => {
+    if (!window.confirm('Excluir este pedido permanentemente? Esta ação não pode ser desfeita.')) return;
+    await api.delete(`/suprimentos/requests/${id}`);
+    navigate('/suprimentos');
+  };
+
   if (loading) return <div style={{ padding: '24px', color: 'var(--text-secondary)' }}>Carregando...</div>;
   if (!request) return <div style={{ padding: '24px', color: '#ef4444' }}>{error || 'Pedido não encontrado.'}</div>;
 
@@ -156,6 +162,18 @@ export default function SuprimentosDetailPage() {
                 {nextLabel[s] ?? s}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Exclusão — restrito ao ADMIN */}
+        {user?.role === 'ADMIN' && (
+          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
+            <button
+              onClick={deleteRequest}
+              style={{ padding: '7px 16px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
+            >
+              Excluir pedido
+            </button>
           </div>
         )}
       </div>

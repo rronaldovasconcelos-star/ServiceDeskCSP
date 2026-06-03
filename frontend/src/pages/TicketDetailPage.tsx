@@ -82,6 +82,7 @@ export default function TicketDetailPage() {
 
   const isPrivileged = user?.role === 'ADMIN' || user?.role === 'GESTOR';
   const canApprove = isPrivileged;
+  const isAdmin = user?.role === 'ADMIN';
 
   const load = () => {
     api.get(`/tickets/${id}`).then((r) => setTicket(r.data));
@@ -112,6 +113,12 @@ export default function TicketDetailPage() {
     await api.post(`/tickets/${id}/comments`, { message: comment });
     setComment('');
     load();
+  };
+
+  const deleteTicket = async () => {
+    if (!window.confirm('Excluir este chamado permanentemente? Esta ação não pode ser desfeita.')) return;
+    await api.delete(`/tickets/${id}`);
+    navigate('/tickets');
   };
 
   if (loading) return <div style={{ padding: '24px', color: 'var(--text-secondary)' }}>Carregando...</div>;
@@ -204,6 +211,18 @@ export default function TicketDetailPage() {
               <option value="">Sem responsável</option>
               {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
             </select>
+          </div>
+        )}
+
+        {/* Exclusão — restrito ao ADMIN */}
+        {isAdmin && (
+          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
+            <button
+              onClick={deleteTicket}
+              style={{ padding: '7px 16px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
+            >
+              Excluir chamado
+            </button>
           </div>
         )}
       </div>

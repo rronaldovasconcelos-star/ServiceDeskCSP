@@ -28,6 +28,34 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 // Transições que exigem papel ADMIN ou GESTOR
 const APPROVAL_TRANSITIONS = new Set(['APROVADO', 'REJEITADO']);
 
+const bulkDeleteSchema = z.object({
+  from: z.string().optional(),
+  to: z.string().optional(),
+  category: z.enum(TICKET_CATEGORIES).optional(),
+});
+
+/**
+ * Monta o filtro `where` para deleção em massa a partir dos parâmetros de
+ * período (from/to) e categoria. Usado tanto pelo preview quanto pelo delete
+ * para garantir que a contagem mostrada bata exatamente com o que é apagado.
+ * Retorna `null` quando nenhum filtro foi informado (trava anti "apagar tudo").
+ */
+function buildBulkWhere(query: unknown): Record<string, unknown> | null {
+  const { from, to, category } = bulkDeleteSchema.parse(query);
+  const where: Record<string, unknown> = {};
+
+  if (category) where.category = category;
+
+  if (from || to) {
+    const createdAt: Record<string, Date> = {};
+    if (from) createdAt.gte = new Date(`${from}T00:00:00.000`);
+    if (to) createdAt.lte = new Date(`${to}T23:59:59.999`);
+    where.createdAt = createdAt;
+  }
+
+  return Object.keys(where).length === 0 ? null : where;
+}
+
 export async function listTickets(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { status, category, urgency } = req.query;
@@ -212,6 +240,46 @@ export async function addComment(req: Request, res: Response, next: NextFunction
     );
 
     res.status(201).json(entry);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Exclui um chamado individualmente. Restrito ao ADMIN (rota usa requireRole). */
+export async function deleteTicket(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id as string } });
+    if (!ticket) { res.status(404).json({ error: 'Chamado não encontrado' }); return; }
+
+    // O TicketHistory é removido em cascata (onDelete: Cascade no schema).
+    await prisma.ticket.delete({ where: { id: ticket.id } });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Conta quantos chamados seriam afetados pela deleção em massa (não destrutivo). */
+export async function previewBulkDelete(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const where = buildBulkWhere(req.query);
+    if (!where) { res.status(400).json({ error: 'Informe ao menos um filtro (período ou tipo)' }); return; }
+
+    const count = await prisma.ticket.count({ where });
+    res.json({ count });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Executa a deleção em massa por período e/ou tipo. Restrito ao ADMIN. */
+export async function bulkDelete(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const where = buildBulkWhere(req.query);
+    if (!where) { res.status(400).json({ error: 'Informe ao menos um filtro (período ou tipo)' }); return; }
+
+    const { count } = await prisma.ticket.deleteMany({ where });
+    res.json({ count });
   } catch (err) {
     next(err);
   }

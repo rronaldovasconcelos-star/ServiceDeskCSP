@@ -29,6 +29,47 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   CANCELADO: [],
 };
 
+const SUPPLY_CATEGORIES = ['PAPEL', 'TONER', 'LIMPEZA', 'INFORMATICA', 'OUTROS'] as const;
+
+const bulkSchema = z.object({
+  from: z.string().optional(),
+  to: z.string().optional(),
+  category: z.enum(SUPPLY_CATEGORIES).optional(),
+});
+
+/** Período (from/to em createdAt) compartilhado por pedidos e catálogo. */
+function dateRange(from?: string, to?: string): Record<string, Date> | null {
+  if (!from && !to) return null;
+  const createdAt: Record<string, Date> = {};
+  if (from) createdAt.gte = new Date(`${from}T00:00:00.000`);
+  if (to) createdAt.lte = new Date(`${to}T23:59:59.999`);
+  return createdAt;
+}
+
+/**
+ * Filtro para deleção em massa de PEDIDOS. O "tipo" do pedido vem da categoria
+ * do item (relação), espelhando o filtro da listagem. Retorna null se nada foi
+ * informado (trava anti "apagar tudo").
+ */
+function buildRequestBulkWhere(query: unknown): Record<string, unknown> | null {
+  const { from, to, category } = bulkSchema.parse(query);
+  const where: Record<string, unknown> = {};
+  const createdAt = dateRange(from, to);
+  if (createdAt) where.createdAt = createdAt;
+  if (category) where.item = { category };
+  return Object.keys(where).length === 0 ? null : where;
+}
+
+/** Filtro para deleção em massa de ITENS do catálogo (categoria é campo direto). */
+function buildItemBulkWhere(query: unknown): Record<string, unknown> | null {
+  const { from, to, category } = bulkSchema.parse(query);
+  const where: Record<string, unknown> = {};
+  const createdAt = dateRange(from, to);
+  if (createdAt) where.createdAt = createdAt;
+  if (category) where.category = category;
+  return Object.keys(where).length === 0 ? null : where;
+}
+
 // ─── Select helpers ──────────────────────────────────────────────────────────
 
 const itemSelect = {
@@ -107,6 +148,57 @@ export async function toggleItemActive(req: Request, res: Response, next: NextFu
       select: itemSelect,
     });
     res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Exclui um item do catálogo. Como SupplyItem→SupplyRequest NÃO tem cascade,
+ * bloqueia a exclusão (409) se houver pedidos vinculados — o admin deve excluir
+ * os pedidos antes. Restrito ao ADMIN.
+ */
+export async function deleteItem(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const item = await (prisma as any).supplyItem.findUnique({ where: { id: req.params.id } });
+    if (!item) { res.status(404).json({ error: 'Item não encontrado' }); return; }
+
+    const linked = await (prisma as any).supplyRequest.count({ where: { itemId: item.id } });
+    if (linked > 0) {
+      res.status(409).json({ error: `Item possui ${linked} pedido(s) vinculado(s). Exclua os pedidos antes de remover o item.` });
+      return;
+    }
+
+    await (prisma as any).supplyItem.delete({ where: { id: item.id } });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Preview da exclusão em massa de itens. Conta os elegíveis (sem pedidos) e os bloqueados (com pedidos). */
+export async function previewBulkItems(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const where = buildItemBulkWhere(req.query);
+    if (!where) { res.status(400).json({ error: 'Informe ao menos um filtro (período ou tipo)' }); return; }
+
+    const count = await (prisma as any).supplyItem.count({ where: { ...where, requests: { none: {} } } });
+    const blocked = await (prisma as any).supplyItem.count({ where: { ...where, requests: { some: {} } } });
+    res.json({ count, blocked });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Exclui em massa os itens elegíveis (sem pedidos vinculados). Itens com pedidos são ignorados. */
+export async function bulkDeleteItems(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const where = buildItemBulkWhere(req.query);
+    if (!where) { res.status(400).json({ error: 'Informe ao menos um filtro (período ou tipo)' }); return; }
+
+    const blocked = await (prisma as any).supplyItem.count({ where: { ...where, requests: { some: {} } } });
+    const { count } = await (prisma as any).supplyItem.deleteMany({ where: { ...where, requests: { none: {} } } });
+    res.json({ count, blocked });
   } catch (err) {
     next(err);
   }
@@ -268,6 +360,45 @@ export async function addComment(req: Request, res: Response, next: NextFunction
       },
     });
     res.status(201).json(entry);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Exclui um pedido individualmente. O histórico é removido em cascata. Restrito ao ADMIN. */
+export async function deleteRequest(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const request = await (prisma as any).supplyRequest.findUnique({ where: { id: req.params.id } });
+    if (!request) { res.status(404).json({ error: 'Pedido não encontrado' }); return; }
+
+    await (prisma as any).supplyRequest.delete({ where: { id: request.id } });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Conta quantos pedidos seriam afetados pela deleção em massa (não destrutivo). */
+export async function previewBulkRequests(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const where = buildRequestBulkWhere(req.query);
+    if (!where) { res.status(400).json({ error: 'Informe ao menos um filtro (período ou tipo)' }); return; }
+
+    const count = await (prisma as any).supplyRequest.count({ where });
+    res.json({ count });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/** Executa a deleção em massa de pedidos por período e/ou tipo (categoria do item). Restrito ao ADMIN. */
+export async function bulkDeleteRequests(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const where = buildRequestBulkWhere(req.query);
+    if (!where) { res.status(400).json({ error: 'Informe ao menos um filtro (período ou tipo)' }); return; }
+
+    const { count } = await (prisma as any).supplyRequest.deleteMany({ where });
+    res.json({ count });
   } catch (err) {
     next(err);
   }

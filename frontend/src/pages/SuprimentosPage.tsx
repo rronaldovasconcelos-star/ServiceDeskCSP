@@ -40,10 +40,64 @@ const thStyle: React.CSSProperties = {
 
 export default function SuprimentosPage() {
   const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const [requests, setRequests] = useState<SupplyRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
   const [category, setCategory] = useState('');
+
+  // Exclusão em massa (admin)
+  const [bulkFrom, setBulkFrom] = useState('');
+  const [bulkTo, setBulkTo] = useState('');
+  const [bulkCategory, setBulkCategory] = useState('');
+  const [bulkCount, setBulkCount] = useState<number | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const bulkParams = () => {
+    const params: Record<string, string> = {};
+    if (bulkFrom) params.from = bulkFrom;
+    if (bulkTo) params.to = bulkTo;
+    if (bulkCategory) params.category = bulkCategory;
+    return params;
+  };
+  const hasBulkFilter = Boolean(bulkFrom || bulkTo || bulkCategory);
+
+  const previewBulk = async () => {
+    setBulkBusy(true);
+    try {
+      const r = await api.get('/suprimentos/requests/admin/bulk-preview', { params: bulkParams() });
+      setBulkCount(r.data.count);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const runBulkDelete = async () => {
+    if (bulkCount === null) return;
+    if (!window.confirm(`Excluir permanentemente ${bulkCount} pedido(s)? Esta ação não pode ser desfeita.`)) return;
+    setBulkBusy(true);
+    try {
+      await api.delete('/suprimentos/requests/admin/bulk', { params: bulkParams() });
+      setBulkCount(null);
+      setBulkFrom('');
+      setBulkTo('');
+      setBulkCategory('');
+      setReloadKey((k) => k + 1);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const deleteOne = async (id: string, name: string) => {
+    if (!window.confirm(`Excluir o pedido de "${name}" permanentemente? Esta ação não pode ser desfeita.`)) return;
+    await api.delete(`/suprimentos/requests/${id}`);
+    setReloadKey((k) => k + 1);
+  };
+
+  useEffect(() => {
+    setBulkCount(null);
+  }, [bulkFrom, bulkTo, bulkCategory]);
 
   useEffect(() => {
     setLoading(true);
@@ -53,7 +107,7 @@ export default function SuprimentosPage() {
     api.get('/suprimentos/requests', { params })
       .then((r) => setRequests(r.data))
       .finally(() => setLoading(false));
-  }, [status, category]);
+  }, [status, category, reloadKey]);
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
@@ -86,6 +140,56 @@ export default function SuprimentosPage() {
         </select>
       </div>
 
+      {/* Exclusão em massa — restrito ao ADMIN */}
+      {isAdmin && (
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px', marginBottom: '16px' }}>
+          <p style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 10px' }}>
+            Excluir pedidos em massa
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+            <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+              De{' '}
+              <input type="date" value={bulkFrom} onChange={(e) => setBulkFrom(e.target.value)} style={selectStyle} />
+            </label>
+            <label style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+              Até{' '}
+              <input type="date" value={bulkTo} onChange={(e) => setBulkTo(e.target.value)} style={selectStyle} />
+            </label>
+            <select value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} style={selectStyle}>
+              {categories.map((c) => <option key={c} value={c}>{c || 'Todas as categorias'}</option>)}
+            </select>
+            <button
+              onClick={previewBulk}
+              disabled={!hasBulkFilter || bulkBusy}
+              style={{ padding: '6px 14px', background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: hasBulkFilter && !bulkBusy ? 'pointer' : 'not-allowed', opacity: hasBulkFilter && !bulkBusy ? 1 : 0.5 }}
+            >
+              Pré-visualizar
+            </button>
+            {bulkCount !== null && (
+              <button
+                onClick={runBulkDelete}
+                disabled={bulkCount === 0 || bulkBusy}
+                style={{ padding: '6px 14px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: bulkCount > 0 && !bulkBusy ? 'pointer' : 'not-allowed', opacity: bulkCount > 0 && !bulkBusy ? 1 : 0.5 }}
+              >
+                Excluir {bulkCount}
+              </button>
+            )}
+          </div>
+          {bulkCount !== null && (
+            <p style={{ fontSize: '12px', color: bulkCount > 0 ? '#ef4444' : 'var(--text-secondary)', margin: '10px 0 0' }}>
+              {bulkCount > 0
+                ? `${bulkCount} pedido(s) serão excluídos com os filtros selecionados.`
+                : 'Nenhum pedido corresponde aos filtros selecionados.'}
+            </p>
+          )}
+          {!hasBulkFilter && (
+            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '10px 0 0' }}>
+              Informe ao menos um filtro (período ou tipo) para excluir em massa.
+            </p>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Carregando...</p>
       ) : requests.length === 0 ? (
@@ -103,6 +207,7 @@ export default function SuprimentosPage() {
                   <th style={thStyle}>Status</th>
                   {user?.role === 'ADMIN' && <th style={thStyle}>Solicitante</th>}
                   <th style={thStyle}>Data</th>
+                  {isAdmin && <th style={thStyle}>Ações</th>}
                 </tr>
               </thead>
               <tbody>
@@ -121,6 +226,13 @@ export default function SuprimentosPage() {
                     <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>
                       {new Date(r.createdAt).toLocaleDateString('pt-BR')}
                     </td>
+                    {isAdmin && (
+                      <td style={{ padding: '10px 16px' }}>
+                        <button onClick={() => deleteOne(r.id, r.item.name)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', padding: 0, fontWeight: 500 }}>
+                          Excluir
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -130,29 +242,37 @@ export default function SuprimentosPage() {
           {/* Mobile: cards */}
           <div className="md:hidden space-y-3">
             {requests.map((r) => (
-              <Link
+              <div
                 key={r.id}
-                to={`/suprimentos/${r.id}`}
-                style={{ display: 'block', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px', textDecoration: 'none' }}
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px' }}
               >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
-                  <div>
-                    <span style={{ fontWeight: 600, color: 'var(--accent)', fontSize: '13px', display: 'block' }}>{r.item.name}</span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{r.item.category}</span>
+                <Link to={`/suprimentos/${r.id}`} style={{ display: 'block', textDecoration: 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
+                    <div>
+                      <span style={{ fontWeight: 600, color: 'var(--accent)', fontSize: '13px', display: 'block' }}>{r.item.name}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{r.item.category}</span>
+                    </div>
+                    <SupplyStatusBadge status={r.status} />
                   </div>
-                  <SupplyStatusBadge status={r.status} />
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
-                  <UrgencyBadge urgency={r.urgency} />
-                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>
-                    {r.quantity} {r.item.unit}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                  {user?.role === 'ADMIN' ? <span>{r.requester.name}</span> : <span />}
-                  <span>{new Date(r.createdAt).toLocaleDateString('pt-BR')}</span>
-                </div>
-              </Link>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
+                    <UrgencyBadge urgency={r.urgency} />
+                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>
+                      {r.quantity} {r.item.unit}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                    {user?.role === 'ADMIN' ? <span>{r.requester.name}</span> : <span />}
+                    <span>{new Date(r.createdAt).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                </Link>
+                {isAdmin && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+                    <button onClick={() => deleteOne(r.id, r.item.name)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', padding: 0, fontWeight: 500 }}>
+                      Excluir
+                    </button>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </>
