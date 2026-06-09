@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Protótipo — Relatórios Profissionais · Portal CSP</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg-primary:#0f1b2d; --bg-sidebar:#0d1825; --bg-card:#1a2942; --bg-card-hover:#1e3358;
+    --bg-active:#1e3a5f; --accent:#4d8ef0; --text-primary:#e2e8f0; --text-secondary:#94a3b8;
+    --border:#1e3358;
+    --status-aberto:#f59e0b; --status-andamento:#3b82f6; --status-concluido:#22c55e; --status-cancelado:#6b7280;
+    --prio-alta:#ef4444; --prio-media:#f59e0b; --prio-baixa:#22c55e;
+    --up:#22c55e; --down:#ef4444;
+    --radius:8px; --radius-sm:4px; --shadow:0 2px 8px rgba(0,0,0,0.4);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:14px;
+    background:var(--bg-primary);color:var(--text-primary)}
+  ::-webkit-scrollbar{width:6px;height:6px}
+  ::-webkit-scrollbar-track{background:var(--bg-sidebar)}
+  ::-webkit-scrollbar-thumb{background:var(--bg-active);border-radius:3px}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .fade-in{animation:fadeIn .3s ease forwards}
+
+  .layout{display:flex;min-height:100vh}
+  .sidebar{width:170px;background:var(--bg-sidebar);border-right:1px solid var(--border);
+    padding:18px 12px;flex-shrink:0}
+  .brand{font-size:15px;font-weight:700;margin:0 0 20px;padding:0 6px;display:flex;align-items:center;gap:8px}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
+  .nav-link{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:var(--radius-sm);
+    font-size:13px;font-weight:500;color:var(--text-secondary);border-left:3px solid transparent;
+    text-decoration:none;cursor:pointer;margin-bottom:2px}
+  .nav-link:hover{background:rgba(77,142,240,.1);color:var(--text-primary)}
+  .nav-link.active{background:var(--bg-active);border-left-color:var(--accent);color:var(--text-primary)}
+
+  .main{flex:1;max-width:1400px;margin:0 auto;width:100%}
+  .page-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+    padding:20px 24px 16px;border-bottom:1px solid var(--border)}
+  .page-title{font-size:24px;font-weight:700;margin:0}
+  .page-sub{font-size:13px;color:var(--text-secondary);margin:4px 0 0}
+  .header-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+  .seg{display:flex;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+  .seg button{background:transparent;border:none;color:var(--text-secondary);font-size:12px;font-weight:500;
+    padding:7px 13px;cursor:pointer;border-right:1px solid var(--border)}
+  .seg button:last-child{border-right:none}
+  .seg button.active{background:var(--accent);color:#fff}
+  .btn{padding:7px 14px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;
+    cursor:pointer;color:#fff;display:inline-flex;align-items:center;gap:6px}
+  .btn-pdf{background:#ef4444}
+  .btn-excel{background:#22c55e}
+  .btn:hover{filter:brightness(1.12)}
+  .btn-ghost{background:var(--bg-card);border:1px solid var(--border);color:var(--text-secondary)}
+
+  .content{padding:22px 24px 60px}
+  .section-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--text-secondary);margin:28px 0 12px}
+  .section-label:first-child{margin-top:0}
+
+  .grid{display:grid;gap:16px}
+  .grid-4{grid-template-columns:repeat(4,1fr)}
+  .grid-3{grid-template-columns:repeat(3,1fr)}
+  .grid-2{grid-template-columns:repeat(2,1fr)}
+  .grid-2-1{grid-template-columns:2fr 1fr}
+  @media(max-width:900px){.grid-4,.grid-3,.grid-2,.grid-2-1{grid-template-columns:1fr 1fr}}
+
+  .kpi-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px 20px;box-shadow:var(--shadow);position:relative;animation:fadeIn .3s ease forwards}
+  .kpi-label{font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;
+    color:var(--text-secondary);margin:0}
+  .kpi-value{font-size:30px;font-weight:700;line-height:1.1;margin:6px 0 0}
+  .kpi-foot{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px}
+  .trend{display:inline-flex;align-items:center;gap:3px;font-weight:600;padding:2px 7px;border-radius:20px}
+  .trend.up{color:var(--up);background:rgba(34,197,94,.12)}
+  .trend.down{color:var(--down);background:rgba(239,68,68,.12)}
+  .trend.flat{color:var(--text-secondary);background:rgba(148,163,184,.12)}
+  .kpi-foot .vs{color:var(--text-secondary)}
+  .kpi-accent{position:absolute;top:0;left:0;width:3px;height:100%;border-radius:var(--radius) 0 0 var(--radius)}
+
+  .chart-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px;box-shadow:var(--shadow)}
+  .chart-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .chart-title{font-size:13px;font-weight:600;margin:0}
+  .chart-legend{font-size:11px;color:var(--text-secondary)}
+  .chart-wrap{position:relative;height:240px}
+  .chart-wrap.sm{height:200px}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);
+    font-weight:600;padding:8px 10px;border-bottom:1px solid var(--border)}
+  td{padding:10px;border-bottom:1px solid var(--border)}
+  tr:last-child td{border-bottom:none}
+  .agent{display:flex;align-items:center;gap:9px}
+  .avatar{width:28px;height:28px;border-radius:50%;background:var(--bg-active);display:flex;
+    align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--accent)}
+  .bar-mini{height:6px;border-radius:3px;background:var(--bg-active);overflow:hidden;width:90px}
+  .bar-mini > i{display:block;height:100%;background:var(--accent)}
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600}
+  .pill-ok{color:var(--status-concluido);background:rgba(34,197,94,.12)}
+  .pill-warn{color:var(--status-aberto);background:rgba(245,158,11,.12)}
+  .pill-bad{color:var(--prio-alta);background:rgba(239,68,68,.12)}
+
+  /* SLA gauge */
+  .gauge-wrap{display:flex;align-items:center;gap:18px}
+  .gauge{position:relative;width:120px;height:120px;flex-shrink:0}
+  .gauge .num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .gauge .num b{font-size:26px;font-weight:700}
+  .gauge .num span{font-size:11px;color:var(--text-secondary)}
+
+  .banner{background:linear-gradient(135deg,rgba(77,142,240,.12),rgba(34,197,94,.06));
+    border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;display:flex;
+    align-items:center;gap:12px;margin-bottom:22px;font-size:13px;color:var(--text-secondary)}
+  .banner b{color:var(--text-primary)}
+
+  /* ── PDF preview ── */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:flex-start;
+    justify-content:center;padding:30px;z-index:50;overflow:auto}
+  .modal-overlay.show{display:flex}
+  .paper{width:780px;background:#fff;color:#0f172a;border-radius:6px;overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .paper-toolbar{position:sticky;top:0;background:#0d1825;color:#e2e8f0;padding:10px 16px;
+    display:flex;justify-content:space-between;align-items:center;font-size:13px}
+  .paper-toolbar .x{cursor:pointer;background:transparent;border:none;color:#94a3b8;font-size:20px}
+  .pdf-cover{background:linear-gradient(135deg,#0f1b2d,#1e3a5f);color:#fff;padding:46px 40px}
+  .pdf-cover .logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:14px;opacity:.85}
+  .pdf-cover h1{font-size:30px;margin:34px 0 6px}
+  .pdf-cover .period{font-size:14px;opacity:.8}
+  .pdf-cover .meta{margin-top:30px;font-size:12px;opacity:.65;border-top:1px solid rgba(255,255,255,.15);padding-top:14px}
+  .pdf-body{padding:30px 40px}
+  .pdf-h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#2563eb;font-weight:700;
+    margin:26px 0 12px;border-bottom:2px solid #eef2f7;padding-bottom:6px}
+  .pdf-h2:first-child{margin-top:0}
+  .pdf-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .pdf-kpi{border:1px solid #e2e8f0;border-radius:6px;padding:12px}
+  .pdf-kpi .l{font-size:10px;text-transform:uppercase;color:#64748b;letter-spacing:.04em}
+  .pdf-kpi .v{font-size:22px;font-weight:700;margin-top:3px}
+  .pdf-kpi .d{font-size:11px;margin-top:3px}
+  .pdf-kpi .d.up{color:#16a34a}.pdf-kpi .d.down{color:#dc2626}
+  .pdf-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:6px}
+  .pdf-table th{background:#0f1b2d;color:#fff;text-align:left;padding:8px 10px;font-size:10px;text-transform:uppercase}
+  .pdf-table td{padding:7px 10px;border-bottom:1px solid #eef2f7;color:#0f172a}
+  .pdf-table tr:nth-child(even) td{background:#f8fafc}
+  .pdf-figure{border:1px solid #e2e8f0;border-radius:6px;padding:14px;height:220px;position:relative}
+  .pdf-foot{margin-top:30px;border-top:1px solid #e2e8f0;padding-top:12px;font-size:10px;color:#94a3b8;
+    display:flex;justify-content:space-between}
+  .pdf-narr{font-size:12.5px;line-height:1.65;color:#334155;background:#f8fafc;border-left:3px solid #2563eb;
+    padding:12px 16px;border-radius:0 6px 6px 0}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <p class="brand"><span class="dot"></span> Portal CSP</p>
+    <a class="nav-link">▦ Dashboard</a>
+    <a class="nav-link">◷ Chamados</a>
+    <a class="nav-link">⬡ Suprimentos</a>
+    <a class="nav-link active">▤ Relatórios</a>
+    <a class="nav-link">☷ Bot Suporte</a>
+    <a class="nav-link">⚙ Configurações</a>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Relatórios</h1>
+        <p class="page-sub">Visão executiva · atualizado há 4 min</p>
+      </div>
+      <div class="header-actions">
+        <div class="seg">
+          <button>Hoje</button>
+          <button>7 dias</button>
+          <button class="active">30 dias</button>
+          <button>Trimestre</button>
+          <button>Custom ▾</button>
+        </div>
+        <button class="btn btn-ghost">⎙ Excel</button>
+        <button class="btn btn-pdf" onclick="openPdf()">▤ Relatório PDF</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="banner">
+        💡 <div><b>Resumo do período:</b> 142 chamados abertos, <b>91% resolvidos dentro do SLA</b>.
+        Tempo médio de resolução caiu para <b>6,4h</b> (−18% vs. mês anterior). Categoria <b>TI</b> concentra 38% da demanda.</div>
+      </div>
+
+      <!-- KPIs com tendência -->
+      <p class="section-label">Indicadores-chave · comparado ao período anterior</p>
+      <div class="grid grid-4">
+        <div class="kpi-card"><span class="kpi-accent" style="background:var(--status-andamento)"></span>
+          <p class="kpi-label">Chamados abertos</p><p class="kpi-value">142</p>
+          <div class="kpi-foot"><span class="trend up">▲ 12%</span><span class="vs">vs. 127</span></div></div>
+        <div class="kpi-card"><span class="kpi-accent" style="background:var(--status-concluido)"></span>
+          <p class="kpi-label">Resolvidos</p><p class="kpi-value">129</p>
+          <div class="kpi-foot"><span class="trend up">▲ 9%</span><span class="vs">vs. 118</span></div></div>
+        <div class="kpi-card"><span class="kpi-accent" style="background:var(--accent)"></span>
+          <p class="kpi-label">Tempo médio resolução</p><p class="kpi-value">6,4h</p>
+          <div class="kpi-foot"><span class="trend up">▼ 18%</span><span class="vs">vs. 7,8h</span></div></div>
+        <div class="kpi-card"><span class="kpi-accent" style="background:var(--status-aberto)"></span>
+          <p class="kpi-label">Backlog atual</p><p class="kpi-value">13</p>
+          <div class="kpi-foot"><span class="trend down">▲ 4</span><span class="vs">vs. 9</span></div></div>
+      </div>
+
+      <!-- Série temporal + SLA -->
+      <p class="section-label">Análise operacional</p>
+      <div class="grid grid-2-1">
+        <div class="chart-card">
+          <div class="chart-head"><p class="chart-title">Tendência de chamados — abertos vs. resolvidos</p>
+            <span class="chart-legend">● abertos &nbsp; ● resolvidos</span></div>
+          <div class="chart-wrap"><canvas id="trend"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <p class="chart-title">SLA cumprido</p>
+          <div class="gauge-wrap" style="margin-top:18px">
+            <div class="gauge"><canvas id="sla"></canvas>
+              <div class="num"><b>91%</b><span>dentro do SLA</span></div></div>
+            <div style="font-size:12px;line-height:2">
+              <div><span class="pill pill-ok">No prazo</span> 129</div>
+              <div><span class="pill pill-warn">Em risco</span> 8</div>
+              <div><span class="pill pill-bad">Estourado</span> 5</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-2" style="margin-top:16px">
+        <div class="chart-card">
+          <div class="chart-head"><p class="chart-title">Distribuição por categoria</p></div>
+          <div class="chart-wrap sm"><canvas id="cat"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-head"><p class="chart-title">Backlog ao longo do tempo</p></div>
+          <div class="chart-wrap sm"><canvas id="backlog"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Produtividade -->
+      <p class="section-label">Produtividade da equipe</p>
+      <div class="chart-card">
+        <table>
+          <thead><tr>
+            <th>Atendente</th><th>Resolvidos</th><th>Tempo médio</th><th>SLA</th><th>Reabertura</th><th>Carga</th>
+          </tr></thead>
+          <tbody>
+            <tr><td><div class="agent"><div class="avatar">RV</div>Ronaldo V.</div></td>
+              <td>48</td><td>5,1h</td><td><span class="pill pill-ok">96%</span></td><td>2%</td>
+              <td><div class="bar-mini"><i style="width:92%"></i></div></td></tr>
+            <tr><td><div class="agent"><div class="avatar">MS</div>Marina S.</div></td>
+              <td>41</td><td>6,8h</td><td><span class="pill pill-ok">93%</span></td><td>4%</td>
+              <td><div class="bar-mini"><i style="width:78%"></i></div></td></tr>
+            <tr><td><div class="agent"><div class="avatar">JC</div>João C.</div></td>
+              <td>27</td><td>8,2h</td><td><span class="pill pill-warn">84%</span></td><td>7%</td>
+              <td><div class="bar-mini"><i style="width:52%"></i></div></td></tr>
+            <tr><td><div class="agent"><div class="avatar">AP</div>Ana P.</div></td>
+              <td>13</td><td>9,5h</td><td><span class="pill pill-bad">71%</span></td><td>11%</td>
+              <td><div class="bar-mini"><i style="width:25%"></i></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- PDF EXECUTIVO -->
+<div class="modal-overlay" id="pdfModal">
+  <div class="paper">
+    <div class="paper-toolbar">
+      <span>Pré-visualização — Relatório Executivo (PDF)</span>
+      <div><button class="btn btn-pdf" style="padding:4px 12px;font-size:12px">⬇ Baixar</button>
+      <button class="x" onclick="closePdf()">×</button></div>
+    </div>
+    <div class="pdf-cover">
+      <div class="logo"><span style="width:9px;height:9px;border-radius:50%;background:#4d8ef0;display:inline-block"></span> PORTAL CSP · SERVICE DESK</div>
+      <h1>Relatório Mensal de Atendimento</h1>
+      <div class="period">Período: 01/05/2026 a 31/05/2026</div>
+      <div class="meta">Gerado em 02/06/2026 às 14:32 · Confidencial · Diretoria CSP</div>
+    </div>
+    <div class="pdf-body">
+      <div class="pdf-h2">Sumário Executivo</div>
+      <div class="pdf-narr">No mês de maio foram registrados <b>142 chamados</b>, com <b>129 resolvidos (91%)</b>
+        dentro do SLA acordado. O tempo médio de resolução reduziu <b>18%</b> em relação a abril (de 7,8h para 6,4h),
+        refletindo ganho de eficiência da equipe. A categoria <b>TI</b> permanece como maior demandante (38%).
+        Pontos de atenção: backlog subiu de 9 para 13 chamados e a atendente Ana P. está abaixo da meta de SLA.</div>
+
+      <div class="pdf-h2">Indicadores do período</div>
+      <div class="pdf-kpis">
+        <div class="pdf-kpi"><div class="l">Abertos</div><div class="v">142</div><div class="d up">▲ 12%</div></div>
+        <div class="pdf-kpi"><div class="l">Resolvidos</div><div class="v">129</div><div class="d up">▲ 9%</div></div>
+        <div class="pdf-kpi"><div class="l">T. médio</div><div class="v">6,4h</div><div class="d up">▼ 18%</div></div>
+        <div class="pdf-kpi"><div class="l">SLA</div><div class="v">91%</div><div class="d up">▲ 3pp</div></div>
+      </div>
+
+      <div class="pdf-h2">Evolução no período</div>
+      <div class="pdf-figure"><canvas id="pdfTrend"></canvas></div>
+
+      <div class="pdf-h2">Produtividade por atendente</div>
+      <table class="pdf-table">
+        <thead><tr><th>Atendente</th><th>Resolvidos</th><th>Tempo médio</th><th>SLA</th><th>Reabertura</th></tr></thead>
+        <tbody>
+          <tr><td>Ronaldo V.</td><td>48</td><td>5,1h</td><td>96%</td><td>2%</td></tr>
+          <tr><td>Marina S.</td><td>41</td><td>6,8h</td><td>93%</td><td>4%</td></tr>
+          <tr><td>João C.</td><td>27</td><td>8,2h</td><td>84%</td><td>7%</td></tr>
+          <tr><td>Ana P.</td><td>13</td><td>9,5h</td><td>71%</td><td>11%</td></tr>
+        </tbody>
+      </table>
+
+      <div class="pdf-foot"><span>Portal CSP · servicedeskcsp.com.br</span><span>Página 1 de 1 · © 2026 CSP</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const AX='#94a3b8', GRID='rgba(148,163,184,.12)';
+Chart.defaults.color=AX; Chart.defaults.font.family='Inter,sans-serif'; Chart.defaults.font.size=11;
+const days=['01','03','05','07','09','11','13','15','17','19','21','23','25','27','29','31'];
+const abertos=[4,6,5,8,7,9,6,5,7,8,6,4,5,7,6,5];
+const resolv =[3,5,6,7,6,8,7,6,6,7,7,5,5,6,7,6];
+
+new Chart(document.getElementById('trend'),{type:'line',
+  data:{labels:days,datasets:[
+    {label:'Abertos',data:abertos,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.12)',fill:true,tension:.35,pointRadius:0,borderWidth:2},
+    {label:'Resolvidos',data:resolv,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.10)',fill:true,tension:.35,pointRadius:0,borderWidth:2}]},
+  options:{maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{grid:{display:false}},y:{grid:{color:GRID},beginAtZero:true}}}});
+
+new Chart(document.getElementById('sla'),{type:'doughnut',
+  data:{datasets:[{data:[91,9],backgroundColor:['#22c55e','rgba(148,163,184,.18)'],borderWidth:0}]},
+  options:{maintainAspectRatio:false,cutout:'78%',plugins:{legend:{display:false},tooltip:{enabled:false}}}});
+
+new Chart(document.getElementById('cat'),{type:'bar',
+  data:{labels:['TI','Manutenção','Pedagógico','Administrativo','Outros'],
+    datasets:[{data:[54,32,24,21,11],backgroundColor:'#4d8ef0',borderRadius:5,maxBarThickness:38}]},
+  options:{maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{grid:{display:false}},y:{grid:{color:GRID},beginAtZero:true}}}});
+
+new Chart(document.getElementById('backlog'),{type:'line',
+  data:{labels:days,datasets:[{data:[9,10,9,11,10,12,11,10,12,13,12,11,12,13,12,13],
+    borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,.12)',fill:true,tension:.35,pointRadius:0,borderWidth:2}]},
+  options:{maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{x:{grid:{display:false}},y:{grid:{color:GRID},beginAtZero:true}}}});
+
+function openPdf(){document.getElementById('pdfModal').classList.add('show');
+  if(!window._pdfDrawn){window._pdfDrawn=true;
+    new Chart(document.getElementById('pdfTrend'),{type:'line',
+      data:{labels:days,datasets:[
+        {label:'Abertos',data:abertos,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.10)',fill:true,tension:.35,pointRadius:0,borderWidth:2},
+        {label:'Resolvidos',data:resolv,borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.08)',fill:true,tension:.35,pointRadius:0,borderWidth:2}]},
+      options:{maintainAspectRatio:false,color:'#64748b',
+        plugins:{legend:{display:true,labels:{color:'#64748b'}}},
+        scales:{x:{grid:{display:false},ticks:{color:'#94a3b8'}},y:{grid:{color:'#eef2f7'},ticks:{color:'#94a3b8'},beginAtZero:true}}}});}}
+function closePdf(){document.getElementById('pdfModal').classList.remove('show')}
+document.getElementById('pdfModal').addEventListener('click',e=>{if(e.target.id==='pdfModal')closePdf()});
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.seg button').forEach(x=>x.classList.remove('active'));b.classList.add('active')});
+</script>
+</body>
+</html>
