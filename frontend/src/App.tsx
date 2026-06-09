@@ -17,6 +17,7 @@ import SuprimentosFormPage from './pages/SuprimentosFormPage';
 import SuprimentosDetailPage from './pages/SuprimentosDetailPage';
 import SuprimentosCatalogoPage from './pages/SuprimentosCatalogoPage';
 import ManutencoesPage from './pages/ManutencoesPage';
+import LembretesPage from './pages/LembretesPage';
 import BackupPage from './pages/BackupPage';
 import MeusArquivosPage from './pages/MeusArquivosPage';
 import RepositorioPage from './pages/RepositorioPage';
@@ -101,6 +102,14 @@ export default function App() {
             element={
               <ProtectedRoute adminOnly>
                 <Layout><ManutencoesPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lembretes"
+            element={
+              <ProtectedRoute adminOnly>
+                <Layout><LembretesPage /></Layout>
               </ProtectedRoute>
             }
           />

@@ -47,6 +47,9 @@ export const env = {
   // Scheduler de manutenções programadas (gera chamados no vencimento)
   maintenanceSchedulerEnabled: optional('MAINTENANCE_SCHEDULER_ENABLED', 'true') === 'true',
 
+  // Scheduler de lembretes de material (avisa professores via WhatsApp)
+  reminderSchedulerEnabled: optional('REMINDER_SCHEDULER_ENABLED', 'true') === 'true',
+
   // Backup automático para o Google Drive
   backupSchedulerEnabled: optional('BACKUP_SCHEDULER_ENABLED', 'true') === 'true',
   backupHour: parseInt(optional('BACKUP_HOUR', '3'), 10),        // hora local do servidor (0-23)

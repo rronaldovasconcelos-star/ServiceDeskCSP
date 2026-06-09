@@ -23,6 +23,7 @@ import {
   Bot,
   Headset,
   CalendarClock,
+  Bell,
   DatabaseBackup,
 } from 'lucide-react';
 
@@ -34,6 +35,7 @@ const navItems = [
   { to: '/suprimentos', label: 'Suprimentos', icon: Package, adminOnly: false },
   { to: '/suprimentos/catalogo', label: 'Catálogo', icon: BookOpen, adminOnly: true },
   { to: '/manutencoes', label: 'Manutenções', icon: CalendarClock, adminOnly: true },
+  { to: '/lembretes', label: 'Lembretes', icon: Bell, adminOnly: true },
   { to: '/arquivos', label: 'Meus Arquivos', icon: FolderOpen, adminOnly: false },
   { to: '/repositorio', label: 'Repositório', icon: HardDrive, adminOnly: true, gestorAllowed: true },
   { to: '/users', label: 'Usuários', icon: Users, adminOnly: true },
