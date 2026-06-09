@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../../lib/prisma.js';
 import { storage } from '../../services/storage/index.js';
 import { issueResetOtp } from '../auth/auth.controller.js';
+import { parseModules, sanitizeModules } from '../../lib/modules.js';
 
 const createSchema = z.object({
   name: z.string().min(2),
@@ -11,6 +12,7 @@ const createSchema = z.object({
   password: z.string().min(6),
   role: z.enum(['ADMIN', 'USER', 'GESTOR']).default('USER'),
   phone: z.string().optional(),
+  modules: z.array(z.string()).optional(),
 });
 
 const updateSchema = z.object({
@@ -19,6 +21,7 @@ const updateSchema = z.object({
   password: z.string().min(6).optional(),
   role: z.enum(['ADMIN', 'USER', 'GESTOR']).optional(),
   phone: z.string().optional(),
+  modules: z.array(z.string()).optional(),
 });
 
 const select = {
@@ -26,6 +29,7 @@ const select = {
   name: true,
   email: true,
   role: true,
+  modules: true,
   phone: true,
   phoneVerified: true,
   isActive: true,
@@ -33,9 +37,33 @@ const select = {
   updatedAt: true,
 };
 
+/** Converte o registro do banco (modules como string JSON) para o formato da API (array). */
+function toClient<T extends { modules: string }>(user: T): Omit<T, 'modules'> & { modules: string[] } {
+  return { ...user, modules: parseModules(user.modules) };
+}
+
 export async function listUsers(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const users = await prisma.user.findMany({ select, orderBy: { name: 'asc' } });
+    res.json(users.map(toClient));
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Diretório leve para seletores (destinatários de lembretes, responsável de
+ * manutenção, atribuição de chamado). Só id + nome de usuários ativos, sem
+ * dados sensíveis. Disponível a qualquer autenticado — não exige o módulo
+ * "Usuários", que dá gestão completa.
+ */
+export async function directoryUsers(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const users = await prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
     res.json(users);
   } catch (err) {
     next(err);
@@ -45,12 +73,19 @@ export async function listUsers(_req: Request, res: Response, next: NextFunction
 export async function createUser(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const data = createSchema.parse(req.body);
+    const isAdmin = req.user?.role === 'ADMIN';
+    // Salvaguarda: só ADMIN concede o perfil ADMIN ou libera módulos.
+    const role = isAdmin ? data.role : 'USER';
+    const modules = isAdmin && data.modules ? sanitizeModules(data.modules) : [];
     const passwordHash = await bcrypt.hash(data.password, 10);
     const user = await prisma.user.create({
-      data: { name: data.name, email: data.email, passwordHash, role: data.role, phone: data.phone },
+      data: {
+        name: data.name, email: data.email, passwordHash, role, phone: data.phone,
+        modules: JSON.stringify(modules),
+      },
       select,
     });
-    res.status(201).json(user);
+    res.status(201).json(toClient(user));
   } catch (err) {
     next(err);
   }
@@ -66,8 +101,15 @@ export async function updateUser(req: Request, res: Response, next: NextFunction
       update.passwordHash = await bcrypt.hash(data.password, 10);
       delete update.password;
     }
+    // Salvaguarda: só ADMIN altera perfil ou módulos liberados.
+    if (req.user?.role !== 'ADMIN') {
+      delete update.role;
+      delete update.modules;
+    } else if (data.modules) {
+      update.modules = JSON.stringify(sanitizeModules(data.modules));
+    }
     const user = await prisma.user.update({ where: { id: req.params.id as string }, data: update, select });
-    res.json(user);
+    res.json(toClient(user));
   } catch (err) {
     next(err);
   }
@@ -82,7 +124,7 @@ export async function toggleActive(req: Request, res: Response, next: NextFuncti
       data: { isActive: !current.isActive },
       select,
     });
-    res.json(user);
+    res.json(toClient(user));
   } catch (err) {
     next(err);
   }

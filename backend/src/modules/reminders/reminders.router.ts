@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { authenticate, requireRole } from '../../middlewares/authenticate.js';
+import { authenticate, requireModule } from '../../middlewares/authenticate.js';
 import { list, create, update, setStatus, runNow, remove } from './reminders.controller.js';
 
 const router = Router();
 
 router.use(authenticate);
-router.use(requireRole('ADMIN')); // módulo inteiro restrito ao ADMIN
+router.use(requireModule('lembretes')); // ADMIN ou quem tiver o módulo liberado
 
 router.get('/', list);
 router.post('/', create);

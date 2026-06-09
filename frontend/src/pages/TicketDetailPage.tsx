@@ -93,7 +93,7 @@ export default function TicketDetailPage() {
       .then((r) => setTicket(r.data))
       .finally(() => setLoading(false));
     if (isPrivileged) {
-      api.get('/users').then((r) => setUsers(r.data));
+      api.get('/users/directory').then((r) => setUsers(r.data));
     }
   }, [id, user]);
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { MODULES } from '../lib/modules';
 
 interface User {
   id: string;
@@ -11,6 +12,16 @@ interface User {
   phone?: string;
   phoneVerified?: boolean;
   isActive: boolean;
+  modules?: string[];
+}
+
+interface FormState {
+  name: string;
+  email: string;
+  password: string;
+  role: string;
+  phone: string;
+  modules: string[];
 }
 
 // Estado visível na lista: Ativo (verde), Pendente de aprovação (âmbar) ou Inativo (vermelho).
@@ -25,7 +36,7 @@ function toggleLabel(u: User): string {
   return u.phoneVerified ? 'Aprovar' : 'Ativar';
 }
 
-const emptyForm = { name: '', email: '', password: '', role: 'USER', phone: '' };
+const emptyForm: FormState = { name: '', email: '', password: '', role: 'USER', phone: '', modules: [] };
 
 const roleLabel: Record<string, string> = {
   ADMIN: 'Admin',
@@ -59,12 +70,16 @@ function UserModal({
   onClose,
 }: {
   editing: User | null;
-  form: typeof emptyForm;
+  form: FormState;
   error: string;
-  onChange: (f: typeof emptyForm) => void;
+  onChange: (f: FormState) => void;
   onSubmit: (e: { preventDefault(): void }) => void;
   onClose: () => void;
 }) {
+  const toggleModule = (key: string) => {
+    const has = form.modules.includes(key);
+    onChange({ ...form, modules: has ? form.modules.filter((m) => m !== key) : [...form.modules, key] });
+  };
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -147,6 +162,46 @@ function UserModal({
             </select>
           </div>
 
+          {/* Módulos liberados — só para não-admins (ADMIN tem acesso total). */}
+          <div>
+            <label style={labelStyle}>Módulos liberados</label>
+            {form.role === 'ADMIN' ? (
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
+                Administrador tem acesso a todos os módulos.
+              </p>
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '6px 12px',
+                  padding: '10px 12px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                }}
+              >
+                {MODULES.map((m) => (
+                  <label
+                    key={m.key}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer' }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.modules.includes(m.key)}
+                      onChange={() => toggleModule(m.key)}
+                      style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
+                    />
+                    {m.label}
+                  </label>
+                ))}
+              </div>
+            )}
+            <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6, marginBottom: 0 }}>
+              Chamados, Suprimentos e Meus Arquivos estão sempre disponíveis.
+            </p>
+          </div>
+
           <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
             <button
               type="submit"
@@ -187,7 +242,7 @@ export default function UsersPage() {
   const openCreate = () => { setEditing(null); setForm(emptyForm); setError(''); setShowForm(true); };
   const openEdit = (u: User) => {
     setEditing(u);
-    setForm({ name: u.name, email: u.email, password: '', role: u.role, phone: u.phone ?? '' });
+    setForm({ name: u.name, email: u.email, password: '', role: u.role, phone: u.phone ?? '', modules: u.modules ?? [] });
     setError('');
     setShowForm(true);
   };
@@ -197,8 +252,8 @@ export default function UsersPage() {
     e.preventDefault();
     setError('');
     try {
-      const payload = { ...form };
-      if (!payload.password) delete (payload as Record<string, string>).password;
+      const payload: Partial<FormState> = { ...form };
+      if (!payload.password) delete payload.password;
       if (editing) {
         await api.put(`/users/${editing.id}`, payload);
       } else {

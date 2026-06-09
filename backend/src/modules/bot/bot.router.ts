@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, requireRole } from '../../middlewares/authenticate.js';
+import { authenticate, requireModule } from '../../middlewares/authenticate.js';
 import { makeWhatsappControllers } from '../whatsapp/whatsapp.controller.js';
 import { env } from '../../config/env.js';
 import { botWebhook } from './bot.controller.js';
@@ -11,11 +11,11 @@ const router = Router();
 router.post('/webhook/:secret', botWebhook);
 router.post('/webhook/:secret/:event', botWebhook);
 
-// Gestão de conexão da instância de suporte (csp-suporte) — admin only.
+// Gestão de conexão da instância de suporte (csp-suporte) — ADMIN ou módulo "bot".
 const support = makeWhatsappControllers(env.supportEvolutionInstance);
-router.get('/connection/status', authenticate, requireRole('ADMIN'), support.getStatus);
-router.get('/connection/qrcode', authenticate, requireRole('ADMIN'), support.getQrCode);
-router.post('/connection/disconnect', authenticate, requireRole('ADMIN'), support.disconnectInstance);
-router.post('/connection/restart', authenticate, requireRole('ADMIN'), support.restartInstance);
+router.get('/connection/status', authenticate, requireModule('bot'), support.getStatus);
+router.get('/connection/qrcode', authenticate, requireModule('bot'), support.getQrCode);
+router.post('/connection/disconnect', authenticate, requireModule('bot'), support.disconnectInstance);
+router.post('/connection/restart', authenticate, requireModule('bot'), support.restartInstance);
 
 export default router;

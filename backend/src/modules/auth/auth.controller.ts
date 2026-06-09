@@ -8,7 +8,17 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { env } from '../../config/env.js';
 import { normalizeBrazilPhone } from '../../lib/phone.js';
+import { parseModules } from '../../lib/modules.js';
 import { sendWhatsApp, sendWhatsAppStrict } from '../../services/whatsapp/index.js';
+
+/** Emite o JWT do portal, embutindo os módulos liberados (vazio p/ ADMIN, que tem tudo). */
+function signToken(user: { id: string; email: string; role: string; name: string; modules: string }): string {
+  return jwt.sign(
+    { sub: user.id, email: user.email, role: user.role, name: user.name, modules: parseModules(user.modules) },
+    env.jwtSecret,
+    { expiresIn: env.jwtExpiresIn } as jwt.SignOptions,
+  );
+}
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -40,15 +50,14 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
       return;
     }
 
-    const token = jwt.sign(
-      { sub: user.id, email: user.email, role: user.role, name: user.name },
-      env.jwtSecret,
-      { expiresIn: env.jwtExpiresIn } as jwt.SignOptions,
-    );
+    const token = signToken(user);
 
     res.json({
       token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone },
+      user: {
+        id: user.id, name: user.name, email: user.email, role: user.role,
+        phone: user.phone, modules: parseModules(user.modules),
+      },
     });
   } catch (err) {
     next(err);
@@ -134,15 +143,14 @@ export async function googleLogin(req: Request, res: Response, next: NextFunctio
       return;
     }
 
-    const token = jwt.sign(
-      { sub: user.id, email: user.email, role: user.role, name: user.name },
-      env.jwtSecret,
-      { expiresIn: env.jwtExpiresIn } as jwt.SignOptions,
-    );
+    const token = signToken(user);
 
     res.json({
       token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone },
+      user: {
+        id: user.id, name: user.name, email: user.email, role: user.role,
+        phone: user.phone, modules: parseModules(user.modules),
+      },
     });
   } catch (err) {
     next(err);
@@ -152,13 +160,13 @@ export async function googleLogin(req: Request, res: Response, next: NextFunctio
 export async function getMe(req: Request, res: Response): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: req.user!.sub },
-    select: { id: true, name: true, email: true, role: true, phone: true, isActive: true },
+    select: { id: true, name: true, email: true, role: true, phone: true, isActive: true, modules: true },
   });
   if (!user) {
     res.status(404).json({ error: 'Usuário não encontrado' });
     return;
   }
-  res.json(user);
+  res.json({ ...user, modules: parseModules(user.modules) });
 }
 
 // ---------------------------------------------------------------------------

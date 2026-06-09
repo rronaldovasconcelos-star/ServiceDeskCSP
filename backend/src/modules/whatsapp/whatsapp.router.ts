@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { authenticate, requireRole } from '../../middlewares/authenticate.js';
+import { authenticate, requireModule } from '../../middlewares/authenticate.js';
 import { getStatus, getQrCode, disconnectInstance, restartInstance } from './whatsapp.controller.js';
 
 const router = Router();
 
-router.use(authenticate, requireRole('ADMIN'));
+router.use(authenticate, requireModule('whatsapp'));
 
 router.get('/status', getStatus);
 router.get('/qrcode', getQrCode);

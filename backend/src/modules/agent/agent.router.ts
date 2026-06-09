@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { authenticate, requireRole } from '../../middlewares/authenticate.js';
+import { authenticate, requireModule } from '../../middlewares/authenticate.js';
 import {
   getStatus,
   getConfig,
@@ -20,7 +20,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 
 
 const router = Router();
 
-router.use(authenticate, requireRole('ADMIN'));
+router.use(authenticate, requireModule('agente'));
 
 router.get('/status', getStatus);
 router.get('/config', getConfig);

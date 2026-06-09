@@ -36,7 +36,7 @@ export default function App() {
           <Route
             path="/"
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute module="dashboard">
                 <Layout><DashboardPage /></Layout>
               </ProtectedRoute>
             }
@@ -44,7 +44,7 @@ export default function App() {
           <Route
             path="/relatorios"
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute module="relatorios">
                 <Layout><ReportsPage /></Layout>
               </ProtectedRoute>
             }
@@ -76,7 +76,7 @@ export default function App() {
           <Route
             path="/users"
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute module="users">
                 <Layout><UsersPage /></Layout>
               </ProtectedRoute>
             }
@@ -92,7 +92,7 @@ export default function App() {
           <Route
             path="/suprimentos/catalogo"
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute module="catalogo">
                 <Layout><SuprimentosCatalogoPage /></Layout>
               </ProtectedRoute>
             }
@@ -100,7 +100,7 @@ export default function App() {
           <Route
             path="/manutencoes"
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute module="manutencoes">
                 <Layout><ManutencoesPage /></Layout>
               </ProtectedRoute>
             }
@@ -108,7 +108,7 @@ export default function App() {
           <Route
             path="/lembretes"
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute module="lembretes">
                 <Layout><LembretesPage /></Layout>
               </ProtectedRoute>
             }
@@ -140,7 +140,7 @@ export default function App() {
           <Route
             path="/repositorio"
             element={
-              <ProtectedRoute allowedRoles={['ADMIN', 'GESTOR']}>
+              <ProtectedRoute module="repositorio">
                 <Layout><RepositorioPage /></Layout>
               </ProtectedRoute>
             }
@@ -148,7 +148,7 @@ export default function App() {
           <Route
             path="/backups"
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute module="backups">
                 <Layout><BackupPage /></Layout>
               </ProtectedRoute>
             }
@@ -156,7 +156,7 @@ export default function App() {
           <Route
             path="/whatsapp"
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute module="whatsapp">
                 <Layout><WhatsAppPage /></Layout>
               </ProtectedRoute>
             }
@@ -164,7 +164,7 @@ export default function App() {
           <Route
             path="/whatsapp-suporte"
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute module="bot">
                 <Layout>
                   <WhatsAppPage
                     apiBase="/bot/connection"
@@ -179,7 +179,7 @@ export default function App() {
           <Route
             path="/agente"
             element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute module="agente">
                 <Layout><AgentePage /></Layout>
               </ProtectedRoute>
             }

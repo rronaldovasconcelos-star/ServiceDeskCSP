@@ -43,17 +43,11 @@ interface Metrics {
   byUser: { ownerId: string; name: string; email: string; fileCount: number; totalBytes: number }[];
 }
 
-interface SimpleUser {
-  id: string;
-  name: string;
-}
-
 export default function RepositorioPage() {
   const { user } = useAuth();
   // ADMIN exclui qualquer arquivo; demais (GESTOR/USER) só os próprios — espelha o backend.
   const canDeleteFile = (f: FileRecord) => user?.role === 'ADMIN' || f.ownerId === user?.id;
   const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [users, setUsers] = useState<SimpleUser[]>([]);
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
@@ -107,8 +101,14 @@ export default function RepositorioPage() {
 
   useEffect(() => {
     loadMetrics();
-    api.get('/users').then((r) => setUsers(r.data));
   }, []);
+
+  // Opções de professor para o filtro: derivadas das métricas (todo dono que tem
+  // arquivos). Evita depender de GET /users — que exige o módulo "Usuários" e não
+  // está liberado para quem só tem acesso ao Repositório (ex.: gestor).
+  const professorOptions = (metrics?.byUser ?? [])
+    .map((u) => ({ id: u.ownerId, name: u.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   useEffect(() => {
     const t = setTimeout(loadFiles, q ? 300 : 0);
@@ -219,7 +219,7 @@ export default function RepositorioPage() {
         />
         <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} style={selectStyle}>
           <option value="">Todos os professores</option>
-          {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+          {professorOptions.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
         </select>
         <select value={segmento} onChange={(e) => handleSegmento(e.target.value)} style={selectStyle}>
           <option value="">Todos os segmentos</option>

@@ -293,7 +293,7 @@ export default function LembretesPage() {
 
   useEffect(() => {
     load();
-    api.get('/users').then((r) => setUsers(r.data)).catch(() => {});
+    api.get('/users/directory').then((r) => setUsers(r.data)).catch(() => {});
   }, []);
 
   const openNew = () => { setEditId(null); setForm(emptyForm); setError(''); setShowForm(true); };

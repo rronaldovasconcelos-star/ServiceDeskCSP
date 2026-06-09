@@ -2,12 +2,13 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import api from '../lib/api';
 
-interface AuthUser {
+export interface AuthUser {
   id: string;
   name: string;
   email: string;
   role: string;
   phone?: string;
+  modules?: string[];
 }
 
 /** Resultado do login com Google: ou autentica, ou exige coleta do WhatsApp. */

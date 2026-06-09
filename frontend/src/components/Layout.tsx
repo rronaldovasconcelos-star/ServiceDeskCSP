@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { canAccess } from '../lib/modules';
 import DevCredit from './DevCredit';
 import {
   LayoutDashboard,
@@ -27,22 +28,24 @@ import {
   DatabaseBackup,
 } from 'lucide-react';
 
+// `module` = chave do módulo que controla o acesso ao item. Itens sem `module`
+// são baseline (todo usuário autenticado vê). Ver lib/modules.ts (canAccess).
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, adminOnly: true },
-  { to: '/relatorios', label: 'Relatórios', icon: BarChart3, adminOnly: true },
-  { to: '/tickets', label: 'Chamados', icon: Ticket, adminOnly: false },
-  { to: '/tickets/new', label: 'Novo Chamado', icon: PlusCircle, adminOnly: false },
-  { to: '/suprimentos', label: 'Suprimentos', icon: Package, adminOnly: false },
-  { to: '/suprimentos/catalogo', label: 'Catálogo', icon: BookOpen, adminOnly: true },
-  { to: '/manutencoes', label: 'Manutenções', icon: CalendarClock, adminOnly: true },
-  { to: '/lembretes', label: 'Lembretes', icon: Bell, adminOnly: true },
-  { to: '/arquivos', label: 'Meus Arquivos', icon: FolderOpen, adminOnly: false },
-  { to: '/repositorio', label: 'Repositório', icon: HardDrive, adminOnly: true, gestorAllowed: true },
-  { to: '/users', label: 'Usuários', icon: Users, adminOnly: true },
-  { to: '/backups', label: 'Backups', icon: DatabaseBackup, adminOnly: true },
-  { to: '/whatsapp', label: 'WhatsApp', icon: MessageSquare, adminOnly: true },
-  { to: '/whatsapp-suporte', label: 'Bot Suporte', icon: Headset, adminOnly: true },
-  { to: '/agente', label: 'Agente IA', icon: Bot, adminOnly: true },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, module: 'dashboard' },
+  { to: '/relatorios', label: 'Relatórios', icon: BarChart3, module: 'relatorios' },
+  { to: '/tickets', label: 'Chamados', icon: Ticket },
+  { to: '/tickets/new', label: 'Novo Chamado', icon: PlusCircle },
+  { to: '/suprimentos', label: 'Suprimentos', icon: Package },
+  { to: '/suprimentos/catalogo', label: 'Catálogo', icon: BookOpen, module: 'catalogo' },
+  { to: '/manutencoes', label: 'Manutenções', icon: CalendarClock, module: 'manutencoes' },
+  { to: '/lembretes', label: 'Lembretes', icon: Bell, module: 'lembretes' },
+  { to: '/arquivos', label: 'Meus Arquivos', icon: FolderOpen },
+  { to: '/repositorio', label: 'Repositório', icon: HardDrive, module: 'repositorio' },
+  { to: '/users', label: 'Usuários', icon: Users, module: 'users' },
+  { to: '/backups', label: 'Backups', icon: DatabaseBackup, module: 'backups' },
+  { to: '/whatsapp', label: 'WhatsApp', icon: MessageSquare, module: 'whatsapp' },
+  { to: '/whatsapp-suporte', label: 'Bot Suporte', icon: Headset, module: 'bot' },
+  { to: '/agente', label: 'Agente IA', icon: Bot, module: 'agente' },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -72,11 +75,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const handleLogout = () => { logout(); navigate('/login', { replace: true }); };
 
-  const filteredNav = navItems.filter((item) =>
-    !item.adminOnly ||
-    user?.role === 'ADMIN' ||
-    (item.gestorAllowed && user?.role === 'GESTOR')
-  );
+  const filteredNav = navItems.filter((item) => !item.module || canAccess(user, item.module));
 
   const sidebarContent = (
     <>

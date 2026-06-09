@@ -1,16 +1,21 @@
 import { Router } from 'express';
-import { authenticate, requireRole } from '../../middlewares/authenticate.js';
-import { listUsers, createUser, updateUser, toggleActive, deleteUser, forcePasswordReset } from './users.controller.js';
+import { authenticate, requireModule } from '../../middlewares/authenticate.js';
+import { listUsers, directoryUsers, createUser, updateUser, toggleActive, deleteUser, forcePasswordReset } from './users.controller.js';
 
 const router = Router();
 
 router.use(authenticate);
 
-router.get('/', requireRole('ADMIN', 'GESTOR'), listUsers);
-router.post('/', requireRole('ADMIN'), createUser);
-router.put('/:id', requireRole('ADMIN'), updateUser);
-router.patch('/:id/toggle-active', requireRole('ADMIN'), toggleActive);
-router.post('/:id/reset-password', requireRole('ADMIN'), forcePasswordReset);
-router.delete('/:id', requireRole('ADMIN'), deleteUser);
+// Diretório leve (id + nome) p/ seletores — disponível a qualquer autenticado.
+router.get('/directory', directoryUsers);
+
+// Acesso ao módulo "Usuários" (ADMIN sempre; ou quem tiver o módulo liberado).
+// Restrições de escalonamento (definir ADMIN / editar módulos) ficam no controller.
+router.get('/', requireModule('users'), listUsers);
+router.post('/', requireModule('users'), createUser);
+router.put('/:id', requireModule('users'), updateUser);
+router.patch('/:id/toggle-active', requireModule('users'), toggleActive);
+router.post('/:id/reset-password', requireModule('users'), forcePasswordReset);
+router.delete('/:id', requireModule('users'), deleteUser);
 
 export default router;

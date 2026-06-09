@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, requireRole } from '../../middlewares/authenticate.js';
+import { authenticate, requireRole, requireModule } from '../../middlewares/authenticate.js';
 import {
   listItems,
   createItem,
@@ -22,14 +22,15 @@ const router = Router();
 
 router.use(authenticate);
 
-// Catalog — rotas /admin/* estáticas antes de /:id (Express). Exclusão restrita ao ADMIN.
+// Catalog — rotas /admin/* estáticas antes de /:id (Express). Gestão do catálogo
+// liberável pelo módulo "catalogo" (ADMIN sempre). Leitura aberta a todos.
 router.get('/items', listItems);
-router.post('/items', requireRole('ADMIN'), createItem);
-router.get('/items/admin/bulk-preview', requireRole('ADMIN'), previewBulkItems);
-router.delete('/items/admin/bulk', requireRole('ADMIN'), bulkDeleteItems);
-router.put('/items/:id', requireRole('ADMIN'), updateItem);
-router.patch('/items/:id/toggle-active', requireRole('ADMIN'), toggleItemActive);
-router.delete('/items/:id', requireRole('ADMIN'), deleteItem);
+router.post('/items', requireModule('catalogo'), createItem);
+router.get('/items/admin/bulk-preview', requireModule('catalogo'), previewBulkItems);
+router.delete('/items/admin/bulk', requireModule('catalogo'), bulkDeleteItems);
+router.put('/items/:id', requireModule('catalogo'), updateItem);
+router.patch('/items/:id/toggle-active', requireModule('catalogo'), toggleItemActive);
+router.delete('/items/:id', requireModule('catalogo'), deleteItem);
 
 // Requests — idem.
 router.get('/requests', listRequests);

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, requireRole } from '../../middlewares/authenticate.js';
+import { authenticate, requireModule } from '../../middlewares/authenticate.js';
 import {
   getMetrics, getOverview, getTimeseries, getSla, getProdutividade,
   exportCsv, exportPdf, exportExecutivePdf, exportSupplyCsv, exportSupplyPdf,
@@ -7,7 +7,7 @@ import {
 
 const router = Router();
 
-router.use(authenticate, requireRole('ADMIN'));
+router.use(authenticate, requireModule('relatorios'));
 
 router.get('/metrics', getMetrics);
 // Relatórios profissionais (aceitam ?from=&to=)

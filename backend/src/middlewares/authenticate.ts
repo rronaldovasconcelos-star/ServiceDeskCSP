@@ -7,6 +7,7 @@ export interface AuthPayload {
   email: string;
   role: string;
   name: string;
+  modules?: string[];
 }
 
 declare global {
@@ -45,5 +46,29 @@ export function requireRole(...roles: string[]) {
       return;
     }
     next();
+  };
+}
+
+/**
+ * Libera a rota se o usuário for ADMIN (superusuário) ou tiver ao menos um
+ * dos módulos informados liberado na sua conta. As permissões vêm do JWT
+ * (req.user.modules) — refletem após novo login, igual ao `role`.
+ */
+export function requireModule(...keys: string[]) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Não autenticado' });
+      return;
+    }
+    if (req.user.role === 'ADMIN') {
+      next();
+      return;
+    }
+    const granted = req.user.modules ?? [];
+    if (keys.some((k) => granted.includes(k))) {
+      next();
+      return;
+    }
+    res.status(403).json({ error: 'Acesso negado' });
   };
 }
