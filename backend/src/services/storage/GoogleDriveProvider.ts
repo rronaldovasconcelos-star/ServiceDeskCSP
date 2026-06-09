@@ -7,8 +7,10 @@ import { StorageProvider } from './types.js';
 
 export class GoogleDriveProvider implements StorageProvider {
   private drive: drive_v3.Drive;
-  // Cache em memória de ownerId → folderId no Drive (evita buscas repetidas)
+  // Cache em memória de caminho cumulativo ("Seg1/Seg2/...") → folderId no Drive.
   private folderCache = new Map<string, string>();
+  // Dedupe de criações de pasta em voo (evita pastas irmãs duplicadas em uploads concorrentes).
+  private inFlight = new Map<string, Promise<string>>();
 
   constructor() {
     const oauth2 = new google.auth.OAuth2(
@@ -20,45 +22,66 @@ export class GoogleDriveProvider implements StorageProvider {
     this.drive = google.drive({ version: 'v3', auth: oauth2 });
   }
 
-  // Retorna (ou cria) a subpasta do usuário dentro da pasta raiz do portal.
-  private async getOrCreateFolder(ownerId: string): Promise<string> {
-    if (this.folderCache.has(ownerId)) return this.folderCache.get(ownerId)!;
+  // Encontra (ou cria) UMA pasta de nome `name` dentro de `parentId`. Memoiza por
+  // caminho cumulativo e deduplica chamadas concorrentes para o mesmo caminho.
+  private getOrCreateOne(parentId: string, name: string, cumPath: string): Promise<string> {
+    const cached = this.folderCache.get(cumPath);
+    if (cached) return Promise.resolve(cached);
+    const pending = this.inFlight.get(cumPath);
+    if (pending) return pending;
 
-    const q = [
-      `name = '${ownerId}'`,
-      `mimeType = 'application/vnd.google-apps.folder'`,
-      `'${env.googleDriveRootFolderId}' in parents`,
-      `trashed = false`,
-    ].join(' and ');
+    const task = (async () => {
+      const safe = name.replace(/'/g, "\\'"); // escapa aspas simples no q
+      const q = [
+        `name = '${safe}'`,
+        `mimeType = 'application/vnd.google-apps.folder'`,
+        `'${parentId}' in parents`,
+        `trashed = false`,
+      ].join(' and ');
 
-    const list = await this.drive.files.list({ q, fields: 'files(id)', pageSize: 1 });
-    if (list.data.files?.length) {
-      const id = list.data.files[0].id!;
-      this.folderCache.set(ownerId, id);
+      const list = await this.drive.files.list({ q, fields: 'files(id)', pageSize: 1 });
+      let id = list.data.files?.[0]?.id;
+      if (!id) {
+        const created = await this.drive.files.create({
+          requestBody: {
+            name,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [parentId],
+          },
+          fields: 'id',
+        });
+        id = created.data.id!;
+      }
+      this.folderCache.set(cumPath, id);
       return id;
-    }
+    })();
 
-    const created = await this.drive.files.create({
-      requestBody: {
-        name: ownerId,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: [env.googleDriveRootFolderId],
-      },
-      fields: 'id',
-    });
-    const id = created.data.id!;
-    this.folderCache.set(ownerId, id);
-    return id;
+    this.inFlight.set(cumPath, task);
+    task.finally(() => this.inFlight.delete(cumPath));
+    return task;
+  }
+
+  // Caminha (criando o que faltar) a árvore de pastas a partir da raiz do portal.
+  private async getOrCreateFolderPath(segments: string[]): Promise<string> {
+    let parentId = env.googleDriveRootFolderId;
+    const acc: string[] = [];
+    for (const seg of segments) {
+      acc.push(seg);
+      parentId = await this.getOrCreateOne(parentId, seg, acc.join('/'));
+    }
+    return parentId;
   }
 
   /**
-   * Faz upload do arquivo para o Drive na subpasta do dono.
+   * Faz upload do arquivo para o Drive espelhando a árvore acadêmica da chave
+   * ({Ano}/{Segmento}/.../{Tipo}/{storedName}).
    * Retorna o ID do arquivo no Drive (usado como storageKey no banco).
    * O arquivo temporário é removido do servidor após o upload.
    */
   async save(key: string, sourcePath: string, mimeType?: string): Promise<string> {
-    const [ownerId, filename] = key.split('/');
-    const folderId = await this.getOrCreateFolder(ownerId);
+    const segments = key.split('/');
+    const filename = segments.pop()!;
+    const folderId = await this.getOrCreateFolderPath(segments);
 
     const res = await this.drive.files.create({
       requestBody: {

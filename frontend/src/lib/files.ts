@@ -26,6 +26,24 @@ export async function downloadFile(id: string, name: string): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * Baixa vários arquivos de uma vez como um único .zip (gerado no backend, com a
+ * árvore acadêmica espelhada internamente). Mesmo padrão de blob do downloadFile.
+ */
+export async function downloadZip(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const res = await api.post('/files/download-zip', { ids }, { responseType: 'blob' });
+  const stamp = new Date().toISOString().slice(0, 10);
+  const url = URL.createObjectURL(res.data);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `arquivos-csp-${stamp}.zip`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export interface FileRecord {
   id: string;
   originalName: string;
@@ -33,6 +51,12 @@ export interface FileRecord {
   mimeType: string;
   sizeBytes: number;
   folder: string | null;
+  anoLetivo: string | null;
+  segmento: string | null;
+  serie: string | null;
+  etapa: string | null;
+  disciplina: string | null;
+  tipoMaterial: string | null;
   uploadedAt: string;
   ownerId: string;
   owner: { id: string; name: string; email: string };
