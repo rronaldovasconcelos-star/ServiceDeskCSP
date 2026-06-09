@@ -28,6 +28,7 @@ model User {
   verificationCodes VerificationCode[]
   maintenancesResponsavel ScheduledMaintenance[] @relation("MaintenanceResponsavel")
   maintenancesCreated     ScheduledMaintenance[] @relation("MaintenanceCreator")
+  materialReminders       MaterialReminder[]     @relation("ReminderCreator")
 }
 
 model BotSession {
@@ -59,13 +60,22 @@ model File {
   mimeType     String
   sizeBytes    Int
   storageKey   String   // "{ownerId}/{storedName}" — abstrai disco/S3
-  folder       String?  // categoria/pasta (ex: "Provas", "Planos de Aula")
+  folder       String?  // LEGADO — categoria livre dos arquivos antigos
+  anoLetivo    String?  // ex "2026"
+  segmento     String?  // "EI" | "FUND_I" | "FUND_II"
+  serie        String?  // depende do segmento, ex "F1_3ANO", "EI_MATERNAL"
+  etapa        String?  // "1" | "2" | "3"
+  disciplina   String?  // ex "MATEMATICA"
+  tipoMaterial String?  // ex "PROVA_AVALIATIVA"
   ownerId      String
   uploadedAt   DateTime @default(now())
 
   owner User @relation("OwnerFiles", fields: [ownerId], references: [id], onDelete: Cascade)
 
   @@index([ownerId])
+  @@index([anoLetivo, segmento, serie, etapa])
+  @@index([disciplina])
+  @@index([tipoMaterial])
 }
 
 
@@ -162,4 +172,31 @@ model ScheduledMaintenance {
 
   responsavel User @relation("MaintenanceResponsavel", fields: [responsavelId], references: [id])
   createdBy   User @relation("MaintenanceCreator", fields: [createdById], references: [id])
+}
+
+model MaterialReminder {
+  id           String   @id @default(cuid())
+  name         String                        // rótulo interno (ex. "Provas 2ª etapa")
+  messageExtra String?                        // texto livre adicional na mensagem
+  recurrence   String   @default("MONTHLY")   // NONE | DAILY | WEEKLY | MONTHLY | QUARTERLY | SEMIANNUAL | ANNUAL
+  nextRunAt    DateTime                        // quando disparar
+  lastRunAt    DateTime?                       // início da janela "desde o último ciclo"
+  status       String   @default("ACTIVE")    // ACTIVE | PAUSED | DONE | CANCELLED
+  // Classificação-alvo (opcional; usada na mensagem e no "quem já enviou?")
+  anoLetivo    String?
+  segmento     String?
+  serie        String?
+  etapa        String?
+  disciplina   String?
+  tipoMaterial String?
+  // Destinatários
+  audience     String   @default("ALL")        // ALL | SELECTED
+  recipientIds String?                          // JSON array de userIds quando SELECTED
+  createdById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdBy User @relation("ReminderCreator", fields: [createdById], references: [id])
+
+  @@index([status, nextRunAt])
 }

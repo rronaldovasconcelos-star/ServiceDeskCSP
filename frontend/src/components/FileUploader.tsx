@@ -1,39 +1,74 @@
 import { useRef, useState } from 'react';
 import { UploadCloud } from 'lucide-react';
 import api from '../lib/api';
+import {
+  ANOS_LETIVOS,
+  SEGMENTOS,
+  SERIES_BY_SEGMENTO,
+  ETAPAS,
+  DISCIPLINAS,
+  TIPOS_MATERIAL,
+} from '../lib/taxonomy';
 
-const CATEGORIA_SUGESTOES = [
-  'Provas',
-  'Planos de Aula',
-  'Material de Apoio',
-  'Trabalhos',
-  'Documentos',
-  'Atividades de Sala',
-  'Projetos',
-  'Capas',
-  'Para Casa',
-  'Simulados',
-];
+const fieldLabelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: '13px',
+  fontWeight: 500,
+  color: 'var(--text-secondary)',
+  marginBottom: '6px',
+};
+
+const baseSelectStyle: React.CSSProperties = {
+  width: '100%',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius-sm)',
+  padding: '8px 12px',
+  fontSize: '13px',
+  background: 'var(--bg-primary)',
+  outline: 'none',
+  boxSizing: 'border-box',
+};
 
 export default function FileUploader({ onUploaded }: { onUploaded: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [folder, setFolder] = useState('');
+  const [anoLetivo, setAnoLetivo] = useState(ANOS_LETIVOS[0]);
+  const [segmento, setSegmento] = useState('');
+  const [serie, setSerie] = useState('');
+  const [etapa, setEtapa] = useState('');
+  const [disciplina, setDisciplina] = useState('');
+  const [tipoMaterial, setTipoMaterial] = useState('');
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState('');
 
+  const serieOptions = segmento ? SERIES_BY_SEGMENTO[segmento] ?? [] : [];
+
+  // Ao trocar o segmento, a série anterior pode não pertencer mais a ele → reseta.
+  function handleSegmento(value: string) {
+    setSegmento(value);
+    setSerie('');
+  }
+
+  const classificacaoCompleta =
+    !!anoLetivo && !!segmento && !!serie && !!etapa && !!disciplina && !!tipoMaterial;
+
   async function send(list: FileList | File[]) {
     const files = Array.from(list);
     if (files.length === 0) return;
-    if (!folder.trim()) {
-      setError('Selecione uma categoria antes de enviar.');
+    if (!classificacaoCompleta) {
+      setError('Preencha toda a classificação (ano, segmento, série, etapa, disciplina e tipo) antes de enviar.');
       if (inputRef.current) inputRef.current.value = '';
       return;
     }
     setError('');
     const fd = new FormData();
     files.forEach((f) => fd.append('files', f));
-    fd.append('folder', folder.trim());
+    fd.append('anoLetivo', anoLetivo);
+    fd.append('segmento', segmento);
+    fd.append('serie', serie);
+    fd.append('etapa', etapa);
+    fd.append('disciplina', disciplina);
+    fd.append('tipoMaterial', tipoMaterial);
 
     setProgress(0);
     try {
@@ -55,6 +90,10 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
 
   const uploading = progress !== null;
 
+  function selectStyle(filled: boolean): React.CSSProperties {
+    return { ...baseSelectStyle, color: filled ? 'var(--text-primary)' : 'var(--text-secondary)' };
+  }
+
   return (
     <div
       style={{
@@ -66,33 +105,41 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
         boxShadow: 'var(--shadow)',
       }}
     >
-      {/* Categoria */}
+      {/* Classificação — 6 eixos obrigatórios */}
       <div style={{ marginBottom: '12px' }}>
-        <label
-          style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '6px' }}
-        >
-          Categoria <span style={{ color: '#ef4444' }}>*</span>
+        <label style={fieldLabelStyle}>
+          Classificação <span style={{ color: '#ef4444' }}>*</span>
         </label>
-        <select
-          value={folder}
-          onChange={(e) => setFolder(e.target.value)}
-          disabled={uploading}
-          style={{
-            width: '100%',
-            maxWidth: '320px',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '8px 12px',
-            fontSize: '13px',
-            background: 'var(--bg-primary)',
-            color: folder ? 'var(--text-primary)' : 'var(--text-secondary)',
-            outline: 'none',
-            boxSizing: 'border-box',
-          }}
-        >
-          <option value="">Selecione uma categoria...</option>
-          {CATEGORIA_SUGESTOES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px' }}>
+          <select value={anoLetivo} onChange={(e) => setAnoLetivo(e.target.value)} disabled={uploading} style={selectStyle(!!anoLetivo)}>
+            {ANOS_LETIVOS.map((a) => <option key={a} value={a}>{a}</option>)}
+          </select>
+
+          <select value={segmento} onChange={(e) => handleSegmento(e.target.value)} disabled={uploading} style={selectStyle(!!segmento)}>
+            <option value="">Segmento...</option>
+            {SEGMENTOS.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+          </select>
+
+          <select value={serie} onChange={(e) => setSerie(e.target.value)} disabled={uploading || !segmento} style={selectStyle(!!serie)}>
+            <option value="">{segmento ? 'Série...' : 'Escolha o segmento'}</option>
+            {serieOptions.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+          </select>
+
+          <select value={etapa} onChange={(e) => setEtapa(e.target.value)} disabled={uploading} style={selectStyle(!!etapa)}>
+            <option value="">Etapa...</option>
+            {ETAPAS.map((e) => <option key={e.code} value={e.code}>{e.label}</option>)}
+          </select>
+
+          <select value={disciplina} onChange={(e) => setDisciplina(e.target.value)} disabled={uploading} style={selectStyle(!!disciplina)}>
+            <option value="">Disciplina...</option>
+            {DISCIPLINAS.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
+          </select>
+
+          <select value={tipoMaterial} onChange={(e) => setTipoMaterial(e.target.value)} disabled={uploading} style={selectStyle(!!tipoMaterial)}>
+            <option value="">Tipo de material...</option>
+            {TIPOS_MATERIAL.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* Área drag-and-drop */}
@@ -113,6 +160,7 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
           cursor: uploading ? 'default' : 'pointer',
           background: dragging ? 'var(--bg-active)' : 'transparent',
           transition: 'background 0.15s, border-color 0.15s',
+          opacity: classificacaoCompleta ? 1 : 0.6,
         }}
       >
         <UploadCloud size={28} color="var(--accent)" style={{ marginBottom: '8px' }} />
