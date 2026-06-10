@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
-import { Download, Trash2, FileStack, HardDrive, List, FolderTree, FileArchive } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Download, Trash2, FileStack, HardDrive, List, FolderTree, FileArchive, Replace, History, X } from 'lucide-react';
 import api from '../lib/api';
 import FilesTreeView from '../components/FilesTreeView';
-import { formatBytes, downloadFile, downloadZip, type FileRecord } from '../lib/files';
+import {
+  formatBytes, downloadFile, downloadZip, replaceFile, fetchFileLogs,
+  type FileRecord, type FileChangeLogRecord,
+} from '../lib/files';
 import { labelFor, SEGMENTOS, SERIES_BY_SEGMENTO, DISCIPLINAS, TIPOS_MATERIAL } from '../lib/taxonomy';
 import { useAuth } from '../context/AuthContext';
 
@@ -47,6 +50,10 @@ export default function RepositorioPage() {
   const { user } = useAuth();
   // ADMIN exclui qualquer arquivo; demais (GESTOR/USER) só os próprios — espelha o backend.
   const canDeleteFile = (f: FileRecord) => user?.role === 'ADMIN' || f.ownerId === user?.id;
+  // GESTOR/ADMIN podem substituir o conteúdo de qualquer arquivo e ver o log.
+  const canEdit = user?.role === 'ADMIN' || user?.role === 'GESTOR';
+  const [replaceTarget, setReplaceTarget] = useState<FileRecord | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,9 +162,19 @@ export default function RepositorioPage() {
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-      <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 16px' }}>
-        Repositório de Arquivos
-      </h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', margin: '0 0 16px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+          Repositório de Arquivos
+        </h2>
+        {canEdit && (
+          <button
+            onClick={() => setHistoryOpen(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}
+          >
+            <History size={15} /> Histórico de alterações
+          </button>
+        )}
+      </div>
 
       {/* Métricas */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
@@ -342,6 +359,7 @@ export default function RepositorioPage() {
                     <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{new Date(f.uploadedAt).toLocaleDateString('pt-BR')}</td>
                     <td style={{ padding: '10px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <button onClick={() => downloadFile(f.id, f.originalName)} style={iconBtnStyle} title="Baixar" aria-label="Baixar"><Download size={16} /></button>
+                      {canEdit && <button onClick={() => setReplaceTarget(f)} style={iconBtnStyle} title="Substituir arquivo" aria-label="Substituir"><Replace size={16} /></button>}
                       {canDeleteFile(f) && <button onClick={() => handleDelete(f)} style={{ ...iconBtnStyle, color: '#ef4444' }} title="Excluir" aria-label="Excluir"><Trash2 size={16} /></button>}
                     </td>
                   </tr>
@@ -364,6 +382,7 @@ export default function RepositorioPage() {
                   </div>
                   <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
                     <button onClick={() => downloadFile(f.id, f.originalName)} style={iconBtnStyle} title="Baixar" aria-label="Baixar"><Download size={16} /></button>
+                    {canEdit && <button onClick={() => setReplaceTarget(f)} style={iconBtnStyle} title="Substituir arquivo" aria-label="Substituir"><Replace size={16} /></button>}
                     {canDeleteFile(f) && <button onClick={() => handleDelete(f)} style={{ ...iconBtnStyle, color: '#ef4444' }} title="Excluir" aria-label="Excluir"><Trash2 size={16} /></button>}
                   </div>
                 </div>
@@ -379,6 +398,148 @@ export default function RepositorioPage() {
           </div>
         </>
       )}
+
+      {replaceTarget && (
+        <ReplaceModal
+          file={replaceTarget}
+          onClose={() => setReplaceTarget(null)}
+          onDone={() => { setReplaceTarget(null); loadFiles(); loadMetrics(); }}
+        />
+      )}
+
+      {historyOpen && <HistoryModal onClose={() => setHistoryOpen(false)} />}
+    </div>
+  );
+}
+
+// ─── Modal: substituir conteúdo do arquivo ────────────────────────────────────────
+
+function ReplaceModal({ file, onClose, onDone }: { file: FileRecord; onClose: () => void; onDone: () => void }) {
+  const [picked, setPicked] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
+  }, [onClose]);
+
+  async function submit() {
+    if (!picked || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await replaceFile(file.id, picked);
+      onDone();
+    } catch (e: any) {
+      setError(e?.response?.data?.error ?? 'Falha ao substituir o arquivo.');
+      setBusy(false);
+    }
+  }
+
+  const metaLine = [
+    labelFor('serie', file.serie),
+    labelFor('disciplina', file.disciplina),
+    labelFor('tipoMaterial', file.tipoMaterial),
+  ].filter(Boolean).join(' · ');
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)' }} />
+      <div style={{ position: 'relative', width: '100%', maxWidth: '440px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>Substituir arquivo</h3>
+          <button onClick={onClose} style={iconBtnStyle} aria-label="Fechar"><X size={18} /></button>
+        </div>
+        <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+            <div style={{ color: 'var(--text-primary)', fontWeight: 600, wordBreak: 'break-word' }}>{file.originalName}</div>
+            <div style={{ marginTop: '2px' }}>{file.owner.name}{metaLine ? ` · ${metaLine}` : ''} · {formatBytes(file.sizeBytes)}</div>
+          </div>
+
+          <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)' }}>
+            A versão enviada <strong>substitui</strong> a atual mantendo a mesma classificação. A troca fica registrada no histórico.
+          </p>
+
+          <input
+            ref={inputRef}
+            type="file"
+            onChange={(e) => setPicked(e.target.files?.[0] ?? null)}
+            style={{ fontSize: '13px', color: 'var(--text-primary)' }}
+          />
+
+          {error && <div style={{ fontSize: '12px', color: '#ef4444' }}>{error}</div>}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <button onClick={onClose} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer' }}>
+              Cancelar
+            </button>
+            <button
+              onClick={submit}
+              disabled={!picked || busy}
+              style={{ padding: '8px 14px', border: 'none', borderRadius: 'var(--radius-sm)', background: 'var(--accent)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: !picked || busy ? 'default' : 'pointer', opacity: !picked || busy ? 0.6 : 1 }}
+            >
+              {busy ? 'Substituindo...' : 'Substituir'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal: histórico de alterações ───────────────────────────────────────────────
+
+function HistoryModal({ onClose }: { onClose: () => void }) {
+  const [logs, setLogs] = useState<FileChangeLogRecord[] | null>(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    fetchFileLogs({ limit: 200 })
+      .then(setLogs)
+      .catch((e: any) => setError(e?.response?.data?.error ?? 'Falha ao carregar o histórico.'));
+    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
+  }, [onClose]);
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)' }} />
+      <div style={{ position: 'relative', width: '100%', maxWidth: '640px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>Histórico de alterações</h3>
+          <button onClick={onClose} style={iconBtnStyle} aria-label="Fechar"><X size={18} /></button>
+        </div>
+        <div style={{ padding: '8px 0', overflowY: 'auto' }}>
+          {error ? (
+            <p style={{ padding: '16px', fontSize: '13px', color: '#ef4444' }}>{error}</p>
+          ) : !logs ? (
+            <p style={{ padding: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>Carregando...</p>
+          ) : logs.length === 0 ? (
+            <p style={{ padding: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>Nenhuma alteração registrada ainda.</p>
+          ) : (
+            logs.map((l) => (
+              <div key={l.id} style={{ padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 600, wordBreak: 'break-word' }}>{l.fileName}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  Substituído por <strong>{l.actorName}</strong> ({l.actorEmail})
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  <span>{new Date(l.createdAt).toLocaleString('pt-BR')}</span>
+                  {l.oldSize != null && l.newSize != null && (
+                    <span>{formatBytes(l.oldSize)} → {formatBytes(l.newSize)}</span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   );
 }

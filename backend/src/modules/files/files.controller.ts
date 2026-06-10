@@ -240,6 +240,103 @@ export async function downloadZip(req: Request, res: Response, next: NextFunctio
   }
 }
 
+// ─── Substituição de conteúdo (ADMIN/GESTOR) ─────────────────────────────────────
+// Baixar → editar offline → re-enviar. Mantém a classificação e a posição na lista;
+// troca o conteúdo no storage e registra a alteração no FileChangeLog.
+
+export async function replaceFile(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const file = await (prisma as any).file.findUnique({ where: { id: req.params.id as string } });
+    if (!file) {
+      res.status(404).json({ error: 'Arquivo não encontrado' });
+      return;
+    }
+
+    const f = req.file as Express.Multer.File | undefined;
+    if (!f) {
+      res.status(400).json({ error: 'Nenhum arquivo válido enviado (tipo ou tamanho inválido).' });
+      return;
+    }
+
+    // Mantém a classificação atual; só reconstrói a chave com o novo nome físico.
+    const axes = {
+      anoLetivo: file.anoLetivo ?? '',
+      segmento: file.segmento ?? '',
+      serie: file.serie ?? '',
+      etapa: file.etapa ?? '',
+      disciplina: file.disciplina ?? '',
+      tipoMaterial: file.tipoMaterial ?? '',
+    };
+
+    const oldStorageKey = file.storageKey;
+    const newKey = buildStorageKey(axes, f.filename);
+    // Salva o novo primeiro: se falhar, nada muda e o antigo permanece intacto.
+    const newStorageKey = await storage.save(newKey, f.path, f.mimetype);
+
+    const updated = await (prisma as any).file.update({
+      where: { id: file.id },
+      data: {
+        storedName: f.filename,
+        mimeType: f.mimetype,
+        sizeBytes: f.size,
+        storageKey: newStorageKey,
+        // originalName, ownerId, classificação e uploadedAt permanecem.
+      },
+      select: fileSelect,
+    });
+
+    // Remove o conteúdo antigo (idempotente). Só depois de gravar a nova referência.
+    if (oldStorageKey && oldStorageKey !== newStorageKey) {
+      try {
+        await storage.delete(oldStorageKey);
+      } catch (e) {
+        console.error('[files] falha ao remover conteúdo antigo após substituição:', e);
+      }
+    }
+
+    await (prisma as any).fileChangeLog.create({
+      data: {
+        fileId: file.id,
+        fileName: file.originalName,
+        action: 'REPLACE',
+        actorId: req.user!.sub,
+        actorName: req.user!.name,
+        actorEmail: req.user!.email,
+        oldSize: file.sizeBytes,
+        newSize: f.size,
+        oldMime: file.mimeType,
+        newMime: f.mimetype,
+      },
+    });
+
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── Log de alterações (ADMIN/GESTOR) ────────────────────────────────────────────
+
+export async function listFileLogs(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { fileId } = req.query as Record<string, string | undefined>;
+    const rawLimit = Number((req.query as Record<string, string | undefined>).limit);
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 500) : 100;
+
+    const where: Record<string, unknown> = {};
+    if (fileId) where.fileId = fileId;
+
+    const logs = await (prisma as any).fileChangeLog.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+    res.json(logs);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ─── Exclusão (disco primeiro, depois DB) ────────────────────────────────────────
 
 export async function deleteFile(req: Request, res: Response, next: NextFunction): Promise<void> {

@@ -61,3 +61,38 @@ export interface FileRecord {
   ownerId: string;
   owner: { id: string; name: string; email: string };
 }
+
+/**
+ * Substitui o conteúdo de um arquivo já existente (ADMIN/GESTOR). Mantém a
+ * classificação e a posição na lista; só troca o conteúdo no storage. O backend
+ * registra a alteração no log. Retorna o registro atualizado.
+ */
+export async function replaceFile(id: string, file: File): Promise<FileRecord> {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await api.post(`/files/${id}/replace`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data as FileRecord;
+}
+
+export interface FileChangeLogRecord {
+  id: string;
+  fileId: string | null;
+  fileName: string;
+  action: string;
+  actorId: string;
+  actorName: string;
+  actorEmail: string;
+  oldSize: number | null;
+  newSize: number | null;
+  oldMime: string | null;
+  newMime: string | null;
+  createdAt: string;
+}
+
+/** Busca o log de alterações de arquivos (ADMIN/GESTOR). */
+export async function fetchFileLogs(params?: { fileId?: string; limit?: number }): Promise<FileChangeLogRecord[]> {
+  const res = await api.get('/files/logs', { params });
+  return res.data as FileChangeLogRecord[];
+}

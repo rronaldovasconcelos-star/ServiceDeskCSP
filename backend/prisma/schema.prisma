@@ -79,6 +79,24 @@ model File {
   @@index([tipoMaterial])
 }
 
+model FileChangeLog {
+  id         String   @id @default(cuid())
+  fileId     String? // referência solta — o arquivo pode ser excluído depois
+  fileName   String // snapshot do originalName no momento da troca
+  action     String   @default("REPLACE") // REPLACE (extensível: RENAME, etc.)
+  actorId    String
+  actorName  String // snapshot
+  actorEmail String // snapshot
+  oldSize    Int?
+  newSize    Int?
+  oldMime    String?
+  newMime    String?
+  createdAt  DateTime @default(now())
+
+  @@index([fileId])
+  @@index([createdAt])
+}
+
 
 model Ticket {
   id          String    @id @default(cuid())
