@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Base de Conhecimento · Colégio Santa Paula</title>
+<style>
+  :root { --accent:#7c3aed; --bg:#0f172a; --card:#1e293b; --line:rgba(255,255,255,.1); --txt:#e2e8f0; --muted:#94a3b8; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font-family:system-ui,Segoe UI,Roboto,sans-serif; line-height:1.5; }
+  .wrap { max-width:720px; margin:0 auto; padding:24px 16px 60px; }
+  header { text-align:center; margin-bottom:24px; }
+  header h1 { font-size:1.4rem; margin:8px 0 4px; }
+  header p { color:var(--muted); font-size:.9rem; margin:0; }
+  .sec { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:16px; }
+  .sec h2 { font-size:1rem; margin:0 0 12px; color:#c4b5fd; }
+  label { display:block; font-size:.88rem; margin:14px 0 6px; }
+  textarea, input { width:100%; background:#0f172a; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; resize:vertical; }
+  textarea { min-height:60px; }
+  .btn { width:100%; background:var(--accent); color:#fff; border:none; border-radius:10px; padding:14px; font-size:1rem; font-weight:600; cursor:pointer; margin-top:8px; }
+  .btn:disabled { opacity:.6; }
+  .msg { padding:14px; border-radius:10px; margin-bottom:16px; font-size:.9rem; }
+  .ok { background:#14532d; color:#86efac; }
+  .err { background:#450a0a; color:#fca5a5; }
+  .hint { color:var(--muted); font-size:.82rem; margin-bottom:18px; }
+  #done { text-align:center; padding:40px 16px; }
+  #done h2 { color:#86efac; }
+  .btn.secondary { background:transparent; border:1px solid var(--accent); color:#c4b5fd; }
+  .saved { color:var(--muted); font-size:.78rem; text-align:center; margin-top:10px; min-height:1em; }
+  .sent-badge { display:inline-block; background:#14532d; color:#86efac; font-size:.7rem; font-weight:600; padding:1px 7px; border-radius:6px; margin-left:8px; vertical-align:middle; }
+  label.is-sent { color:#86efac; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📋 Base de Conhecimento</h1>
+    <p>Colégio Santa Paula · ajude a Liz a responder melhor</p>
+  </header>
+  <div id="gate" class="msg err" style="display:none">Link inválido ou expirado. Solicite um novo link à coordenação.</div>
+  <div id="form" style="display:none">
+    <p class="hint">Preencha o que souber — pode deixar campos em branco. <b>Não precisa terminar de uma vez:</b> o que você digitar fica salvo neste aparelho, então pode fechar e voltar pelo mesmo link depois para continuar. Suas respostas passam por revisão antes de entrar no sistema.</p>
+    <div id="status"></div>
+    <div class="sec">
+      <h2>Identificação de quem preenche</h2>
+      <label>Seu nome *</label>
+      <input id="colaborador" placeholder="Ex.: Maria — Secretaria" />
+    </div>
+    <div id="sections"></div>
+    <button class="btn" id="enviar">Enviar respostas</button>
+    <div class="saved" id="savedHint"></div>
+  </div>
+  <div id="done" style="display:none">
+    <h2>✅ Recebido, obrigado!</h2>
+    <p>Suas informações foram enviadas para revisão. 💜</p>
+    <p class="hint" style="text-align:center">Ainda falta preencher algo? Você pode continuar pelo mesmo link — o que já enviou fica marcado e não será reenviado.</p>
+    <button class="btn secondary" id="continuar">Continuar preenchendo</button>
+  </div>
+</div>
+<script>
+const WEBHOOK = "https://n8nai.iainteligencia.com/webhook/liz-form";
+const FORM = [
+  ["Identificação", [
+    "Qual o endereço completo da escola (rua, número, bairro, cidade/UF, CEP)?",
+    "Quais os telefones e o WhatsApp de contato?",
+    "Qual o e-mail, site e redes sociais?",
+    "Qual o horário de funcionamento da secretaria?",
+  ]],
+  ["Sobre a escola", [
+    "Em que ano foi fundada e um resumo da história/tradição?",
+    "Qual a missão, visão e valores?",
+    "Quais os principais diferenciais?",
+  ]],
+  ["Níveis de ensino", [
+    "Quais segmentos/níveis oferece e as faixas etárias?",
+    "Quais turnos (manhã, tarde, integral)?",
+    "Regras de idade de corte por série?",
+  ]],
+  ["Proposta pedagógica", [
+    "Qual o método de ensino / abordagem?",
+    "Qual o sistema de ensino / material didático?",
+    "É bilíngue ou tem idiomas? Como funciona?",
+    "Como é a avaliação e o acompanhamento do aluno?",
+    "Há reforço, plantão de dúvidas ou apoio extra?",
+  ]],
+  ["Matrículas", [
+    "Como funciona o processo de matrícula (passo a passo)?",
+    "Quais documentos são necessários?",
+    "Como o responsável faz a pré-inscrição / pede vaga?",
+    "Há avaliação ou entrevista para novos alunos?",
+    "Como funciona a renovação para alunos atuais?",
+  ]],
+  ["Estrutura física", [
+    "Quais instalações a escola tem?",
+    "É acessível para pessoas com deficiência?",
+    "Como é a segurança (acesso, câmeras, portaria)?",
+  ]],
+  ["Rotina e serviços", [
+    "Como é a alimentação (cantina, refeitório, cardápio)? É inclusa?",
+    "Oferece ou indica transporte escolar?",
+    "Quais atividades extracurriculares?",
+    "Como funciona o uniforme e a lista de material?",
+    "Quais os horários de aula de cada turno?",
+  ]],
+  ["Família e inclusão", [
+    "Canais de comunicação com a família (app, agenda, reuniões)?",
+    "Política para alunos com deficiência/necessidades específicas?",
+    "Há bolsas, descontos (irmãos, pontualidade) ou convênios?",
+  ]],
+  ["Visitas", [
+    "Como o responsável agenda uma visita e horários disponíveis?",
+    "O que a família conhece/faz durante a visita?",
+  ]],
+  ["Outras informações", [
+    "Outras perguntas frequentes dos pais e suas respostas:",
+  ]],
+];
+const token = new URLSearchParams(location.search).get("k");
+
+// ── Persistência local (por token): rascunho do que foi digitado + o que já foi enviado.
+// Permite fechar e voltar pelo mesmo link continuando de onde parou, sem reenviar duplicado.
+const DRAFT_KEY = "csp_base_draft_" + (token || "");
+const SENT_KEY  = "csp_base_sent_"  + (token || "");
+const qKey = (cat, q) => cat + "||" + q;        // identidade estável de cada pergunta
+function loadJSON(k){ try { return JSON.parse(localStorage.getItem(k) || "null") || null; } catch { return null; } }
+function saveJSON(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+let sent = loadJSON(SENT_KEY) || {};            // { "cat||pergunta": textoEnviado }
+
+if (!token) { document.getElementById("gate").style.display="block"; }
+else {
+  document.getElementById("form").style.display="block";
+  const draft = loadJSON(DRAFT_KEY) || { colaborador:"", answers:{} };
+  const cont = document.getElementById("sections");
+  const nome = document.getElementById("colaborador");
+  nome.value = draft.colaborador || "";
+  FORM.forEach(([cat, perguntas], si) => {
+    const sec = document.createElement("div"); sec.className="sec";
+    sec.innerHTML = `<h2>${cat}</h2>`;
+    perguntas.forEach((p, qi) => {
+      const id = `q_${si}_${qi}`;
+      const l = document.createElement("label"); l.textContent = p; l.htmlFor = id;
+      const badge = document.createElement("span"); badge.className="sent-badge"; badge.textContent="✓ enviado";
+      l.appendChild(badge);
+      const t = document.createElement("textarea"); t.id = id; t.dataset.cat = cat; t.dataset.q = p;
+      if (draft.answers && draft.answers[id] != null) t.value = draft.answers[id];
+      t.addEventListener("input", saveDraft);
+      sec.appendChild(l); sec.appendChild(t);
+    });
+    cont.appendChild(sec);
+  });
+  nome.addEventListener("input", saveDraft);
+  document.getElementById("enviar").onclick = enviar;
+  document.getElementById("continuar").onclick = () => {
+    document.getElementById("done").style.display="none";
+    document.getElementById("form").style.display="block";
+  };
+  refreshSentMarks();
+}
+
+function saveDraft(){
+  const answers = {};
+  document.querySelectorAll("textarea").forEach(t => { if (t.value.trim()) answers[t.id] = t.value; });
+  saveJSON(DRAFT_KEY, { colaborador: document.getElementById("colaborador").value, answers });
+  const h = document.getElementById("savedHint"); if (h) h.textContent = "✓ Rascunho salvo neste aparelho";
+}
+
+// Marca/oculta o selo "enviado" conforme o que já foi aceito no envio anterior.
+function refreshSentMarks(){
+  document.querySelectorAll("textarea").forEach(t => {
+    const wasSent = sent[qKey(t.dataset.cat, t.dataset.q)] != null;
+    const label = t.previousElementSibling;
+    const badge = label && label.querySelector(".sent-badge");
+    if (badge) badge.style.display = wasSent ? "inline-block" : "none";
+    if (label) label.classList.toggle("is-sent", wasSent);
+  });
+}
+
+function setStatus(txt, cls){ const s=document.getElementById("status"); s.innerHTML = txt ? `<div class="msg ${cls}">${txt}</div>` : ""; }
+async function enviar(){
+  const colaborador = document.getElementById("colaborador").value.trim();
+  if (!colaborador) { setStatus("Por favor, informe seu nome.", "err"); return; }
+  // Envia só o que ainda não foi enviado ou que mudou desde o último envio — evita duplicar na fila.
+  const respostas = [];
+  document.querySelectorAll("textarea").forEach(t => {
+    const v = t.value.trim();
+    if (v && sent[qKey(t.dataset.cat, t.dataset.q)] !== v) {
+      respostas.push({ categoria: t.dataset.cat, pergunta: t.dataset.q, resposta: v });
+    }
+  });
+  if (!respostas.length) {
+    const algoPreenchido = [...document.querySelectorAll("textarea")].some(t => t.value.trim());
+    setStatus(algoPreenchido ? "Tudo que você preencheu já foi enviado. Preencha mais algum campo para enviar." : "Preencha pelo menos um campo.", "err");
+    return;
+  }
+  const btn = document.getElementById("enviar"); btn.disabled = true; btn.textContent = "Enviando...";
+  try {
+    const r = await fetch(WEBHOOK, { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ token, colaborador, respostas }) });
+    const d = await r.json();
+    if (d.ok) {
+      // Marca como enviado o que acabou de ir, mantém o rascunho para a pessoa continuar depois.
+      respostas.forEach(x => { sent[qKey(x.categoria, x.pergunta)] = x.resposta; });
+      saveJSON(SENT_KEY, sent);
+      refreshSentMarks();
+      document.getElementById("form").style.display="none";
+      document.getElementById("done").style.display="block";
+    }
+    else { setStatus("Não foi possível enviar: " + (d.error || "tente novamente"), "err"); }
+  } catch(e) { setStatus("Erro de conexão. Tente novamente.", "err"); }
+  finally { btn.disabled=false; btn.textContent="Enviar respostas"; }
+}
+</script>
+</body>
+</html>
