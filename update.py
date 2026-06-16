@@ -4,7 +4,8 @@ Uso: python update.py
 """
 import tarfile, os, sys, paramiko
 
-PROJECT = r"c:\Users\rrona\Desktop\ATENDIMENTO CSP"
+# Raiz do projeto = pasta onde este script vive (robusto a mudanças de local).
+PROJECT = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else os.getcwd()
 ARCHIVE = r"c:\Users\rrona\AppData\Local\Temp\csp-deploy.tar.gz"
 # Credenciais do deploy vêm de .deploy.env (NÃO versionado) ou de variáveis de
 # ambiente. Nunca hardcode a senha do VPS aqui — vazaria no histórico do git.

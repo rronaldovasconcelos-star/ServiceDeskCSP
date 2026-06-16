@@ -73,6 +73,8 @@ export const env = {
   // Bot de suporte (recebe mensagens e abre chamados via WhatsApp)
   botEnabled: optional('BOT_ENABLED', 'false') === 'true',
   botWebhookSecret: optional('BOT_WEBHOOK_SECRET', ''),
+  // Ponte HTTP para o bot de suporte rodando no n8n (segredo no path dos endpoints /api/bot-bridge)
+  botBridgeSecret: optional('BOT_BRIDGE_SECRET', ''),
   // Números que o bot NUNCA deve atender (ex: outros bots no mesmo WhatsApp/Evolution),
   // para evitar loops bot-a-bot. CSV de números; normalizados na comparação.
   // Default inclui a Sofia (admissões) — 5531988031221.
@@ -84,9 +86,15 @@ export const env = {
   anthropicApiKey: optional('ANTHROPIC_API_KEY', ''),
   anthropicModel: optional('ANTHROPIC_MODEL', 'claude-haiku-4-5'),
 
-  // Agente IA (Sofia) — Central de Comando. Proxy para a API admin do bot.
+  // Agente IA (Sofia) — Central de Comando. Proxy para a API admin do bot (legado).
   agentAdminUrl: optional('AGENT_ADMIN_URL', ''),        // ex: http://IP_DO_VPS:3001
   agentAdminSecret: optional('AGENT_ADMIN_SECRET', ''),  // = WEBHOOK_SECRET do bot
+
+  // Central de Comando da Liz no n8n. O painel "Agente" administra a Liz via o
+  // webhook "Liz Admin API" (config/leads) e a Evolution direto (conexão).
+  lizAdminUrl: optional('LIZ_ADMIN_URL', 'https://n8nai.iainteligencia.com/webhook'),
+  lizAdminSecret: optional('LIZ_ADMIN_SECRET', ''),
+  lizEvolutionInstance: optional('LIZ_EVOLUTION_INSTANCE', 'liz-teste'),
 
   // Uploads (Repositório de arquivos)
   uploadDir: optional('UPLOAD_DIR', 'uploads'),

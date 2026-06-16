@@ -1,40 +1,54 @@
 import { Request, Response } from 'express';
 import { env } from '../../config/env.js';
+import { makeWhatsappControllers } from '../whatsapp/whatsapp.controller.js';
 
-const BASE = env.agentAdminUrl;
-const SECRET = env.agentAdminSecret;
+/**
+ * Central de Comando da Liz — agora a Liz roda no n8n (não mais no servidor Node
+ * antigo). Config (prompt/contexto) e leads vêm do webhook "Liz Admin API" do n8n;
+ * a conexão WhatsApp é gerida direto na Evolution (instância da Liz). O frontend
+ * (AgentePage) permanece inalterado.
+ */
+
+const ADMIN = `${env.lizAdminUrl}/liz-admin`;
 
 function ensureConfigured(res: Response): boolean {
-  if (!BASE || !SECRET) {
-    res.status(503).json({ error: 'Integração com o agente não configurada (AGENT_ADMIN_URL / AGENT_ADMIN_SECRET).' });
+  if (!env.lizAdminUrl || !env.lizAdminSecret) {
+    res.status(503).json({ error: 'Integração com a Liz (n8n) não configurada (LIZ_ADMIN_URL / LIZ_ADMIN_SECRET).' });
     return false;
   }
   return true;
 }
 
-/** Chamada JSON à API admin do bot, injetando o segredo compartilhado. */
-async function agentRequest(path: string, method = 'GET', body?: unknown) {
-  const res = await fetch(`${BASE}${path}`, {
-    method,
-    headers: {
-      'x-admin-secret': SECRET,
-      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+/** Chama o webhook admin da Liz no n8n com uma action. */
+async function adminAction(action: string, extra: Record<string, unknown> = {}) {
+  const res = await fetch(ADMIN, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ secret: env.lizAdminSecret, action, ...extra }),
   });
   const text = await res.text().catch(() => '');
-  if (!res.ok) throw new Error(`Agent ${res.status}: ${text}`);
-  return text ? JSON.parse(text) : {};
+  if (!res.ok) throw new Error(`Liz admin ${res.status}: ${text}`);
+  const data = text ? JSON.parse(text) : {};
+  if (data?.error) throw new Error(data.error);
+  return data;
 }
 
 function fail(res: Response, err: unknown): void {
-  res.status(502).json({ error: err instanceof Error ? err.message : 'Erro ao comunicar com o agente' });
+  res.status(502).json({ error: err instanceof Error ? err.message : 'Erro ao comunicar com a Liz (n8n)' });
 }
 
 export async function getStatus(_req: Request, res: Response): Promise<void> {
   if (!ensureConfigured(res)) return;
   try {
-    res.json(await agentRequest('/admin/status'));
+    const cfg = await adminAction('config-get');
+    res.json({
+      agent: 'Liz — Colégio Santa Paula',
+      uptimeSeconds: 0, // a Liz roda no n8n (sempre ativo); uptime não se aplica
+      sessions: 0,
+      model: cfg.model ?? 'gpt-4o-mini',
+      configUpdatedAt: cfg.updatedAt ?? null,
+      filesCount: 0,
+    });
   } catch (err) {
     fail(res, err);
   }
@@ -43,7 +57,7 @@ export async function getStatus(_req: Request, res: Response): Promise<void> {
 export async function getConfig(_req: Request, res: Response): Promise<void> {
   if (!ensureConfigured(res)) return;
   try {
-    res.json(await agentRequest('/admin/config'));
+    res.json(await adminAction('config-get'));
   } catch (err) {
     fail(res, err);
   }
@@ -53,7 +67,11 @@ export async function updateConfig(req: Request, res: Response): Promise<void> {
   if (!ensureConfigured(res)) return;
   try {
     const { systemPrompt, extraContext, model } = req.body ?? {};
-    res.json(await agentRequest('/admin/config', 'PUT', { systemPrompt, extraContext, model }));
+    const patch: Record<string, unknown> = {};
+    if (systemPrompt !== undefined) patch.systemPrompt = systemPrompt;
+    if (extraContext !== undefined) patch.extraContext = extraContext;
+    if (model !== undefined) patch.model = model;
+    res.json(await adminAction('config-set', patch));
   } catch (err) {
     fail(res, err);
   }
@@ -62,91 +80,28 @@ export async function updateConfig(req: Request, res: Response): Promise<void> {
 export async function getLeads(_req: Request, res: Response): Promise<void> {
   if (!ensureConfigured(res)) return;
   try {
-    res.json(await agentRequest('/admin/leads'));
+    res.json(await adminAction('leads'));
   } catch (err) {
     fail(res, err);
   }
 }
 
+// ─── Arquivos: gestão ainda não migrada para o n8n ───────────────────────────
 export async function listFiles(_req: Request, res: Response): Promise<void> {
-  if (!ensureConfigured(res)) return;
-  try {
-    res.json(await agentRequest('/admin/files'));
-  } catch (err) {
-    fail(res, err);
-  }
+  res.json([]);
 }
 
-export async function uploadFile(req: Request, res: Response): Promise<void> {
-  if (!ensureConfigured(res)) return;
-  const file = req.file;
-  if (!file) {
-    res.status(400).json({ error: 'Nenhum arquivo enviado.' });
-    return;
-  }
-  try {
-    const form = new FormData();
-    const blob = new Blob([new Uint8Array(file.buffer)], { type: file.mimetype });
-    form.append('file', blob, file.originalname);
-    form.append('description', (req.body?.description as string) ?? '');
-
-    const r = await fetch(`${BASE}/admin/files`, {
-      method: 'POST',
-      headers: { 'x-admin-secret': SECRET },
-      body: form,
-    });
-    const text = await r.text().catch(() => '');
-    if (!r.ok) throw new Error(`Agent ${r.status}: ${text}`);
-    res.status(201).json(text ? JSON.parse(text) : {});
-  } catch (err) {
-    fail(res, err);
-  }
+export async function uploadFile(_req: Request, res: Response): Promise<void> {
+  res.status(503).json({ error: 'A gestão de arquivos da Liz ainda não foi migrada para a nova Central.' });
 }
 
-export async function deleteFile(req: Request, res: Response): Promise<void> {
-  if (!ensureConfigured(res)) return;
-  try {
-    const { id } = req.params;
-    res.json(await agentRequest(`/admin/files/${id}`, 'DELETE'));
-  } catch (err) {
-    fail(res, err);
-  }
+export async function deleteFile(_req: Request, res: Response): Promise<void> {
+  res.status(503).json({ error: 'A gestão de arquivos da Liz ainda não foi migrada para a nova Central.' });
 }
 
-// ─── Conexão WhatsApp da Sofia ───────────────────────────────────────────────
-
-export async function getConnection(_req: Request, res: Response): Promise<void> {
-  if (!ensureConfigured(res)) return;
-  try {
-    res.json(await agentRequest('/admin/connection'));
-  } catch (err) {
-    fail(res, err);
-  }
-}
-
-export async function getConnectionQr(_req: Request, res: Response): Promise<void> {
-  if (!ensureConfigured(res)) return;
-  try {
-    res.json(await agentRequest('/admin/connection/qrcode'));
-  } catch (err) {
-    fail(res, err);
-  }
-}
-
-export async function disconnect(_req: Request, res: Response): Promise<void> {
-  if (!ensureConfigured(res)) return;
-  try {
-    res.json(await agentRequest('/admin/connection/disconnect', 'POST'));
-  } catch (err) {
-    fail(res, err);
-  }
-}
-
-export async function restart(_req: Request, res: Response): Promise<void> {
-  if (!ensureConfigured(res)) return;
-  try {
-    res.json(await agentRequest('/admin/connection/restart', 'POST'));
-  } catch (err) {
-    fail(res, err);
-  }
-}
+// ─── Conexão WhatsApp da Liz (Evolution direto) ──────────────────────────────
+const lizConn = makeWhatsappControllers(env.lizEvolutionInstance);
+export const getConnection = lizConn.getStatus;
+export const getConnectionQr = lizConn.getQrCode;
+export const disconnect = lizConn.disconnectInstance;
+export const restart = lizConn.restartInstance;

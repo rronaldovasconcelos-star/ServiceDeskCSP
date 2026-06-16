@@ -2,9 +2,24 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Bot, Activity, FileText, Sparkles, Cpu, Save, Loader2, RefreshCw,
   Upload, Trash2, Paperclip, Smartphone, Wifi, WifiOff, LogOut, RotateCcw, QrCode,
-  Users, Mail, Phone, CalendarCheck,
+  Users, Mail, Phone, CalendarCheck, Database, BarChart3, Plus, KeyRound, MapPin,
 } from 'lucide-react';
-import api from '../lib/api';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
+} from 'recharts';
+import api, { setKey, hasKey, rag as ragApi, report as reportApi, FORM_LINK } from '../lib/lizApi';
+import MapaBairros from '../components/MapaBairros';
+
+interface RagPending { id: number; colaborador: string; categoria: string; pergunta: string; resposta: string; created_at: string }
+
+interface RagChunk { id: string; categoria: string; fonte: string; texto: string }
+interface ReportData {
+  heatmap: { dow: number; hour: number; count: number }[];
+  interesse: { interesse: string; count: number }[];
+  etapas: { etapa: string; count: number }[];
+  bairros: { bairro: string; count: number }[];
+  totais: { leads: number; visitasAgendadas: number; comFilho: number };
+}
 
 interface AgentStatus {
   agent: string;
@@ -43,7 +58,9 @@ interface Lead {
   updatedAt: string | null;
 }
 
-type Tab = 'status' | 'prompt' | 'contexto' | 'arquivos' | 'conexao' | 'leads';
+type Tab = 'status' | 'prompt' | 'contexto' | 'arquivos' | 'conexao' | 'leads' | 'rag' | 'relatorio';
+
+const DOW_LABEL = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 const INTEREST_LABEL: Record<NonNullable<Lead['leadInterest']>, string> = {
   imediato: 'Imediato',
@@ -126,6 +143,14 @@ export default function AgentePage() {
   const [connState, setConnState] = useState<ConnState>('unknown');
   const [connPhone, setConnPhone] = useState<string | null>(null);
   const [qrcode, setQrcode] = useState<string | null>(null);
+  const [ragChunks, setRagChunks] = useState<RagChunk[]>([]);
+  const [ragText, setRagText] = useState('');
+  const [ragCat, setRagCat] = useState('manual');
+  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [pending, setPending] = useState<RagPending[]>([]);
+  const [copied, setCopied] = useState(false);
+  const [authed, setAuthed] = useState(hasKey());
+  const [keyInput, setKeyInput] = useState('');
 
   const setLoad = (k: string, v: boolean) => setLoading((p) => ({ ...p, [k]: v }));
   const notify = (text: string, type: 'ok' | 'err') => {
@@ -185,9 +210,107 @@ export default function AgentePage() {
     return () => clearInterval(id);
   }, [fetchStatus, fetchConfig, fetchFiles]);
 
+  const fetchRag = useCallback(async () => {
+    setLoad('rag', true);
+    try {
+      const r = await ragApi.list();
+      setRagChunks(r.chunks ?? []);
+    } catch (err) {
+      notify(errMsg(err, 'Erro ao carregar conhecimento'), 'err');
+    } finally {
+      setLoad('rag', false);
+    }
+  }, []);
+
+  const fetchPending = useCallback(async () => {
+    try {
+      const r = await ragApi.pendingList();
+      setPending(r.pendentes ?? []);
+    } catch { /* silencioso */ }
+  }, []);
+
+  const approvePending = async (id: number) => {
+    setLoad(`pa-${id}`, true);
+    try {
+      await ragApi.pendingApprove(id);
+      setPending((p) => p.filter((x) => x.id !== id));
+      notify('Conhecimento aprovado e adicionado à base.', 'ok');
+      fetchRag();
+    } catch (err) { notify(errMsg(err, 'Erro ao aprovar'), 'err'); }
+    finally { setLoad(`pa-${id}`, false); }
+  };
+
+  const rejectPending = async (id: number) => {
+    setLoad(`pr-${id}`, true);
+    try {
+      await ragApi.pendingReject(id);
+      setPending((p) => p.filter((x) => x.id !== id));
+    } catch (err) { notify(errMsg(err, 'Erro ao rejeitar'), 'err'); }
+    finally { setLoad(`pr-${id}`, false); }
+  };
+
+  const fetchReport = useCallback(async () => {
+    setLoad('relatorio', true);
+    try {
+      setReportData(await reportApi());
+    } catch (err) {
+      notify(errMsg(err, 'Erro ao carregar relatório'), 'err');
+    } finally {
+      setLoad('relatorio', false);
+    }
+  }, []);
+
   useEffect(() => {
     if (tab === 'leads') fetchLeads();
-  }, [tab, fetchLeads]);
+    if (tab === 'rag') { fetchRag(); fetchPending(); }
+    if (tab === 'relatorio') fetchReport();
+  }, [tab, fetchLeads, fetchRag, fetchReport, fetchPending]);
+
+  const addRag = async () => {
+    if (!ragText.trim()) return;
+    setLoad('ragAdd', true);
+    try {
+      await ragApi.add(ragText.trim(), ragCat || 'manual');
+      notify('Conhecimento adicionado à base da Liz.', 'ok');
+      setRagText('');
+      await fetchRag();
+    } catch (err) {
+      notify(errMsg(err, 'Erro ao adicionar'), 'err');
+    } finally {
+      setLoad('ragAdd', false);
+    }
+  };
+
+  const removeRag = async (id: string) => {
+    setLoad(`ragDel-${id}`, true);
+    try {
+      await ragApi.remove(id);
+      setRagChunks((p) => p.filter((c) => c.id !== id));
+    } catch (err) {
+      notify(errMsg(err, 'Erro ao remover'), 'err');
+    } finally {
+      setLoad(`ragDel-${id}`, false);
+    }
+  };
+
+  const uploadPdfRag = async (file: File) => {
+    setLoad('ragPdf', true);
+    try {
+      const b64 = await new Promise<string>((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(String(fr.result).replace(/^data:[^;]+;base64,/, ''));
+        fr.onerror = reject;
+        fr.readAsDataURL(file);
+      });
+      const r = await ragApi.uploadPdf(b64, file.name);
+      notify(`PDF indexado (${r.count ?? 0} trechos).`, 'ok');
+      await fetchRag();
+    } catch (err) {
+      notify(errMsg(err, 'Erro no upload do PDF'), 'err');
+    } finally {
+      setLoad('ragPdf', false);
+    }
+  };
 
   const exportLeadsCsv = () => {
     const header = ['Nome', 'Telefone', 'E-mail', 'Filhos', 'Interesse', 'Serie', 'Visitas', 'Ultima visita', 'Atualizado'];
@@ -354,10 +477,44 @@ export default function AgentePage() {
     { key: 'status', label: 'Status', icon: Activity },
     { key: 'conexao', label: 'Conexão', icon: Smartphone },
     { key: 'leads', label: 'Leads', icon: Users },
+    { key: 'relatorio', label: 'Relatório', icon: BarChart3 },
+    { key: 'rag', label: 'Conhecimento', icon: Database },
     { key: 'prompt', label: 'Prompt', icon: FileText },
     { key: 'contexto', label: 'Contexto', icon: Sparkles },
     { key: 'arquivos', label: 'Arquivos', icon: Paperclip },
   ];
+
+  if (!authed) {
+    return (
+      <div style={{ maxWidth: 420, margin: '4rem auto', padding: '2rem 1rem' }}>
+        <div className="rounded-xl p-6" style={card}>
+          <div className="flex items-center gap-3 mb-4">
+            <KeyRound size={24} style={{ color: 'var(--accent)' }} />
+            <h1 style={{ color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: 700 }}>Gestão da Liz</h1>
+          </div>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 16 }}>
+            Informe a chave de acesso do painel para gerenciar a assistente.
+          </p>
+          <input
+            type="password"
+            value={keyInput}
+            onChange={(e) => setKeyInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && keyInput.trim()) { setKey(keyInput); setAuthed(true); window.location.reload(); } }}
+            placeholder="Chave de acesso"
+            className="w-full rounded-lg px-3 py-2 mb-3 text-sm"
+            style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}
+          />
+          <button
+            onClick={() => { if (keyInput.trim()) { setKey(keyInput); setAuthed(true); window.location.reload(); } }}
+            className="w-full rounded-lg px-4 py-2 text-sm font-medium"
+            style={{ background: 'var(--accent)', color: '#fff' }}
+          >
+            Entrar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', padding: '2rem 1rem' }}>
@@ -863,6 +1020,203 @@ export default function AgentePage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── Conhecimento (RAG) ── */}
+      {tab === 'rag' && (
+        <>
+        {/* Coleta de conhecimento (link da landing) */}
+        <div className="rounded-xl p-5 mb-4" style={card}>
+          <p className="flex items-center gap-2" style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 6 }}><Users size={16} /> Coleta de conhecimento</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: 10 }}>Envie este link para os colaboradores preencherem as informações da escola. As respostas chegam aqui em <b>Pendentes</b> para sua aprovação.</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <input readOnly value={FORM_LINK} className="rounded-lg px-3 py-2 text-sm" style={{ flex: 1, minWidth: 220, background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }} />
+            <button onClick={() => { navigator.clipboard.writeText(FORM_LINK); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+              className="rounded-lg px-4 py-2 text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>
+              {copied ? 'Copiado!' : 'Copiar link'}
+            </button>
+          </div>
+        </div>
+
+        {/* Pendentes de revisão */}
+        {pending.length > 0 && (
+          <div className="rounded-xl p-5 mb-4" style={card}>
+            <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 10 }}>📥 Pendentes de revisão ({pending.length})</p>
+            <div className="space-y-2">
+              {pending.map((p) => (
+                <div key={p.id} className="rounded-lg p-3" style={{ background: 'var(--bg-card-hover)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 4 }}>{p.colaborador} · {p.categoria}</div>
+                  <div style={{ color: 'var(--text-primary)', fontSize: '0.82rem' }}><b>{p.pergunta}</b></div>
+                  <div style={{ color: 'var(--text-primary)', fontSize: '0.82rem', marginTop: 2 }}>{p.resposta}</div>
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={() => approvePending(p.id)} disabled={loading[`pa-${p.id}`]}
+                      className="rounded-lg px-3 py-1 text-xs font-medium" style={{ background: 'rgba(34,197,94,0.15)', color: '#86efac', border: '1px solid rgba(34,197,94,0.3)' }}>
+                      {loading[`pa-${p.id}`] ? '...' : '✓ Aprovar'}
+                    </button>
+                    <button onClick={() => rejectPending(p.id)} disabled={loading[`pr-${p.id}`]}
+                      className="rounded-lg px-3 py-1 text-xs font-medium" style={{ background: 'rgba(239,68,68,0.12)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)' }}>
+                      {loading[`pr-${p.id}`] ? '...' : '✕ Rejeitar'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-xl p-5" style={card}>
+          <div className="flex items-center justify-between mb-4">
+            <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Base de conhecimento (RAG)</p>
+            <button onClick={fetchRag} className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
+              style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <RefreshCw size={14} /> Atualizar
+            </button>
+          </div>
+
+          {/* adicionar texto */}
+          <div className="mb-4">
+            <textarea value={ragText} onChange={(e) => setRagText(e.target.value)} rows={3}
+              placeholder="Escreva um novo conhecimento/FAQ que a Liz deve saber…"
+              className="w-full rounded-lg px-3 py-2 text-sm mb-2"
+              style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }} />
+            <div className="flex items-center gap-2 flex-wrap">
+              <input value={ragCat} onChange={(e) => setRagCat(e.target.value)} placeholder="categoria"
+                className="rounded-lg px-3 py-1.5 text-sm" style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)', width: 140 }} />
+              <button onClick={addRag} disabled={loading.ragAdd || !ragText.trim()}
+                className="flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff', opacity: loading.ragAdd ? 0.6 : 1 }}>
+                {loading.ragAdd ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Adicionar
+              </button>
+              <label className="flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-medium cursor-pointer"
+                style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                {loading.ragPdf ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Upload PDF
+                <input type="file" accept="application/pdf" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPdfRag(f); e.target.value = ''; }} />
+              </label>
+            </div>
+          </div>
+
+          {/* lista */}
+          {loading.rag ? (
+            <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}><Loader2 size={16} className="animate-spin" /> Carregando…</div>
+          ) : (
+            <div className="space-y-2">
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{ragChunks.length} trechos indexados</p>
+              {ragChunks.map((c) => (
+                <div key={c.id} className="rounded-lg p-3 flex items-start justify-between gap-3" style={{ background: 'var(--bg-card-hover)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <span className="rounded px-2 py-0.5 text-xs" style={{ background: 'rgba(124,58,237,0.15)', color: '#c4b5fd' }}>{c.categoria}</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginLeft: 8 }}>{c.fonte}</span>
+                    <p style={{ color: 'var(--text-primary)', fontSize: '0.82rem', marginTop: 4 }}>{c.texto}</p>
+                  </div>
+                  <button onClick={() => removeRag(c.id)} disabled={loading[`ragDel-${c.id}`]} title="Remover"
+                    style={{ color: 'var(--prio-alta)', flexShrink: 0 }}>
+                    {loading[`ragDel-${c.id}`] ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        </>
+      )}
+
+      {/* ── Relatório ── */}
+      {tab === 'relatorio' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Relatório comercial</p>
+            <button onClick={fetchReport} className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
+              style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <RefreshCw size={14} /> Atualizar
+            </button>
+          </div>
+
+          {loading.relatorio && <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}><Loader2 size={16} className="animate-spin" /> Carregando…</div>}
+
+          {reportData && (
+            <>
+              {/* KPIs */}
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { l: 'Leads', v: reportData.totais.leads },
+                  { l: 'Visitas agendadas', v: reportData.totais.visitasAgendadas },
+                  { l: 'Crianças', v: reportData.totais.comFilho },
+                ].map((k) => (
+                  <div key={k.l} className="rounded-xl p-4" style={card}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{k.l}</p>
+                    <p style={{ color: 'var(--text-primary)', fontSize: '1.6rem', fontWeight: 700 }}>{k.v}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Heatmap dia x hora */}
+              <div className="rounded-xl p-5" style={card}>
+                <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 12 }}>Mapa de calor — quando chegam mensagens</p>
+                {(() => {
+                  const grid: Record<string, number> = {};
+                  let max = 1;
+                  reportData.heatmap.forEach((h) => { grid[`${h.dow}-${h.hour}`] = h.count; if (h.count > max) max = h.count; });
+                  return (
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ borderCollapse: 'collapse' }}>
+                        <thead><tr><th></th>{Array.from({ length: 24 }, (_, h) => <th key={h} style={{ fontSize: 8, color: 'var(--text-muted)', padding: '0 1px', fontWeight: 400 }}>{h}</th>)}</tr></thead>
+                        <tbody>
+                          {DOW_LABEL.map((d, di) => (
+                            <tr key={di}>
+                              <td style={{ fontSize: 10, color: 'var(--text-muted)', paddingRight: 6 }}>{d}</td>
+                              {Array.from({ length: 24 }, (_, h) => {
+                                const c = grid[`${di}-${h}`] || 0;
+                                const op = c ? 0.15 + 0.85 * (c / max) : 0;
+                                return <td key={h} title={`${d} ${h}h: ${c}`} style={{ width: 15, height: 15, background: c ? `rgba(124,58,237,${op})` : 'rgba(255,255,255,0.04)', border: '1px solid rgba(0,0,0,0.2)' }} />;
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Funil + bairros */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-xl p-5" style={card}>
+                  <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 12 }}>Leads por interesse</p>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={reportData.interesse}>
+                      <XAxis dataKey="interesse" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                      <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                        {reportData.interesse.map((_, i) => <Cell key={i} fill="#7c3aed" />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="rounded-xl p-5" style={card}>
+                  <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 12 }}>Leads por etapa de ensino</p>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={reportData.etapas}>
+                      <XAxis dataKey="etapa" tick={{ fontSize: 9, fill: '#94a3b8' }} interval={0} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                      <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+                      <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="#a855f7" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+              {/* Bairros */}
+              <div className="rounded-xl p-5" style={card}>
+                <p className="flex items-center gap-2" style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 12 }}><MapPin size={16} /> Mapa de calor — leads por bairro/região</p>
+                {reportData.bairros.filter((b) => b.bairro && !b.bairro.startsWith('(')).length === 0 ? (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>Sem dados de bairro ainda — a Liz passou a coletar nas conversas.</p>
+                ) : (
+                  <MapaBairros bairros={reportData.bairros} />
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

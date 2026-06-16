@@ -14,7 +14,7 @@ services:
       OTP_EXPIRES_MINUTES: "10"
       ALLOW_SELF_REGISTRATION: "true"
       # CSV de origens liberadas pelo CORS em produção.
-      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-https://servicedeskcsp.com.br}"
+      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:-https://servicedeskcsp.com.br,https://www.servicedeskcsp.com.br}"
       SEED_ADMIN_EMAIL: "${SEED_ADMIN_EMAIL:-admin@santapaula.com.br}"
       # Sem default: o seed recusa a senha pública conhecida em produção.
       SEED_ADMIN_PASSWORD: "${SEED_ADMIN_PASSWORD}"
@@ -34,8 +34,12 @@ services:
       GOOGLE_LOGIN_CLIENT_ID: "${GOOGLE_LOGIN_CLIENT_ID:-${GOOGLE_OAUTH_CLIENT_ID:-}}"
       AGENT_ADMIN_URL: "${AGENT_ADMIN_URL:-}"
       AGENT_ADMIN_SECRET: "${AGENT_ADMIN_SECRET:-}"
+      LIZ_ADMIN_URL: "${LIZ_ADMIN_URL:-https://n8nai.iainteligencia.com/webhook}"
+      LIZ_ADMIN_SECRET: "${LIZ_ADMIN_SECRET:-}"
+      LIZ_EVOLUTION_INSTANCE: "${LIZ_EVOLUTION_INSTANCE:-liz-teste}"
       BOT_ENABLED: "${BOT_ENABLED:-false}"
       BOT_WEBHOOK_SECRET: "${BOT_WEBHOOK_SECRET:-}"
+      BOT_BRIDGE_SECRET: "${BOT_BRIDGE_SECRET:-}"
       SUPPORT_EVOLUTION_INSTANCE: "${SUPPORT_EVOLUTION_INSTANCE:-}"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-claude-haiku-4-5}"
@@ -46,7 +50,22 @@ services:
     volumes:
       - csp-db:/app/prisma
       - csp-uploads:/app/uploads
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      # HTTP → HTTPS redirect (API em subdomínio dedicado)
+      - traefik.http.routers.csp-api-http.rule=Host(`api.servicedeskcsp.com.br`)
+      - traefik.http.routers.csp-api-http.entrypoints=http
+      - traefik.http.middlewares.csp-api-redirect-https.redirectscheme.scheme=https
+      - traefik.http.routers.csp-api-http.middlewares=csp-api-redirect-https
+      # HTTPS
+      - traefik.http.routers.csp-api-https.rule=Host(`api.servicedeskcsp.com.br`)
+      - traefik.http.routers.csp-api-https.entrypoints=https
+      - traefik.http.routers.csp-api-https.tls=true
+      - traefik.http.routers.csp-api-https.tls.certresolver=letsencrypt
+      - traefik.http.services.csp-api.loadbalancer.server.port=3001
     networks:
+      - coolify
       - csp-internal
       - agente-pessoal-net
     healthcheck:
