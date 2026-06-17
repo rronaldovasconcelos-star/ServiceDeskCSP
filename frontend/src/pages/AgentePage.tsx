@@ -53,9 +53,11 @@ interface Lead {
   children: { name: string; age: number }[];
   leadInterest: 'imediato' | 'proximo_semestre' | 'proximo_ano' | null;
   gradeInterest: string | null;
+  bairro?: string | null;
   visitsCount: number;
   lastVisit: { date: string; time: string; childName: string } | null;
   updatedAt: string | null;
+  qualified?: boolean;
 }
 
 type Tab = 'status' | 'prompt' | 'contexto' | 'arquivos' | 'conexao' | 'leads' | 'rag' | 'relatorio';
@@ -132,6 +134,7 @@ export default function AgentePage() {
   const [config, setConfig] = useState<AgentConfig | null>(null);
   const [files, setFiles] = useState<AgentFile[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [showAllContacts, setShowAllContacts] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [extraContext, setExtraContext] = useState('');
   const [model, setModel] = useState('');
@@ -327,12 +330,13 @@ export default function AgentePage() {
   };
 
   const exportLeadsCsv = () => {
-    const header = ['Nome', 'Telefone', 'E-mail', 'Filhos', 'Interesse', 'Serie', 'Visitas', 'Ultima visita', 'Atualizado'];
+    const header = ['Nome', 'Telefone', 'E-mail', 'Bairro', 'Filhos', 'Interesse', 'Serie', 'Visitas', 'Ultima visita', 'Atualizado'];
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
-    const rows = leads.map((l) => [
+    const rows = visibleLeads.map((l) => [
       l.name ?? '',
       l.phone,
       l.email ?? '',
+      l.bairro ?? '',
       l.children.map((c) => `${c.name}${c.age ? ` (${c.age})` : ''}`).join('; '),
       l.leadInterest ? INTEREST_LABEL[l.leadInterest] : '',
       l.gradeInterest ?? '',
@@ -345,7 +349,7 @@ export default function AgentePage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `leads-sofia-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `${showAllContacts ? 'contatos' : 'leads'}-liz-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -495,6 +499,10 @@ export default function AgentePage() {
     resize: 'vertical',
   };
 
+  // Lead qualificado = tem sinal real (interesse/visita/filho/bairro). Demais = contato casual.
+  const qualifiedCount = leads.filter((l) => l.qualified).length;
+  const visibleLeads = showAllContacts ? leads : leads.filter((l) => l.qualified);
+
   const TABS: { key: Tab; label: string; icon: typeof Activity }[] = [
     { key: 'status', label: 'Status', icon: Activity },
     { key: 'conexao', label: 'Conexão', icon: Smartphone },
@@ -640,17 +648,25 @@ export default function AgentePage() {
           <div className="rounded-xl p-5" style={card}>
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-                Leads captados ({leads.length})
+                {showAllContacts ? `Todos os contatos (${leads.length})` : `Leads qualificados (${qualifiedCount})`}
               </p>
               <div className="flex gap-2">
                 <button
+                  onClick={() => setShowAllContacts((v) => !v)}
+                  className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
+                  style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}
+                  title="Leads = com sinal real (interesse, visita, filho ou bairro). Contatos = todo mundo que escreveu."
+                >
+                  <Users size={14} /> {showAllContacts ? `Ver só leads (${qualifiedCount})` : `Ver todos os contatos (${leads.length})`}
+                </button>
+                <button
                   onClick={exportLeadsCsv}
-                  disabled={leads.length === 0}
+                  disabled={visibleLeads.length === 0}
                   className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
                   style={{
                     background: 'var(--bg-card-hover)', color: 'var(--text-primary)',
                     border: '1px solid rgba(255,255,255,0.1)',
-                    opacity: leads.length === 0 ? 0.5 : 1, cursor: leads.length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: visibleLeads.length === 0 ? 0.5 : 1, cursor: visibleLeads.length === 0 ? 'not-allowed' : 'pointer',
                   }}
                 >
                   <FileText size={14} /> Exportar CSV
@@ -687,13 +703,15 @@ export default function AgentePage() {
               <div className="flex items-center gap-2" style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                 <Loader2 size={15} className="animate-spin" /> Carregando leads…
               </div>
-            ) : leads.length === 0 ? (
+            ) : visibleLeads.length === 0 ? (
               <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                Nenhum lead captado ainda. Conforme os responsáveis conversarem com a Liz, eles aparecem aqui automaticamente.
+                {showAllContacts
+                  ? 'Nenhum contato ainda. Conforme os responsáveis conversarem com a Liz, eles aparecem aqui automaticamente.'
+                  : 'Nenhum lead qualificado ainda. Use "Ver todos os contatos" para ver quem já escreveu, ou aguarde a Liz coletar interesse/bairro/visita.'}
               </p>
             ) : (
               <div className="flex flex-col gap-2">
-                {leads.map((l) => (
+                {visibleLeads.map((l) => (
                   <div key={l.phone} className="rounded-lg p-3" style={{ background: 'var(--bg-primary)' }}>
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div className="min-w-0">
