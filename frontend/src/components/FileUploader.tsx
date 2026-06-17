@@ -6,8 +6,8 @@ import {
   SEGMENTOS,
   SERIES_BY_SEGMENTO,
   ETAPAS,
-  DISCIPLINAS,
-  TIPOS_MATERIAL,
+  disciplinasFor,
+  tiposFor,
 } from '../lib/taxonomy';
 
 const fieldLabelStyle: React.CSSProperties = {
@@ -42,11 +42,16 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
   const [error, setError] = useState('');
 
   const serieOptions = segmento ? SERIES_BY_SEGMENTO[segmento] ?? [] : [];
+  const disciplinaOptions = disciplinasFor(segmento);
+  const tipoOptions = tiposFor(segmento);
 
-  // Ao trocar o segmento, a série anterior pode não pertencer mais a ele → reseta.
+  // Ao trocar o segmento, série/disciplina/tipo anteriores podem não pertencer
+  // mais a ele → reseta para evitar combinação inválida.
   function handleSegmento(value: string) {
     setSegmento(value);
     setSerie('');
+    setDisciplina('');
+    setTipoMaterial('');
   }
 
   const classificacaoCompleta =
@@ -130,14 +135,14 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
             {ETAPAS.map((e) => <option key={e.code} value={e.code}>{e.label}</option>)}
           </select>
 
-          <select value={disciplina} onChange={(e) => setDisciplina(e.target.value)} disabled={uploading} style={selectStyle(!!disciplina)}>
-            <option value="">Disciplina...</option>
-            {DISCIPLINAS.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
+          <select value={disciplina} onChange={(e) => setDisciplina(e.target.value)} disabled={uploading || !segmento} style={selectStyle(!!disciplina)}>
+            <option value="">{segmento ? 'Disciplina...' : 'Escolha o segmento'}</option>
+            {disciplinaOptions.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
           </select>
 
-          <select value={tipoMaterial} onChange={(e) => setTipoMaterial(e.target.value)} disabled={uploading} style={selectStyle(!!tipoMaterial)}>
-            <option value="">Tipo de material...</option>
-            {TIPOS_MATERIAL.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
+          <select value={tipoMaterial} onChange={(e) => setTipoMaterial(e.target.value)} disabled={uploading || !segmento} style={selectStyle(!!tipoMaterial)}>
+            <option value="">{segmento ? 'Tipo de material...' : 'Escolha o segmento'}</option>
+            {tipoOptions.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
           </select>
         </div>
       </div>

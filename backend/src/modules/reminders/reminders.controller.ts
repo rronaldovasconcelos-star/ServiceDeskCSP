@@ -34,8 +34,8 @@ function validateAxes(d: {
   if (d.segmento && !isValidSegmento(d.segmento)) return 'Segmento inválido';
   if (d.serie && !(d.segmento && isValidSerie(d.segmento, d.serie))) return 'Série inválida para o segmento';
   if (d.etapa && !isValidEtapa(d.etapa)) return 'Etapa inválida';
-  if (d.disciplina && !isValidDisciplina(d.disciplina)) return 'Disciplina inválida';
-  if (d.tipoMaterial && !isValidTipo(d.tipoMaterial)) return 'Tipo de material inválido';
+  if (d.disciplina && !isValidDisciplina(d.segmento ?? '', d.disciplina)) return 'Disciplina inválida';
+  if (d.tipoMaterial && !isValidTipo(d.segmento ?? '', d.tipoMaterial)) return 'Tipo de material inválido';
   return null;
 }
 

@@ -103,8 +103,8 @@ export async function uploadFiles(req: Request, res: Response, next: NextFunctio
       !isValidSegmento(axes.segmento) ? 'Segmento inválido' :
       !isValidSerie(axes.segmento, axes.serie) ? 'Série inválida para o segmento' :
       !isValidEtapa(axes.etapa) ? 'Etapa inválida' :
-      !isValidDisciplina(axes.disciplina) ? 'Disciplina inválida' :
-      !isValidTipo(axes.tipoMaterial) ? 'Tipo de material inválido' :
+      !isValidDisciplina(axes.segmento, axes.disciplina) ? 'Disciplina inválida para o segmento' :
+      !isValidTipo(axes.segmento, axes.tipoMaterial) ? 'Tipo de material inválido para o segmento' :
       null;
     if (invalid) {
       res.status(400).json({ error: `Classificação obrigatória: ${invalid}.` });

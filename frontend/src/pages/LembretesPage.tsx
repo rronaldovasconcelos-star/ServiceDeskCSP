@@ -3,7 +3,8 @@ import { X } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import {
-  ANOS_LETIVOS, SEGMENTOS, SERIES_BY_SEGMENTO, ETAPAS, DISCIPLINAS, TIPOS_MATERIAL, labelFor,
+  ANOS_LETIVOS, SEGMENTOS, SERIES_BY_SEGMENTO, ETAPAS, DISCIPLINAS, TIPOS_MATERIAL,
+  disciplinasFor, tiposFor, labelFor,
 } from '../lib/taxonomy';
 
 interface Reminder {
@@ -148,7 +149,12 @@ function ReminderModal({
   }, [onClose]);
 
   const serieOptions = form.segmento ? SERIES_BY_SEGMENTO[form.segmento] ?? [] : [];
-  const setSegmento = (v: string) => onChange({ ...form, segmento: v, serie: '' });
+  // Com segmento definido, restringe ao vocabulário dele; sem segmento, vale tudo.
+  const disciplinaOptions = form.segmento ? disciplinasFor(form.segmento) : DISCIPLINAS;
+  const tipoOptions = form.segmento ? tiposFor(form.segmento) : TIPOS_MATERIAL;
+  // Trocar o segmento pode invalidar série/disciplina/tipo já escolhidos → reseta.
+  const setSegmento = (v: string) =>
+    onChange({ ...form, segmento: v, serie: '', disciplina: '', tipoMaterial: '' });
   const toggleRecipient = (id: string) => {
     const has = form.recipientIds.includes(id);
     onChange({ ...form, recipientIds: has ? form.recipientIds.filter((x) => x !== id) : [...form.recipientIds, id] });
@@ -214,11 +220,11 @@ function ReminderModal({
               </select>
               <select value={form.disciplina} onChange={(e) => onChange({ ...form, disciplina: e.target.value })} style={inputStyle}>
                 <option value="">Disciplina...</option>
-                {DISCIPLINAS.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
+                {disciplinaOptions.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
               </select>
               <select value={form.tipoMaterial} onChange={(e) => onChange({ ...form, tipoMaterial: e.target.value })} style={inputStyle}>
                 <option value="">Tipo...</option>
-                {TIPOS_MATERIAL.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
+                {tipoOptions.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
               </select>
             </div>
           </div>

@@ -9,6 +9,7 @@ import {
 } from 'recharts';
 import api, { setKey, hasKey, clearKey, rag as ragApi, report as reportApi, FORM_LINK } from '../lib/lizApi';
 import MapaBairros from '../components/MapaBairros';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 interface RagPending { id: number; colaborador: string; categoria: string; pergunta: string; resposta: string; created_at: string }
 
@@ -1257,7 +1258,14 @@ export default function AgentePage() {
                 {reportData.bairros.filter((b) => b.bairro && !b.bairro.startsWith('(')).length === 0 ? (
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>Sem dados de bairro ainda — a Liz passou a coletar nas conversas.</p>
                 ) : (
-                  <MapaBairros bairros={reportData.bairros} />
+                  <ErrorBoundary fallback={
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                      Não foi possível carregar o mapa de bairros. Veja a lista abaixo:
+                      <br />{reportData.bairros.filter((b) => b.bairro && !b.bairro.startsWith('(')).map((b) => `${b.bairro} (${b.count})`).join(' · ')}
+                    </p>
+                  }>
+                    <MapaBairros bairros={reportData.bairros} />
+                  </ErrorBoundary>
                 )}
               </div>
             </>
