@@ -4,7 +4,7 @@ import api from '../lib/api';
 import FileUploader from '../components/FileUploader';
 import FilesTreeView from '../components/FilesTreeView';
 import { formatBytes, downloadFile, downloadZip, type FileRecord } from '../lib/files';
-import { labelFor, SEGMENTOS, SERIES_BY_SEGMENTO, DISCIPLINAS, TIPOS_MATERIAL } from '../lib/taxonomy';
+import { labelFor, SEGMENTOS, SERIES_BY_SEGMENTO, DISCIPLINAS, TIPOS_MATERIAL, disciplinasFor, tiposFor } from '../lib/taxonomy';
 import { useAuth } from '../context/AuthContext';
 
 const selectStyle: React.CSSProperties = {
@@ -107,11 +107,19 @@ export default function MeusArquivosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, segmento, serie, disciplina, tipoMaterial]);
 
+  // Ao trocar o segmento, série/disciplina/tipo anteriores podem não pertencer
+  // mais a ele → reseta para não filtrar por um valor fora da nova coluna.
   function handleSegmento(value: string) {
     setSegmento(value);
     setSerie('');
+    setDisciplina('');
+    setTipoMaterial('');
   }
   const serieOptions = segmento ? SERIES_BY_SEGMENTO[segmento] ?? [] : [];
+  // Com segmento escolhido, os filtros seguem a COLUNA daquele segmento (def.
+  // Sistema_Ronaldo); sem segmento, oferecem o vocabulário completo.
+  const disciplinaOptions = segmento ? disciplinasFor(segmento) : DISCIPLINAS;
+  const tipoOptions = segmento ? tiposFor(segmento) : TIPOS_MATERIAL;
 
   async function handleDelete(f: FileRecord) {
     if (!confirm(`Excluir "${f.originalName}"? Esta ação não pode ser desfeita.`)) return;
@@ -145,11 +153,11 @@ export default function MeusArquivosPage() {
         </select>
         <select value={disciplina} onChange={(e) => setDisciplina(e.target.value)} style={selectStyle}>
           <option value="">Todas as disciplinas</option>
-          {DISCIPLINAS.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
+          {disciplinaOptions.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
         </select>
         <select value={tipoMaterial} onChange={(e) => setTipoMaterial(e.target.value)} style={selectStyle}>
           <option value="">Todos os tipos</option>
-          {TIPOS_MATERIAL.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
+          {tipoOptions.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
         </select>
 
         {/* Toggle lista / árvore */}
