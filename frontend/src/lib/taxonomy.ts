@@ -68,6 +68,7 @@ export const CLASSIFICACAO_BY_SEGMENTO: Record<string, Term[]> = {
   ],
   FUND_I: [
     { code: 'ARTE', label: 'Arte' },
+    { code: 'ATIVIDADE_ADAPTADA', label: 'Atividades Adaptadas' },
     { code: 'CAPA', label: 'Capas' },
     { code: 'CIENCIAS', label: 'Ciências' },
     { code: 'CIRANDA_LITERARIA', label: 'Ciranda Literária' },
