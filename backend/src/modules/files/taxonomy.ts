@@ -19,7 +19,8 @@ export const SEGMENTOS: Term[] = [
 // Dependência: séries disponíveis POR segmento. Rótulos fiéis ao Sistema_Ronaldo.
 export const SERIES_BY_SEGMENTO: Record<string, Term[]> = {
   EI: [
-    { code: 'EI_MATERNAL', label: 'Maternal' },
+    { code: 'EI_MATERNAL_II', label: 'Maternal II' },
+    { code: 'EI_MATERNAL_III', label: 'Maternal III' },
     { code: 'EI_1PERIODO', label: '1º Período' },
     { code: 'EI_2PERIODO', label: '2º Período' },
   ],
