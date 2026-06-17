@@ -35,6 +35,14 @@ export const rag = {
   pendingReject: (id: number) => call('liz-rag', { action: 'pending-reject', id }),
 };
 
+// ---- Arquivos (documentos que a Liz pode enviar no WhatsApp) ----
+export const files = {
+  list: () => call('liz-files', { action: 'list' }),
+  add: (base64: string, name: string, mime: string, description: string) =>
+    call('liz-files', { action: 'add', base64, name, mime, description }),
+  remove: (id: string) => call('liz-files', { action: 'delete', id }),
+};
+
 // Link público da página de coleta (token do formulário — só INSERE em fila, não acessa RAG)
 export const FORM_LINK = 'https://servicedeskcsp.com.br/base?k=frm_56b5a7cfcd3d1c76e3f9a2b8303bb7f7';
 
@@ -50,7 +58,18 @@ const api = {
     }
     if (path === '/agent/config') return { data: await call('liz-admin', { action: 'config-get' }) };
     if (path === '/agent/leads') return { data: await call('liz-admin', { action: 'leads' }) };
-    if (path === '/agent/files') return { data: [] as T };
+    if (path === '/agent/files') {
+      const r = await call('liz-files', { action: 'list' });
+      const arr = ((r && r.files) || []).map((f: any) => ({
+        id: f.id,
+        originalName: f.original_name,
+        mimeType: f.mime_type,
+        description: f.description ?? '',
+        sizeBytes: f.bytes ?? 0,
+        uploadedAt: f.created_at,
+      }));
+      return { data: arr as T };
+    }
     if (path === '/agent/connection') return { data: await call('liz-conn', { action: 'status' }) };
     if (path === '/agent/connection/qrcode') return { data: await call('liz-conn', { action: 'qrcode' }) };
     throw new Error(`lizApi GET sem rota: ${path}`);
@@ -62,10 +81,15 @@ const api = {
   async post<T = any>(path: string, _body?: unknown): Promise<{ data: T }> {
     if (path === '/agent/connection/disconnect') return { data: await call('liz-conn', { action: 'disconnect' }) };
     if (path === '/agent/connection/restart') return { data: await call('liz-conn', { action: 'restart' }) };
-    if (path === '/agent/files') { const e: any = new Error('upload de arquivos não disponível'); e.response = { status: 503 }; throw e; }
+    if (path === '/agent/files') {
+      const b = (_body || {}) as { base64: string; name: string; mime: string; description: string };
+      return { data: await call('liz-files', { action: 'add', base64: b.base64, name: b.name, mime: b.mime, description: b.description }) };
+    }
     throw new Error(`lizApi POST sem rota: ${path}`);
   },
-  async delete<T = any>(_path: string): Promise<{ data: T }> {
+  async delete<T = any>(path: string): Promise<{ data: T }> {
+    const m = path.match(/^\/agent\/files\/(.+)$/);
+    if (m) return { data: await call('liz-files', { action: 'delete', id: decodeURIComponent(m[1]) }) };
     const e: any = new Error('não disponível'); e.response = { status: 503 }; throw e;
   },
 };

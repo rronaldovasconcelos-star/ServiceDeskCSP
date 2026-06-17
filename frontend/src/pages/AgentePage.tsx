@@ -7,7 +7,7 @@ import {
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
-import api, { setKey, hasKey, rag as ragApi, report as reportApi, FORM_LINK } from '../lib/lizApi';
+import api, { setKey, hasKey, clearKey, rag as ragApi, report as reportApi, FORM_LINK } from '../lib/lizApi';
 import MapaBairros from '../components/MapaBairros';
 
 interface RagPending { id: number; colaborador: string; categoria: string; pergunta: string; resposta: string; created_at: string }
@@ -151,6 +151,7 @@ export default function AgentePage() {
   const [copied, setCopied] = useState(false);
   const [authed, setAuthed] = useState(hasKey());
   const [keyInput, setKeyInput] = useState('');
+  const [authMsg, setAuthMsg] = useState('');
 
   const setLoad = (k: string, v: boolean) => setLoading((p) => ({ ...p, [k]: v }));
   const notify = (text: string, type: 'ok' | 'err') => {
@@ -160,12 +161,25 @@ export default function AgentePage() {
   const errMsg = (err: unknown, fallback: string) =>
     (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? fallback;
 
+  // Chave admin inválida/expirada → limpa e volta ao gate com aviso claro.
+  // Retorna true se tratou (o chamador deve evitar o notify genérico nesse caso).
+  const handleAuthError = (err: unknown): boolean => {
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    if (status === 401) {
+      clearKey();
+      setAuthed(false);
+      setAuthMsg('Chave de acesso inválida ou expirada. Informe a chave correta para continuar.');
+      return true;
+    }
+    return false;
+  };
+
   const fetchStatus = useCallback(async () => {
     try {
       const res = await api.get<AgentStatus>('/agent/status');
       setStatus(res.data);
-    } catch {
-      setStatus(null);
+    } catch (err) {
+      if (!handleAuthError(err)) setStatus(null);
     }
   }, []);
 
@@ -177,7 +191,7 @@ export default function AgentePage() {
       setExtraContext(res.data.extraContext);
       setModel(res.data.model);
     } catch (err) {
-      notify(errMsg(err, 'Erro ao carregar configuração do agente'), 'err');
+      if (!handleAuthError(err)) notify(errMsg(err, 'Erro ao carregar configuração do agente'), 'err');
     }
   }, []);
 
@@ -185,8 +199,8 @@ export default function AgentePage() {
     try {
       const res = await api.get<AgentFile[]>('/agent/files');
       setFiles(res.data);
-    } catch {
-      /* silencioso */
+    } catch (err) {
+      handleAuthError(err); /* demais erros: silencioso */
     }
   }, []);
 
@@ -196,7 +210,7 @@ export default function AgentePage() {
       const res = await api.get<{ total: number; leads: Lead[] }>('/agent/leads');
       setLeads(res.data.leads);
     } catch (err) {
-      notify(errMsg(err, 'Erro ao carregar leads'), 'err');
+      if (!handleAuthError(err)) notify(errMsg(err, 'Erro ao carregar leads'), 'err');
     } finally {
       setLoad('leads', false);
     }
@@ -216,7 +230,7 @@ export default function AgentePage() {
       const r = await ragApi.list();
       setRagChunks(r.chunks ?? []);
     } catch (err) {
-      notify(errMsg(err, 'Erro ao carregar conhecimento'), 'err');
+      if (!handleAuthError(err)) notify(errMsg(err, 'Erro ao carregar conhecimento'), 'err');
     } finally {
       setLoad('rag', false);
     }
@@ -254,7 +268,7 @@ export default function AgentePage() {
     try {
       setReportData(await reportApi());
     } catch (err) {
-      notify(errMsg(err, 'Erro ao carregar relatório'), 'err');
+      if (!handleAuthError(err)) notify(errMsg(err, 'Erro ao carregar relatório'), 'err');
     } finally {
       setLoad('relatorio', false);
     }
@@ -340,7 +354,7 @@ export default function AgentePage() {
     setLoad('prompt', true);
     try {
       await api.put('/agent/config', { systemPrompt: prompt, model });
-      notify('Prompt atualizado. A Sofia já está usando a nova versão.', 'ok');
+      notify('Prompt atualizado. A Liz já está usando a nova versão.', 'ok');
       await Promise.all([fetchConfig(), fetchStatus()]);
     } catch (err) {
       notify(errMsg(err, 'Erro ao salvar prompt'), 'err');
@@ -366,11 +380,19 @@ export default function AgentePage() {
     if (!pendingFile) return;
     setLoad('upload', true);
     try {
-      const form = new FormData();
-      form.append('file', pendingFile);
-      form.append('description', pendingDesc);
-      await api.post('/agent/files', form);
-      notify('Arquivo enviado. A Sofia já pode anexá-lo nas conversas.', 'ok');
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(String(fr.result || ''));
+        fr.onerror = () => reject(fr.error);
+        fr.readAsDataURL(pendingFile);
+      });
+      await api.post('/agent/files', {
+        base64,
+        name: pendingFile.name,
+        mime: pendingFile.type || 'application/octet-stream',
+        description: pendingDesc,
+      });
+      notify('Arquivo enviado. A Liz já pode anexá-lo nas conversas.', 'ok');
       setPendingFile(null);
       setPendingDesc('');
       if (fileInput.current) fileInput.current.value = '';
@@ -395,7 +417,7 @@ export default function AgentePage() {
     }
   };
 
-  // ── Conexão WhatsApp da Sofia ──
+  // ── Conexão WhatsApp da Liz ──
   const fetchConnection = useCallback(async () => {
     try {
       const res = await api.get<{ state: ConnState; phone: string | null }>('/agent/connection');
@@ -495,6 +517,11 @@ export default function AgentePage() {
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 16 }}>
             Informe a chave de acesso do painel para gerenciar a assistente.
           </p>
+          {authMsg && (
+            <p className="rounded-lg p-3 mb-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#fca5a5', fontSize: '0.82rem' }}>
+              {authMsg}
+            </p>
+          )}
           <input
             type="password"
             value={keyInput}
@@ -526,7 +553,7 @@ export default function AgentePage() {
             Agente IA — Central de Comando
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: 4 }}>
-            Sofia · assistente do WhatsApp · alterações entram em vigor na hora
+            Liz · assistente do WhatsApp · alterações entram em vigor na hora
           </p>
         </div>
       </div>
@@ -662,7 +689,7 @@ export default function AgentePage() {
               </div>
             ) : leads.length === 0 ? (
               <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                Nenhum lead captado ainda. Conforme os responsáveis conversarem com a Sofia, eles aparecem aqui automaticamente.
+                Nenhum lead captado ainda. Conforme os responsáveis conversarem com a Liz, eles aparecem aqui automaticamente.
               </p>
             ) : (
               <div className="flex flex-col gap-2">
@@ -821,7 +848,7 @@ export default function AgentePage() {
           {connState === 'open' && !qrcode && (
             <div className="rounded-xl p-4" style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}>
               <p style={{ color: '#86efac', fontSize: '0.85rem' }}>
-                <strong>Tudo certo!</strong> A Sofia está atendendo pelo número {connPhone ?? '–'}.
+                <strong>Tudo certo!</strong> A Liz está atendendo pelo número {connPhone ?? '–'}.
                 Use <strong>Reiniciar conexão</strong> se houver falha no envio sem trocar de número.
                 Use <strong>Desconectar</strong> apenas para trocar de número — será necessário escanear um novo QR Code.
               </p>
@@ -832,7 +859,7 @@ export default function AgentePage() {
           {connState !== 'open' && !qrcode && connState !== 'unknown' && (
             <div className="rounded-xl p-4" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
               <p style={{ color: '#fca5a5', fontSize: '0.85rem' }}>
-                <strong>Sofia desconectada.</strong> Clique em <strong>Gerar QR Code</strong> e escaneie com o celular do número que deve atender.
+                <strong>Liz desconectada.</strong> Clique em <strong>Gerar QR Code</strong> e escaneie com o celular do número que deve atender.
               </p>
             </div>
           )}
@@ -843,7 +870,7 @@ export default function AgentePage() {
       {tab === 'prompt' && (
         <div className="rounded-xl p-5" style={card}>
           <div className="mb-3">
-            <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>System prompt da Sofia</p>
+            <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>System prompt da Liz</p>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 4 }}>
               Define a personalidade e as regras. Mantenha os marcadores{' '}
               <code style={{ color: 'var(--accent)' }}>{'{{DATETIME}}'}</code>,{' '}
@@ -921,7 +948,7 @@ export default function AgentePage() {
           <div className="rounded-xl p-5" style={card}>
             <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 4 }}>Novo arquivo</p>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 12 }}>
-              PDF, imagem ou folder que a Sofia poderá enviar nas conversas. A descrição diz a ela quando usar.
+              PDF, imagem ou folder que a Liz poderá enviar nas conversas. A descrição diz a ela quando usar.
             </p>
             {/* Input nativo escondido — acionado pela área clicável abaixo */}
             <input
