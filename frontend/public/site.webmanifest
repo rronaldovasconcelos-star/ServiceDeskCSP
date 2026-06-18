@@ -1,0 +1,14 @@
+{
+  "name": "Portal de Chamados — Colégio Santa Paula",
+  "short_name": "CSP Chamados",
+  "description": "Portal de Chamados do Colégio Santa Paula",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f2662",
+  "theme_color": "#1a3a8a",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

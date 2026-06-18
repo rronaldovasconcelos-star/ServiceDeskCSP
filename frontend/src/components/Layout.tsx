@@ -85,7 +85,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         style={{ borderBottom: '1px solid var(--border)' }}
       >
         <img
-          src="/logo.jpg"
+          src="/logo.png"
           alt="Colégio Santa Paula"
           className="w-14 h-14 object-contain rounded-xl shadow-lg mb-2 bg-white p-0.5"
         />
@@ -219,7 +219,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Menu size={22} />
           </button>
           <img
-            src="/logo.jpg"
+            src="/logo.png"
             alt="Colégio Santa Paula"
             className="w-8 h-8 object-contain rounded-lg bg-white p-0.5"
           />

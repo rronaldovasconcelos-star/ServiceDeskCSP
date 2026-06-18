@@ -90,7 +90,7 @@ export default function ResetPasswordPage() {
       <div className="relative w-full max-w-sm">
         <div className="flex flex-col items-center mb-6">
           <div className="bg-white rounded-2xl p-3 shadow-2xl mb-4">
-            <img src="/logo.jpg" alt="Colégio Santa Paula" className="w-24 h-24 object-contain" />
+            <img src="/logo.png" alt="Colégio Santa Paula" className="w-24 h-24 object-contain" />
           </div>
           <h1 className="text-white text-xl font-bold text-center">Colégio Santa Paula</h1>
           <p className="text-blue-200 text-sm mt-1">Portal de Chamados</p>

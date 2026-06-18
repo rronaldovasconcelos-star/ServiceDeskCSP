@@ -67,7 +67,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center mb-6">
           <div className="bg-white rounded-2xl p-3 shadow-2xl mb-4">
             <img
-              src="/logo.jpg"
+              src="/logo.png"
               alt="Colégio Santa Paula"
               className="w-24 h-24 object-contain"
             />
