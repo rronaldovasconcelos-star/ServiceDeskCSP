@@ -7,8 +7,14 @@ const GSI_SRC = 'https://accounts.google.com/gsi/client';
 interface GoogleId {
   accounts: {
     id: {
-      initialize: (cfg: { client_id: string; callback: (r: { credential: string }) => void }) => void;
+      initialize: (cfg: {
+        client_id: string;
+        callback: (r: { credential: string }) => void;
+        auto_select?: boolean;
+        cancel_on_tap_outside?: boolean;
+      }) => void;
       renderButton: (el: HTMLElement, opts: Record<string, unknown>) => void;
+      disableAutoSelect: () => void;
     };
   };
 }
@@ -54,7 +60,14 @@ export default function GoogleSignInButton({ onCredential, text = 'continue_with
         window.google.accounts.id.initialize({
           client_id: CLIENT_ID,
           callback: (r) => onCredential(r.credential),
+          // Máximo rigor: nunca autentica sozinho. Sem auto-select, o Google
+          // exige clique no botão e a escolha da conta — evita que, num PC
+          // compartilhado, a sessão Google do usuário anterior entre sozinha.
+          auto_select: false,
+          cancel_on_tap_outside: true,
         });
+        // Garante que qualquer auto-select previamente memorizado seja apagado.
+        window.google.accounts.id.disableAutoSelect();
         window.google.accounts.id.renderButton(ref.current, {
           theme: 'outline',
           size: 'large',

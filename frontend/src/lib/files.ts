@@ -11,7 +11,7 @@ export function formatBytes(bytes: number): string {
 
 /**
  * Baixa o arquivo como blob (necessário porque a auth usa Bearer token em
- * localStorage — um <a href> direto não enviaria a credencial). O interceptor
+ * sessionStorage — um <a href> direto não enviaria a credencial). O interceptor
  * do axios injeta o header; o object URL temporário salva com o nome original.
  */
 export async function downloadFile(id: string, name: string): Promise<void> {

@@ -1,11 +1,12 @@
 import axios from 'axios';
+import { getToken, clearToken } from './token';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '/api',
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = getToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -18,7 +19,7 @@ api.interceptors.response.use(
     const url: string = err.config?.url ?? '';
     const isAuthRoute = url.startsWith('/auth/');
     if (err.response?.status === 401 && !isAuthRoute) {
-      localStorage.removeItem('token');
+      clearToken();
       window.location.href = '/login';
     }
     return Promise.reject(err);
