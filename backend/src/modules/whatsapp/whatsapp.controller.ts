@@ -66,10 +66,17 @@ export function makeWhatsappControllers(instance: string) {
       const data = await evolutionRequest(`/instance/connect/${instance}`);
       if (data?.base64) {
         res.json({ qrcode: data.base64, state: 'connecting' });
-      } else {
-        const state = data?.instance?.state ?? 'open';
-        res.json({ qrcode: null, state });
+        return;
       }
+      // Sem QR na resposta: pode estar realmente conectada OU presa em "connecting"
+      // (Evolution devolve {count:0} nesse caso). NÃO assuma 'open' — consulta o
+      // estado real para não mostrar "conectado" quando o número não está ativo.
+      let state = data?.instance?.state as string | undefined;
+      if (!state) {
+        const s = await evolutionRequest(`/instance/connectionState/${instance}`).catch(() => null);
+        state = s?.instance?.state ?? s?.state ?? 'connecting';
+      }
+      res.json({ qrcode: null, state });
     } catch (err) {
       res.status(502).json({ error: err instanceof Error ? err.message : 'Erro ao gerar QR code' });
     }
@@ -86,7 +93,7 @@ export function makeWhatsappControllers(instance: string) {
 
   async function restartInstance(_req: Request, res: Response): Promise<void> {
     try {
-      await evolutionRequest(`/instance/restart/${instance}`, 'PUT');
+      await evolutionRequest(`/instance/restart/${instance}`, 'POST');
       res.json({ ok: true });
     } catch (err) {
       res.status(502).json({ error: err instanceof Error ? err.message : 'Erro ao reiniciar instância' });
