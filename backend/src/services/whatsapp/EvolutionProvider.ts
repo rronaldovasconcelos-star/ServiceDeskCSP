@@ -1,4 +1,4 @@
-import { WhatsAppProvider } from './types.js';
+import { SendOptions, WhatsAppProvider } from './types.js';
 import { env } from '../../config/env.js';
 
 export class EvolutionProvider implements WhatsAppProvider {
@@ -9,13 +9,16 @@ export class EvolutionProvider implements WhatsAppProvider {
     this.instance = instance || env.evolutionInstance;
   }
 
-  async sendMessage(phone: string, text: string): Promise<void> {
+  async sendMessage(phone: string, text: string, opts?: SendOptions): Promise<void> {
     const url = `${env.evolutionApiUrl}/message/sendText/${this.instance}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         apikey: env.evolutionApiKey,
+        // Disparo em lote: o wa-gateway enfileira (drip/jitter/teto). Se a URL
+        // apontar direto para a Evolution, o header é simplesmente ignorado.
+        ...(opts?.bulk ? { 'X-WA-Priority': 'bulk' } : {}),
       },
       body: JSON.stringify({
         number: phone.replace(/\D/g, ''),

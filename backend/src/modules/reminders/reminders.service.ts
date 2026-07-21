@@ -1,5 +1,5 @@
 import { prisma } from '../../lib/prisma.js';
-import { sendWhatsApp } from '../../services/whatsapp/index.js';
+import { sendWhatsAppBulk } from '../../services/whatsapp/index.js';
 import { normalizeBrazilPhone } from '../../lib/phone.js';
 import { nextFutureRun, type Recurrence } from '../maintenances/maintenances.service.js';
 import { labelFor } from '../files/taxonomy.js';
@@ -127,7 +127,7 @@ export async function processReminder(r: ReminderRecord, now: Date, base: Date =
       const key = normalizeBrazilPhone(u.phone) ?? u.phone;
       if (seen.has(key)) continue;
       seen.add(key);
-      await sendWhatsApp(u.phone, buildReminderMessage(r, u.name));
+      await sendWhatsAppBulk(u.phone, buildReminderMessage(r, u.name));
       sent += 1;
     }
   }

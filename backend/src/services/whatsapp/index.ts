@@ -31,6 +31,25 @@ export async function sendWhatsApp(phone: string | null | undefined, text: strin
 }
 
 /**
+ * Envio em LOTE (lembretes/campanhas). Marca a mensagem como `bulk` para que o
+ * wa-gateway a coloque na fila com throttle/jitter/teto — evita a rajada que bane
+ * números. Fire-and-forget, igual ao `sendWhatsApp`.
+ */
+export async function sendWhatsAppBulk(phone: string | null | undefined, text: string): Promise<void> {
+  if (!phone) return;
+  const normalized = normalizeBrazilPhone(phone);
+  if (!normalized) {
+    console.error('[WhatsApp] número inválido, mensagem (bulk) não enviada:', phone);
+    return;
+  }
+  try {
+    await provider.sendMessage(normalized, text, { bulk: true });
+  } catch (err) {
+    console.error(`[WhatsApp] falha ao enviar (bulk) para ${normalized}:`, err instanceof Error ? err.message : err);
+  }
+}
+
+/**
  * Envia mensagem e PROPAGA o erro em caso de falha.
  * Usado em fluxos onde a entrega é crítica (ex: código OTP de cadastro),
  * para que o chamador possa avisar o usuário.
