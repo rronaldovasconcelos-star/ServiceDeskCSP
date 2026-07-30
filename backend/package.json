@@ -14,7 +14,9 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "whatsapp:templates": "tsx scripts/whatsapp-templates.ts",
+    "whatsapp:check": "tsx scripts/whatsapp-check.ts"
   },
   "keywords": [],
   "author": "",

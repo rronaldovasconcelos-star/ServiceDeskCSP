@@ -51,7 +51,16 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json());
+// `verify` guarda o corpo cru: a validação da assinatura do webhook da Meta
+// (X-Hub-Signature-256) é um HMAC sobre os bytes originais — reserializar o JSON
+// já parseado mudaria o hash.
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      (req as express.Request & { rawBody?: Buffer }).rawBody = buf;
+    },
+  }),
+);
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 

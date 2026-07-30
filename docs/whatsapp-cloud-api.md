@@ -25,13 +25,24 @@ A **Cloud API é o canal oficial da Meta**: o número não é banido por uso leg
 
 ## Estado da implementação (2026-07-30)
 
-Código **pronto e compilando**; falta credencial e aprovação dos templates.
+**O código está pronto e testado. O que falta é só do lado da Meta** — credencial e
+aprovação dos templates. Nenhuma linha precisa mudar para virar a chave.
 
-- `backend/src/services/whatsapp/CloudApiProvider.ts` — envio via Graph API.
-- `backend/src/services/whatsapp/templates.ts` — catálogo das mensagens (texto + template).
-- `backend/src/services/whatsapp/types.ts` — `WhatsAppMessage` carrega as duas formas.
-- Os 16 pontos de envio do portal já emitem template. O canal Baileys segue funcionando
-  sem nenhuma mudança de comportamento — é só trocar `WHATSAPP_PROVIDER`.
+| Peça | Arquivo |
+|---|---|
+| Envio (Graph API) | `backend/src/services/whatsapp/CloudApiProvider.ts` |
+| Catálogo das mensagens (texto + template) | `backend/src/services/whatsapp/templates.ts` |
+| Corpo dos templates (fonte única) | `backend/src/services/whatsapp/templates.definitions.ts` |
+| Recebimento (webhook da Meta) | `backend/src/modules/bot/bot.cloudWebhook.ts` |
+| Provisionar templates | `npm run whatsapp:templates -- --criar` |
+| Diagnóstico de prontidão | `npm run whatsapp:check` |
+
+Os 16 pontos de envio do portal já emitem template. O canal Baileys segue funcionando sem
+nenhuma mudança de comportamento — é só trocar `WHATSAPP_PROVIDER`.
+
+Já validado localmente: payload de template no formato da Meta, achatamento de quebras de
+linha nos parâmetros, normalização de telefone, handshake `hub.challenge`, validação de
+assinatura, dedupe por `wamid` e descarte de eventos de status.
 
 ## Passo a passo da implantação
 
@@ -56,6 +67,8 @@ Token de usuário expira em 24h e **não serve**. Gere um token de System User:
 WHATSAPP_PROVIDER=cloud
 WHATSAPP_CLOUD_PHONE_NUMBER_ID=<phone number id>
 WHATSAPP_CLOUD_TOKEN=<token do system user>
+WHATSAPP_CLOUD_WABA_ID=<waba id>          # p/ gerenciar templates
+WHATSAPP_CLOUD_APP_SECRET=<app secret>    # valida a assinatura do webhook
 # opcionais (defaults abaixo)
 WHATSAPP_CLOUD_API_VERSION=v23.0
 WHATSAPP_CLOUD_TEMPLATE_LANG=pt_BR
@@ -63,10 +76,24 @@ WHATSAPP_CLOUD_TEMPLATE_LANG=pt_BR
 As envs `EVOLUTION_*` podem ficar: elas voltam a valer se `WHATSAPP_PROVIDER=evolution`.
 O rollback para o canal antigo é trocar essa única variável e reiniciar.
 
+> **Deixe `WHATSAPP_PROVIDER=evolution` até os templates estarem aprovados.** Virar a
+> chave antes disso deixa o portal mudo: sem template aprovado, a Meta recusa todo aviso.
+
 ### 4. Cadastrar os templates
-Em *WhatsApp Manager > Modelos de mensagem > Criar modelo*, para cada um abaixo:
-categoria **Utilidade**, idioma **Português (BR)**. Cole o corpo **exatamente** como está —
-a ordem das variáveis é a que o código envia.
+
+**Pelo script (recomendado)** — a partir de `backend/`, com `WHATSAPP_CLOUD_WABA_ID` e
+`WHATSAPP_CLOUD_TOKEN` no `.env`:
+```bash
+npm run whatsapp:templates            # mostra o status de cada um
+npm run whatsapp:templates -- --criar # cria os que faltam
+```
+É idempotente — rodar de novo só reporta. Os corpos vêm de
+`src/services/whatsapp/templates.definitions.ts`, a mesma fonte que o código usa, então
+não há risco de o template cadastrado divergir dos parâmetros enviados.
+
+**À mão**, se preferir: *WhatsApp Manager > Modelos de mensagem > Criar modelo*, para cada
+um abaixo, categoria **Utilidade**, idioma **Português (BR)**. Cole o corpo **exatamente**
+como está — a ordem das variáveis é a que o código envia.
 
 > Regras da Meta que os corpos abaixo já respeitam: o texto não pode começar nem terminar
 > com variável, as variáveis são numeradas em sequência, e o parâmetro enviado nunca contém
@@ -160,21 +187,39 @@ Acesse o portal para mais informações.
 ```
 Exemplos: `Novo pedido de suprimento` · `Papel A4 (10 resmas) — urgência ALTA, solicitado por Maria Silva`
 
-### 5. Validar
-Com as envs no lugar e ao menos um template **aprovado**:
+### 5. Webhook de entrada (bot de suporte)
+
+Sem isso o bot para de receber: o formato da Meta não tem nada a ver com o do Evolution.
+Em *App > WhatsApp > Configuration > Webhook*:
+
+- **Callback URL**: `https://api.servicedeskcsp.com.br/api/bot/webhook/cloud/<BOT_WEBHOOK_SECRET>`
+- **Verify token**: o mesmo `BOT_WEBHOOK_SECRET`
+- **Webhook fields**: assinar **messages**
+
+A Meta faz um GET de verificação ao salvar; o backend devolve o `hub.challenge`
+automaticamente. O POST valida `X-Hub-Signature-256` quando `WHATSAPP_CLOUD_APP_SECRET`
+está setado (recomendado — a URL vaza em log de proxy, a assinatura não).
+
+O endpoint antigo (`/api/bot/webhook/<secret>`, formato Evolution) continua ativo: os dois
+canais podem conviver durante a transição.
+
+### 6. Validar
 ```bash
-# envio direto pela API da Meta (troca <> pelos seus valores)
-curl -s -X POST "https://graph.facebook.com/v23.0/<PHONE_NUMBER_ID>/messages" \
-  -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-  -d '{"messaging_product":"whatsapp","to":"5531984367833","type":"template",
-       "template":{"name":"csp_codigo_acesso","language":{"code":"pt_BR"},
-       "components":[{"type":"body","parameters":[
-         {"type":"text","text":"123456"},{"type":"text","text":"10"}]}]}}'
+npm run whatsapp:check                    # confere envs, número, templates
+npm run whatsapp:check -- 5531984367833   # + envia um template de teste
 ```
+O script responde objetivamente se dá para virar a chave, e sai com código ≠ 0 se não.
+
 Depois, pelo portal: peça uma redefinição de senha para um usuário de teste e confira o
-log do backend. Erro `132001` = template não existe/não aprovado no idioma; `132000` =
-número de parâmetros diferente do cadastrado; `131047` = janela de 24h fechada (é o caso
-de mandar texto livre sem template).
+log do backend. Erros comuns da Meta: `132001` = template não existe/não aprovado no
+idioma; `132000` = número de parâmetros diferente do cadastrado; `131047` = janela de 24h
+fechada (é o caso de mandar texto livre sem template); `190` = token expirado (você gerou
+um token de usuário em vez do de system user).
+
+### 7. Virar a chave
+Com o check verde: `WHATSAPP_PROVIDER=cloud` no `.env.production` → `python update.py`.
+O backend loga `[WhatsApp] canal oficial (Cloud API) ativo` no boot; se faltar env, ele
+avisa em vez de falhar silenciosamente para o mock.
 
 ## O que muda no dia a dia
 

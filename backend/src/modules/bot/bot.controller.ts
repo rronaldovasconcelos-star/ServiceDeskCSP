@@ -12,11 +12,12 @@ function extractText(message: Record<string, unknown> | undefined): string | nul
   return null;
 }
 
-// Dedupe de entregas duplicadas do Baileys/Evolution (mesmo message.id chega 2x+).
-// Set em memória com janela limitada — suficiente para um único container.
+// Dedupe de entregas duplicadas (Baileys entrega o mesmo message.id 2x+; a Meta
+// reentrega o mesmo wamid quando o 200 demora). Set em memória com janela
+// limitada — suficiente para um único container.
 const seenIds: string[] = [];
 const seenSet = new Set<string>();
-function alreadySeen(id: string): boolean {
+export function alreadySeen(id: string): boolean {
   if (seenSet.has(id)) return true;
   seenSet.add(id);
   seenIds.push(id);
@@ -63,6 +64,36 @@ function looksLikeSystemMessage(text: string): boolean {
 }
 
 /**
+ * Filtros comuns a qualquer canal de entrada (Evolution ou Cloud API) e despacho
+ * para a conversa do bot. Recebe o número cru do remetente e o texto.
+ * Processamento assíncrono: erros são apenas logados.
+ */
+export function dispatchIncoming(rawNumber: string, text: string): void {
+  // Ignora notificações do próprio sistema que possam ter chegado à linha do bot
+  // (evita loop quando o número do bot também recebe alertas de chamado/cadastro).
+  if (looksLikeSystemMessage(text)) {
+    console.log('[Bot] mensagem ignorada (notificação do próprio sistema)');
+    return;
+  }
+
+  const phone = normalizeBrazilPhone(rawNumber);
+  if (!phone) {
+    console.error('[Bot] remetente com número inválido:', rawNumber);
+    return;
+  }
+
+  // Ignora outros bots (evita loop bot-a-bot, ex: Sofia). Tolerante ao 9º dígito.
+  if (ignoredCanon.has(canonicalBr(phone))) {
+    console.log('[Bot] número ignorado (lista de bots):', phone);
+    return;
+  }
+
+  void handleIncomingMessage(phone, text.trim()).catch((err) => {
+    console.error('[Bot] erro ao processar mensagem:', err instanceof Error ? err.message : err);
+  });
+}
+
+/**
  * Webhook do Evolution (evento `messages.upsert`) para o bot de suporte.
  * Responde 200 imediatamente e processa a mensagem de forma assíncrona, para
  * não estourar o timeout do Evolution nem provocar reentregas.
@@ -101,30 +132,7 @@ export function botWebhook(req: Request, res: Response): void {
     const text = extractText(data?.message);
     if (!text || !text.trim()) return; // ignora mensagens sem texto (mídia, etc.)
 
-    // Ignora notificações do próprio sistema que possam ter chegado à linha do bot
-    // (evita loop quando o número do bot também recebe alertas de chamado/cadastro).
-    if (looksLikeSystemMessage(text)) {
-      console.log('[Bot] mensagem ignorada (notificação do próprio sistema)');
-      return;
-    }
-
-    const rawNumber = remoteJid.split('@')[0] ?? '';
-    const phone = normalizeBrazilPhone(rawNumber);
-    if (!phone) {
-      console.error('[Bot] remetente com número inválido:', remoteJid);
-      return;
-    }
-
-    // Ignora outros bots (evita loop bot-a-bot, ex: Sofia). Tolerante ao 9º dígito.
-    if (ignoredCanon.has(canonicalBr(phone))) {
-      console.log('[Bot] número ignorado (lista de bots):', phone);
-      return;
-    }
-
-    // Processamento assíncrono — erros são apenas logados.
-    void handleIncomingMessage(phone, text.trim()).catch((err) => {
-      console.error('[Bot] erro ao processar mensagem:', err instanceof Error ? err.message : err);
-    });
+    dispatchIncoming(remoteJid.split('@')[0] ?? '', text);
   } catch (err) {
     console.error('[Bot] webhook payload inválido:', err instanceof Error ? err.message : err);
   }

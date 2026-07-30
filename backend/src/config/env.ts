@@ -77,6 +77,11 @@ export const env = {
   cloudApiPhoneNumberId: optional('WHATSAPP_CLOUD_PHONE_NUMBER_ID', ''),
   cloudApiToken: optional('WHATSAPP_CLOUD_TOKEN', ''),
   cloudApiVersion: optional('WHATSAPP_CLOUD_API_VERSION', 'v23.0'),
+  // App Secret do app da Meta — valida a assinatura do webhook (X-Hub-Signature-256).
+  // Opcional: sem ele, o segredo na URL segue sendo a única barreira.
+  cloudApiAppSecret: optional('WHATSAPP_CLOUD_APP_SECRET', ''),
+  // WABA ID — necessário só para gerenciar templates (script provision-templates).
+  cloudApiWabaId: optional('WHATSAPP_CLOUD_WABA_ID', ''),
   cloudApiTemplateLanguage: optional('WHATSAPP_CLOUD_TEMPLATE_LANG', 'pt_BR'),
 
   // Bot de suporte (recebe mensagens e abre chamados via WhatsApp)
