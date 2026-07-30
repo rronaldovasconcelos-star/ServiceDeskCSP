@@ -65,10 +65,19 @@ export const env = {
   seedAdminName: optional('SEED_ADMIN_NAME', 'Administrador'),
 
   // WhatsApp (Evolution API)
-  whatsappProvider: optional('WHATSAPP_PROVIDER', 'mock'), // 'evolution' | 'mock'
+  whatsappProvider: optional('WHATSAPP_PROVIDER', 'mock'), // 'cloud' | 'evolution' | 'mock'
   evolutionApiUrl: optional('EVOLUTION_API_URL', ''),
   evolutionApiKey: optional('EVOLUTION_API_KEY', ''),
   evolutionInstance: optional('EVOLUTION_INSTANCE', ''),
+
+  // WhatsApp Business Cloud API (canal OFICIAL da Meta — usado quando
+  // WHATSAPP_PROVIDER=cloud). Número não sofre ban por uso legítimo, mas toda
+  // mensagem iniciada pelo negócio exige template aprovado.
+  // Ver docs/whatsapp-cloud-api.md para como obter cada valor.
+  cloudApiPhoneNumberId: optional('WHATSAPP_CLOUD_PHONE_NUMBER_ID', ''),
+  cloudApiToken: optional('WHATSAPP_CLOUD_TOKEN', ''),
+  cloudApiVersion: optional('WHATSAPP_CLOUD_API_VERSION', 'v23.0'),
+  cloudApiTemplateLanguage: optional('WHATSAPP_CLOUD_TEMPLATE_LANG', 'pt_BR'),
 
   // Bot de suporte (recebe mensagens e abre chamados via WhatsApp)
   botEnabled: optional('BOT_ENABLED', 'false') === 'true',

@@ -1,5 +1,13 @@
 import { prisma } from '../../lib/prisma.js';
 import { sendWhatsApp } from '../../services/whatsapp/index.js';
+import { MessageInput } from '../../services/whatsapp/types.js';
+import {
+  tplChamadoAberto,
+  tplChamadoAtribuido,
+  tplChamadoComentario,
+  tplChamadoNovoGestor,
+  tplChamadoStatus,
+} from '../../services/whatsapp/templates.js';
 import { normalizeBrazilPhone } from '../../lib/phone.js';
 
 /**
@@ -32,14 +40,14 @@ interface TicketRef {
  * normalizado (+55DDN...) — evita duplicar quando o mesmo WhatsApp está gravado
  * em formatos diferentes (ex.: "5531..." e "+5531...").
  */
-async function notifyPhones(phones: Array<string | null | undefined>, text: string): Promise<void> {
+async function notifyPhones(phones: Array<string | null | undefined>, message: MessageInput): Promise<void> {
   const seen = new Set<string>();
   for (const phone of phones) {
     if (!phone) continue;
     const key = normalizeBrazilPhone(phone) ?? phone;
     if (seen.has(key)) continue;
     seen.add(key);
-    await sendWhatsApp(phone, text);
+    await sendWhatsApp(phone, message);
   }
 }
 
@@ -59,11 +67,10 @@ export async function notifyTicketCreated(
   requesterPhone: string | null | undefined,
 ): Promise<void> {
   // Confirmação para o solicitante
-  const requesterMsg = `📋 Seu chamado foi aberto com sucesso!\n*${ticket.title}*\nCategoria: ${ticket.category}\nUrgência: ${ticket.urgency}\nVocê será avisado a cada atualização.`;
-  await sendWhatsApp(requesterPhone, requesterMsg);
+  await sendWhatsApp(requesterPhone, tplChamadoAberto(ticket.title, ticket.category, ticket.urgency));
 
   // Alerta para admins/gestores
-  const approverMsg = `📋 Novo chamado aberto!\n*${ticket.title}*\nCategoria: ${ticket.category}\nUrgência: ${ticket.urgency}\nSolicitante: ${requesterName}`;
+  const approverMsg = tplChamadoNovoGestor(ticket.title, ticket.category, ticket.urgency, requesterName);
   await notifyPhones(await getApproverPhones(), approverMsg);
 }
 
@@ -86,7 +93,7 @@ export async function notifyStatusChanged(ticket: TicketRef, newStatus: string):
     APROVADO: '✅', REJEITADO: '❌', EM_ANDAMENTO: '🔧', CONCLUIDO: '✅', CANCELADO: '🚫',
   };
 
-  const msg = `${icon[newStatus] ?? '🔔'} Status do seu chamado: *${label}*\n*${ticket.title}*${detail[newStatus] ? `\n${detail[newStatus]}` : ''}`;
+  const msg = tplChamadoStatus(ticket.title, label, icon[newStatus] ?? '🔔', detail[newStatus] ?? '');
   await sendWhatsApp(requester?.phone, msg);
 }
 
@@ -100,10 +107,7 @@ export async function notifyAssigned(
     select: { phone: true },
   });
 
-  const msg = assigneeName
-    ? `👤 Seu chamado foi atribuído a *${assigneeName}*.\n*${ticket.title}*`
-    : `👤 O responsável pelo seu chamado foi removido.\n*${ticket.title}*`;
-  await sendWhatsApp(requester?.phone, msg);
+  await sendWhatsApp(requester?.phone, tplChamadoAtribuido(ticket.title, assigneeName));
 }
 
 /**
@@ -118,7 +122,7 @@ export async function notifyComment(
   authorIsPrivileged: boolean,
 ): Promise<void> {
   const snippet = message.length > 200 ? `${message.slice(0, 197)}...` : message;
-  const text = `💬 Nova mensagem no chamado:\n*${ticket.title}*\n${authorName}: ${snippet}`;
+  const text = tplChamadoComentario(ticket.title, authorName, snippet);
 
   if (authorIsPrivileged) {
     const requester = await prisma.user.findUnique({

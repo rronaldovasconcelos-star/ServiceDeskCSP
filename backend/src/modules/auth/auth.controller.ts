@@ -10,6 +10,8 @@ import { env } from '../../config/env.js';
 import { normalizeBrazilPhone } from '../../lib/phone.js';
 import { parseModules } from '../../lib/modules.js';
 import { sendWhatsApp, sendWhatsAppStrict } from '../../services/whatsapp/index.js';
+import { tplAvisoPortal, tplCodigoAcesso } from '../../services/whatsapp/templates.js';
+import type { MessageInput } from '../../services/whatsapp/types.js';
 
 /** Emite o JWT do portal, embutindo os módulos liberados (vazio p/ ADMIN, que tem tudo). */
 function signToken(user: { id: string; email: string; role: string; name: string; modules: string }): string {
@@ -235,16 +237,18 @@ async function issueOtp(
   name: string,
   type: 'REGISTER' | 'RESET' = 'REGISTER',
   buildMessage?: (code: string, firstName: string) => string,
-  send: (phone: string, text: string) => Promise<void> = sendWhatsAppStrict,
+  send: (phone: string, message: MessageInput) => Promise<void> = sendWhatsAppStrict,
 ): Promise<void> {
   const code = await generateOtp(userId, type);
 
   const firstName = name.split(' ')[0] ?? name;
-  const message = buildMessage
+  const text = buildMessage
     ? buildMessage(code, firstName)
     : `Olá, ${firstName}! Seu código de verificação do Portal CSP é: *${code}*\n\n` +
       `Ele expira em ${env.otpExpiresMinutes} minutos. Se você não solicitou, ignore esta mensagem.`;
-  await send(phone, message);
+  // Cadastro e redefinição compartilham o mesmo template aprovado (só o código e
+  // o prazo variam); o texto livre acima é o que sai pelo canal Baileys.
+  await send(phone, { ...tplCodigoAcesso(code, env.otpExpiresMinutes), text });
 }
 
 /** Mensagem WhatsApp do código de redefinição de senha. Exportada p/ uso pelo módulo de usuários. */
@@ -389,8 +393,12 @@ export async function verifyOtp(req: Request, res: Response, next: NextFunction)
     for (const admin of admins) {
       void sendWhatsApp(
         admin.phone,
-        `🔔 Novo cadastro aguardando aprovação no Portal CSP:\n` +
-          `*${user.name}* (${user.email})\n\nAcesse "Usuários" para aprovar.`,
+        tplAvisoPortal(
+          `🔔 Novo cadastro aguardando aprovação no Portal CSP:\n` +
+            `*${user.name}* (${user.email})\n\nAcesse "Usuários" para aprovar.`,
+          'Novo cadastro aguardando aprovação',
+          `${user.name} (${user.email}) — aprove em "Usuários" no portal`,
+        ),
       );
     }
 
@@ -586,8 +594,12 @@ export async function resetPassword(req: Request, res: Response, next: NextFunct
     const firstName = user.name.split(' ')[0] ?? user.name;
     void sendWhatsApp(
       user.phone,
-      `✅ ${firstName}, sua senha do Portal CSP foi redefinida com sucesso.\n\n` +
-        `Se não foi você, entre em contato com o administrador imediatamente.`,
+      tplAvisoPortal(
+        `✅ ${firstName}, sua senha do Portal CSP foi redefinida com sucesso.\n\n` +
+          `Se não foi você, entre em contato com o administrador imediatamente.`,
+        'Senha redefinida',
+        `${firstName}, sua senha foi redefinida. Se não foi você, avise o administrador imediatamente.`,
+      ),
     );
 
     res.json({ message: 'Senha redefinida com sucesso! Você já pode entrar.' });

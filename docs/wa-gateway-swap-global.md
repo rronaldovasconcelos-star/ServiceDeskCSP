@@ -94,11 +94,11 @@ Nada nos clientes precisa mudar.
 Todas exigem header `apikey` (GW_API_KEY ou apikey da Evolution).
 
 ## Pendências (retomar aqui)
-1. **[BLOQUEIO] Número do csp-portal queimado / apelação Meta.** Decidir o rumo:
-   - **Cloud API oficial** (recomendado p/ portal de escola — durável, não queima), OU
-   - **chip novo** no Evolution com warmup (rápido, segue no Baileys).
-   Enquanto isso: **pausar o csp-portal no gateway** (`POST /gw/instances/csp-portal/pause`)
-   pra não enviar durante a apelação.
+1. ~~**[BLOQUEIO] Número do csp-portal queimado.**~~ **Decidido em 2026-07-30: Cloud API
+   oficial.** O código do portal já está pronto (`WHATSAPP_PROVIDER=cloud`); falta a
+   credencial da Meta e a aprovação dos templates — ver
+   [`whatsapp-cloud-api.md`](./whatsapp-cloud-api.md). O `csp-portal` segue pausado no
+   gateway e **não deve ser reativado**: o número está banido (403).
 2. **Ligar alertas do kill-switch**: setar `ALERT_INSTANCE` + `ALERT_TO` na env do Coolify
    (depende de ter um número são conectado).
 3. **Volume persistente**: `wa-gateway-data` é recriado a cada troca grande de deploy; garantir
@@ -108,6 +108,8 @@ Todas exigem header `apikey` (GW_API_KEY ou apikey da Evolution).
 5. **Estabilidade da sessão**: número caía de `open` pra `close` (sintoma do ban, não do gateway).
 
 ## Integração do CSP com o gateway (neste repo)
+> Vale enquanto `WHATSAPP_PROVIDER=evolution`. No canal Cloud API o portal fala direto com
+> a Meta e não passa pelo gateway — ver [`whatsapp-cloud-api.md`](./whatsapp-cloud-api.md).
 - `backend/src/services/whatsapp/EvolutionProvider.ts` — envia; marca `X-WA-Priority: bulk` quando `opts.bulk`.
 - `backend/src/services/whatsapp/index.ts` — `sendWhatsAppBulk()` para lembretes/campanhas.
 - `backend/src/modules/reminders/reminders.service.ts` — usa o envio bulk.

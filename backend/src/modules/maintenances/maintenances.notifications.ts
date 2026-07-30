@@ -1,5 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import { sendWhatsApp } from '../../services/whatsapp/index.js';
+import { tplAvisoPortal } from '../../services/whatsapp/templates.js';
+import type { MessageInput } from '../../services/whatsapp/types.js';
 import { normalizeBrazilPhone } from '../../lib/phone.js';
 
 /**
@@ -44,14 +46,14 @@ async function recipients(responsavelPhone: string | null): Promise<Array<string
  * normalizado (+55DDN...). Sem isso, o mesmo WhatsApp gravado em formatos
  * diferentes (ex.: "5531..." e "+5531...") receberia a mensagem duplicada.
  */
-async function notifyPhones(phones: Array<string | null>, text: string): Promise<void> {
+async function notifyPhones(phones: Array<string | null>, message: MessageInput): Promise<void> {
   const seen = new Set<string>();
   for (const phone of phones) {
     if (!phone) continue;
     const key = normalizeBrazilPhone(phone) ?? phone;
     if (seen.has(key)) continue;
     seen.add(key);
-    await sendWhatsApp(phone, text);
+    await sendWhatsApp(phone, message);
   }
 }
 
@@ -63,7 +65,12 @@ export async function notifyMaintenanceCreated(m: MaintenanceRef): Promise<void>
     `Recorrência: ${RECURRENCE_LABELS[m.recurrence] ?? m.recurrence}\n` +
     `Início: ${fmtDate(m.nextRunAt)}\n` +
     `Responsável: ${m.responsavel.name}`;
-  await notifyPhones(await recipients(m.responsavel.phone), text);
+  const aviso = tplAvisoPortal(
+    text,
+    'Manutenção programada cadastrada',
+    `${m.name} — ${RECURRENCE_LABELS[m.recurrence] ?? m.recurrence}, início em ${fmtDate(m.nextRunAt)}, responsável ${m.responsavel.name}`,
+  );
+  await notifyPhones(await recipients(m.responsavel.phone), aviso);
 }
 
 /** Lembrete de antecedência (X dias antes do início). */
@@ -73,7 +80,12 @@ export async function notifyMaintenanceReminder(m: MaintenanceRef): Promise<void
     `*${m.name}*\n` +
     `Início previsto: ${fmtDate(m.nextRunAt)}\n` +
     `Responsável: ${m.responsavel.name}`;
-  await notifyPhones(await recipients(m.responsavel.phone), text);
+  const aviso = tplAvisoPortal(
+    text,
+    'Manutenção se aproxima',
+    `${m.name} — início previsto ${fmtDate(m.nextRunAt)}, responsável ${m.responsavel.name}`,
+  );
+  await notifyPhones(await recipients(m.responsavel.phone), aviso);
 }
 
 /** Aviso de vencimento — o chamado foi aberto no backlog. */
@@ -84,5 +96,10 @@ export async function notifyMaintenanceDue(m: MaintenanceRef, ticketTitle: strin
     `Urgência: ${m.urgency}\n` +
     `Responsável: ${m.responsavel.name}\n` +
     `O chamado já está no quadro para atendimento.`;
-  await notifyPhones(await recipients(m.responsavel.phone), text);
+  const aviso = tplAvisoPortal(
+    text,
+    'Manutenção iniciada — chamado aberto',
+    `${ticketTitle} — urgência ${m.urgency}, responsável ${m.responsavel.name}`,
+  );
+  await notifyPhones(await recipients(m.responsavel.phone), aviso);
 }

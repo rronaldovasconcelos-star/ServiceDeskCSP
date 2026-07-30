@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
+import { tplAvisoPortal } from '../../services/whatsapp/templates.js';
 import { env } from '../../config/env.js';
 import { normalizeBrazilPhone } from '../../lib/phone.js';
 import {
@@ -43,8 +44,12 @@ async function notifyAdminsNewSignup(name: string, email: string): Promise<void>
   for (const admin of admins) {
     void sendWhatsApp(
       admin.phone,
-      `🔔 Novo cadastro (via WhatsApp) aguardando aprovação no Portal CSP:\n` +
-        `*${name}* (${email})\n\nAcesse "Usuários" para aprovar.`,
+      tplAvisoPortal(
+        `🔔 Novo cadastro (via WhatsApp) aguardando aprovação no Portal CSP:\n` +
+          `*${name}* (${email})\n\nAcesse "Usuários" para aprovar.`,
+        'Novo cadastro aguardando aprovação',
+        `${name} (${email}) — aprove em "Usuários" no portal`,
+      ),
     );
   }
 }

@@ -1,5 +1,7 @@
 import { prisma } from '../../lib/prisma.js';
 import { sendWhatsAppBulk } from '../../services/whatsapp/index.js';
+import { lembreteMaterial } from '../../services/whatsapp/templates.js';
+import type { WhatsAppMessage } from '../../services/whatsapp/types.js';
 import { normalizeBrazilPhone } from '../../lib/phone.js';
 import { nextFutureRun, type Recurrence } from '../maintenances/maintenances.service.js';
 import { labelFor } from '../files/taxonomy.js';
@@ -48,7 +50,8 @@ export interface ReminderRecord {
  * eixos definidos; sem classificação, usa um texto genérico. `messageExtra` é
  * anexado quando presente.
  */
-export function buildReminderMessage(r: ReminderRecord, nome: string): string {
+/** Descrição do material cobrado ("Plano de aula de Matemática — Fundamental I / 3º ano"). */
+function reminderTarget(r: ReminderRecord): string {
   const partes: string[] = [];
   if (r.tipoMaterial) partes.push(labelFor('tipoMaterial', r.tipoMaterial));
   if (r.disciplina) partes.push(`de ${labelFor('disciplina', r.disciplina)}`);
@@ -61,6 +64,11 @@ export function buildReminderMessage(r: ReminderRecord, nome: string): string {
 
   let alvo = partes.join(' ');
   if (contexto.length) alvo += ` — ${contexto.join(' / ')}`;
+  return alvo;
+}
+
+export function buildReminderMessage(r: ReminderRecord, nome: string): string {
+  const alvo = reminderTarget(r);
 
   const linhas = [
     '📚 Lembrete de material',
@@ -71,6 +79,19 @@ export function buildReminderMessage(r: ReminderRecord, nome: string): string {
   if (r.messageExtra && r.messageExtra.trim()) linhas.push(r.messageExtra.trim());
   linhas.push('Envie pelo portal: *Meus Arquivos*.');
   return linhas.join('\n');
+}
+
+/**
+ * Mesma mensagem, na forma que os dois canais entendem: texto livre (Baileys) e
+ * template aprovado (Cloud API). O template recebe o nome do professor e a
+ * descrição do material — o `messageExtra` entra junto do alvo, já que o corpo
+ * fixo do template não tem uma linha livre extra.
+ */
+export function buildReminderWhatsApp(r: ReminderRecord, nome: string): WhatsAppMessage {
+  const alvo = reminderTarget(r);
+  const extra = r.messageExtra?.trim();
+  const resumo = [alvo || 'seu material', extra].filter(Boolean).join('. ');
+  return lembreteMaterial(buildReminderMessage(r, nome), nome, resumo);
 }
 
 /** Filtro de File a partir dos eixos NÃO nulos do lembrete (o que conta como "cumprido"). */
@@ -127,7 +148,7 @@ export async function processReminder(r: ReminderRecord, now: Date, base: Date =
       const key = normalizeBrazilPhone(u.phone) ?? u.phone;
       if (seen.has(key)) continue;
       seen.add(key);
-      await sendWhatsAppBulk(u.phone, buildReminderMessage(r, u.name));
+      await sendWhatsAppBulk(u.phone, buildReminderWhatsApp(r, u.name));
       sent += 1;
     }
   }

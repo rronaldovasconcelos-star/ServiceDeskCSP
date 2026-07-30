@@ -10,7 +10,7 @@ Sistema de gestão de chamados de suporte (TI) e compra de suprimentos.
 | Banco     | SQLite via Prisma 7 + libsql adapter|
 | Frontend  | React + Vite + Tailwind CSS         |
 | Auth      | JWT (8h de validade)                |
-| WhatsApp  | Evolution API (plugável via .env)   |
+| WhatsApp  | Cloud API (Meta) ou Evolution — plugável via .env |
 
 ---
 
@@ -62,10 +62,12 @@ da escola. Detalhes, layout do TXT, API e testes: [docs/holerites.md](docs/holer
 | `JWT_EXPIRES_IN`     | Duração do token (padrão: 8h)               |
 | `SEED_ADMIN_EMAIL`   | Email do admin criado pelo seed             |
 | `SEED_ADMIN_PASSWORD`| Senha do admin criado pelo seed             |
-| `WHATSAPP_PROVIDER`  | `mock` (log) ou `evolution`                 |
+| `WHATSAPP_PROVIDER`  | `mock` (log), `evolution` ou `cloud`        |
 | `EVOLUTION_API_URL`  | URL da sua instância Evolution API          |
 | `EVOLUTION_API_KEY`  | Chave da Evolution API                      |
 | `EVOLUTION_INSTANCE` | Nome da instância conectada                 |
+| `WHATSAPP_CLOUD_PHONE_NUMBER_ID` | Phone Number ID da WABA (provider `cloud`) |
+| `WHATSAPP_CLOUD_TOKEN` | Token permanente do system user (provider `cloud`) |
 
 ### frontend/.env
 
@@ -111,3 +113,6 @@ CANCELADO   CANCELADO
 - **Chamado aberto**: todos os admins com `phone` cadastrado recebem aviso.
 - **Chamado concluído**: o solicitante recebe aviso (se tiver `phone`).
 - Com `WHATSAPP_PROVIDER=mock`, as mensagens são apenas logadas no console.
+- Com `WHATSAPP_PROVIDER=cloud`, cada aviso sai por um **template aprovado na Meta** —
+  ver [`docs/whatsapp-cloud-api.md`](docs/whatsapp-cloud-api.md) para o texto de cada
+  template e o passo a passo da implantação.

@@ -1,4 +1,4 @@
-import { SendOptions, WhatsAppProvider } from './types.js';
+import { SendOptions, WhatsAppMessage, WhatsAppProvider } from './types.js';
 import { env } from '../../config/env.js';
 
 export class EvolutionProvider implements WhatsAppProvider {
@@ -9,7 +9,8 @@ export class EvolutionProvider implements WhatsAppProvider {
     this.instance = instance || env.evolutionInstance;
   }
 
-  async sendMessage(phone: string, text: string, opts?: SendOptions): Promise<void> {
+  /** Canal Baileys: envia sempre o texto livre — templates não se aplicam aqui. */
+  async sendMessage(phone: string, message: WhatsAppMessage, opts?: SendOptions): Promise<void> {
     const url = `${env.evolutionApiUrl}/message/sendText/${this.instance}`;
     const response = await fetch(url, {
       method: 'POST',
@@ -22,7 +23,7 @@ export class EvolutionProvider implements WhatsAppProvider {
       },
       body: JSON.stringify({
         number: phone.replace(/\D/g, ''),
-        text,
+        text: message.text,
       }),
     });
 

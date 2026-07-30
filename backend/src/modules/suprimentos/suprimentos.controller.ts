@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
 import { sendWhatsApp } from '../../services/whatsapp/index.js';
+import { tplAvisoPortal } from '../../services/whatsapp/templates.js';
 
 // ─── Schemas ────────────────────────────────────────────────────────────────
 
@@ -257,7 +258,11 @@ export async function createRequest(req: Request, res: Response, next: NextFunct
     for (const admin of admins) {
       await sendWhatsApp(
         admin.phone,
-        `🛒 Novo pedido de suprimento!\n*${item.name}* (${data.quantity} ${item.unit})\nUrgência: ${data.urgency}\nSolicitante: ${request.requester.name}`,
+        tplAvisoPortal(
+          `🛒 Novo pedido de suprimento!\n*${item.name}* (${data.quantity} ${item.unit})\nUrgência: ${data.urgency}\nSolicitante: ${request.requester.name}`,
+          'Novo pedido de suprimento',
+          `${item.name} (${data.quantity} ${item.unit}) — urgência ${data.urgency}, solicitado por ${request.requester.name}`,
+        ),
       );
     }
 
@@ -330,7 +335,11 @@ export async function changeRequestStatus(req: Request, res: Response, next: Nex
     if (status === 'ENTREGUE') {
       await sendWhatsApp(
         updated.requester.phone,
-        `✅ Seu pedido de suprimento foi entregue!\n*${updated.item.name}* (${updated.quantity} ${updated.item.unit})`,
+        tplAvisoPortal(
+          `✅ Seu pedido de suprimento foi entregue!\n*${updated.item.name}* (${updated.quantity} ${updated.item.unit})`,
+          'Pedido de suprimento entregue',
+          `${updated.item.name} (${updated.quantity} ${updated.item.unit})`,
+        ),
       );
     }
 

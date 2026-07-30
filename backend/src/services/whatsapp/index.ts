@@ -1,10 +1,15 @@
 import { env } from '../../config/env.js';
 import { normalizeBrazilPhone } from '../../lib/phone.js';
+import { CloudApiProvider } from './CloudApiProvider.js';
 import { EvolutionProvider } from './EvolutionProvider.js';
 import { MockProvider } from './MockProvider.js';
-import { WhatsAppProvider } from './types.js';
+import { MessageInput, toMessage, WhatsAppProvider } from './types.js';
 
 function buildProvider(): WhatsAppProvider {
+  // 'cloud' = canal oficial da Meta (não queima número, exige template aprovado).
+  if (env.whatsappProvider === 'cloud' && env.cloudApiPhoneNumberId && env.cloudApiToken) {
+    return new CloudApiProvider();
+  }
   if (env.whatsappProvider === 'evolution' && env.evolutionApiUrl) {
     return new EvolutionProvider();
   }
@@ -13,7 +18,7 @@ function buildProvider(): WhatsAppProvider {
 
 const provider = buildProvider();
 
-export async function sendWhatsApp(phone: string | null | undefined, text: string): Promise<void> {
+export async function sendWhatsApp(phone: string | null | undefined, message: MessageInput): Promise<void> {
   if (!phone) return;
   // Normaliza no envio: garante DDI 55 mesmo para números gravados em formato cru
   // no banco (ex: "(31) 99160-2707"). Sem isso, a Evolution rejeita o número.
@@ -23,7 +28,7 @@ export async function sendWhatsApp(phone: string | null | undefined, text: strin
     return;
   }
   try {
-    await provider.sendMessage(normalized, text);
+    await provider.sendMessage(normalized, toMessage(message));
   } catch (err) {
     // Fire-and-forget: WhatsApp failure never breaks the main flow
     console.error(`[WhatsApp] falha ao enviar para ${normalized}:`, err instanceof Error ? err.message : err);
@@ -34,8 +39,10 @@ export async function sendWhatsApp(phone: string | null | undefined, text: strin
  * Envio em LOTE (lembretes/campanhas). Marca a mensagem como `bulk` para que o
  * wa-gateway a coloque na fila com throttle/jitter/teto — evita a rajada que bane
  * números. Fire-and-forget, igual ao `sendWhatsApp`.
+ *
+ * No canal Cloud API o marcador é inócuo: quem controla o ritmo lá é a Meta.
  */
-export async function sendWhatsAppBulk(phone: string | null | undefined, text: string): Promise<void> {
+export async function sendWhatsAppBulk(phone: string | null | undefined, message: MessageInput): Promise<void> {
   if (!phone) return;
   const normalized = normalizeBrazilPhone(phone);
   if (!normalized) {
@@ -43,7 +50,7 @@ export async function sendWhatsAppBulk(phone: string | null | undefined, text: s
     return;
   }
   try {
-    await provider.sendMessage(normalized, text, { bulk: true });
+    await provider.sendMessage(normalized, toMessage(message), { bulk: true });
   } catch (err) {
     console.error(`[WhatsApp] falha ao enviar (bulk) para ${normalized}:`, err instanceof Error ? err.message : err);
   }
@@ -54,10 +61,10 @@ export async function sendWhatsAppBulk(phone: string | null | undefined, text: s
  * Usado em fluxos onde a entrega é crítica (ex: código OTP de cadastro),
  * para que o chamador possa avisar o usuário.
  */
-export async function sendWhatsAppStrict(phone: string, text: string): Promise<void> {
+export async function sendWhatsAppStrict(phone: string, message: MessageInput): Promise<void> {
   const normalized = normalizeBrazilPhone(phone);
   if (!normalized) {
     throw new Error(`Número de telefone inválido: ${phone}`);
   }
-  await provider.sendMessage(normalized, text);
+  await provider.sendMessage(normalized, toMessage(message));
 }
