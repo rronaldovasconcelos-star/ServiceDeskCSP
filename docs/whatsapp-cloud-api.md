@@ -3,6 +3,52 @@
 > Última atualização: 2026-07-30. **Repositório público — nenhum segredo aqui.**
 > Token, phone_number_id e afins ficam no `.env.production` local e na env do servidor.
 
+---
+
+## ⏸️ RETOMAR AQUI (handoff de 2026-07-30)
+
+**Onde paramos:** todo o código está pronto, testado e commitado
+(`9b2b3ce` envio, `a155296` recebimento + ferramentas). **Nenhuma linha precisa mudar.**
+O que falta é inteiramente do lado da Meta — burocracia de conta, não desenvolvimento.
+
+**Estado hoje:** o portal está **sem WhatsApp desde 23/07** (número banido, 403). O canal
+segue em `WHATSAPP_PROVIDER=evolution` com a instância `csp-portal` pausada no gateway e
+8 mensagens presas na fila. Ninguém recebe OTP de cadastro, lembrete nem aviso de chamado.
+
+### Checklist para ligar (nesta ordem)
+
+- [ ] **1. Business Manager verificado** para o Colégio Santa Paula (CNPJ + comprovante).
+      É o passo mais lento — de horas a alguns dias. Comece por ele.
+- [ ] **2. WABA criada** e **número novo** adicionado.
+      ⚠️ **NÃO use o 31 99547-8946** — está banido; levá-lo para a conta oficial arrasta o problema.
+- [ ] **3. Token permanente** de *system user* (token de usuário comum expira em 24h e não serve).
+- [ ] **4. Preencher no `.env.production`**: `WHATSAPP_CLOUD_PHONE_NUMBER_ID`, `WHATSAPP_CLOUD_TOKEN`,
+      `WHATSAPP_CLOUD_WABA_ID`, `WHATSAPP_CLOUD_APP_SECRET` — **sem** trocar `WHATSAPP_PROVIDER` ainda.
+- [ ] **5. Criar os templates**: `cd backend && npm run whatsapp:templates -- --criar`
+- [ ] **6. Esperar a aprovação** (minutos a horas). Conferir: `npm run whatsapp:templates`
+- [ ] **7. Configurar o webhook** no painel da Meta (seção 5 abaixo) — sem isso o bot não recebe.
+- [ ] **8. `npm run whatsapp:check -- <seu numero>`** → precisa sair ✅ verde.
+- [ ] **9. Virar a chave**: `WHATSAPP_PROVIDER=cloud` no `.env.production` → `python update.py`.
+      Conferir no log do boot: `[WhatsApp] canal oficial (Cloud API) ativo`.
+- [ ] **10.** Abrir um chamado de teste e confirmar que a notificação chega.
+
+**Rollback a qualquer momento:** `WHATSAPP_PROVIDER=evolution` + `update.py`. Volta tudo ao
+canal antigo sem tocar em código.
+
+### Armadilha ao mexer localmente
+O `backend/.env` local aponta para a **Evolution de produção**. Subir `npx tsx src/server.ts`
+liga os schedulers e **enfileira lembrete de verdade** no wa-gateway (aconteceu em 30/07: a
+fila do `csp-portal` foi de 7 para 8). Ao testar local, use
+`WHATSAPP_PROVIDER=mock` ou `REMINDER_SCHEDULER_ENABLED=false`.
+
+### Fora do escopo deste doc, mas aberto
+Pendências do gateway em [`wa-gateway-swap-global.md`](./wa-gateway-swap-global.md): alertas
+do kill-switch (teriam avisado do ban no dia 23), persistência do volume `wa-gateway-data` e
+a **rotação das credenciais** (token do Coolify, senha root do VPS, apikey da Evolution — esta
+última está em texto puro no `.env.production`).
+
+---
+
 ## Por que migrar
 
 O número do portal (`csp-portal`, chip 31 99547-8946) foi **banido pela Meta em 23/07/2026**
