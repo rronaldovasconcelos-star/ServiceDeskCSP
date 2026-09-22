@@ -6,7 +6,7 @@
  *
  * ⚠️ Mantenha em sincronia com o backend.
  */
-export const BASELINE_MODULES = ['tickets', 'suprimentos', 'arquivos'];
+export const BASELINE_MODULES = ['tickets', 'suprimentos', 'arquivos', 'holerites'];
 
 export const MODULES = [
   { key: 'dashboard', label: 'Dashboard' },
@@ -20,6 +20,7 @@ export const MODULES = [
   { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'bot', label: 'Bot Suporte' },
   { key: 'agente', label: 'Agente IA' },
+  { key: 'rh', label: 'RH — Holerites (importar e vincular)' },
 ];
 
 type AccessUser = { role?: string; modules?: string[] } | null | undefined;

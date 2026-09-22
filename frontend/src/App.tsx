@@ -23,6 +23,8 @@ import MeusArquivosPage from './pages/MeusArquivosPage';
 import RepositorioPage from './pages/RepositorioPage';
 import WhatsAppPage from './pages/WhatsAppPage';
 import AgentePage from './pages/AgentePage';
+import HoleritesPage from './pages/HoleritesPage';
+import HoleritesRhPage from './pages/HoleritesRhPage';
 
 export default function App() {
   return (
@@ -134,6 +136,22 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Layout><MeusArquivosPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/holerites"
+            element={
+              <ProtectedRoute>
+                <Layout><HoleritesPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/holerites/rh"
+            element={
+              <ProtectedRoute module="rh">
+                <Layout><HoleritesRhPage /></Layout>
               </ProtectedRoute>
             }
           />

@@ -110,4 +110,13 @@ export const env = {
   // Login com Google (Google Identity Services). Client ID tipo "Web" cujo
   // token é validado como audience. Pode ser o mesmo do Drive se for Web.
   googleLoginClientId: optional('GOOGLE_LOGIN_CLIENT_ID', '') || optional('GOOGLE_OAUTH_CLIENT_ID', ''),
+
+  // Holerites — cabeçalho do PDF (o TXT da folha traz o nome da empresa truncado
+  // em 42 caracteres e não traz endereço) e importação automática do Drive.
+  holeriteEmpresaNome: optional('HOLERITE_EMPRESA_NOME', 'SEBASTIANA CABRAL DE SOUSA PEREIRA - COLEGIO SANTA PAULA'),
+  holeriteEmpresaEndereco: optional('HOLERITE_EMPRESA_ENDERECO', 'Rua Adelia Hilbert Teixeira, 421 - Bairro Diamante - Belo Horizonte'),
+  // Pasta no Drive (dentro da raiz do portal) onde o RH deposita os TXT da folha.
+  holeriteDriveFolder: optional('HOLERITE_DRIVE_FOLDER', 'Holerites'),
+  // Importação automática: o portal olha a pasta a cada N minutos (0 = desligado).
+  holeriteDriveIntervalMin: parseInt(optional('HOLERITE_DRIVE_INTERVAL_MIN', '30'), 10),
 };

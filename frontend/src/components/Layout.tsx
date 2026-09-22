@@ -26,6 +26,8 @@ import {
   CalendarClock,
   Bell,
   DatabaseBackup,
+  Receipt,
+  BriefcaseBusiness,
 } from 'lucide-react';
 
 // `module` = chave do módulo que controla o acesso ao item. Itens sem `module`
@@ -40,6 +42,8 @@ const navItems = [
   { to: '/manutencoes', label: 'Manutenções', icon: CalendarClock, module: 'manutencoes' },
   { to: '/lembretes', label: 'Lembretes', icon: Bell, module: 'lembretes' },
   { to: '/arquivos', label: 'Meus Arquivos', icon: FolderOpen },
+  { to: '/holerites', label: 'Meus Holerites', icon: Receipt },
+  { to: '/holerites/rh', label: 'RH · Holerites', icon: BriefcaseBusiness, module: 'rh' },
   { to: '/repositorio', label: 'Repositório', icon: HardDrive, module: 'repositorio' },
   { to: '/users', label: 'Usuários', icon: Users, module: 'users' },
   { to: '/backups', label: 'Backups', icon: DatabaseBackup, module: 'backups' },

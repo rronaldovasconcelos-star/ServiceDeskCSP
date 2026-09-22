@@ -6,7 +6,7 @@
  *
  * ⚠️ Mantenha em sincronia com frontend/src/lib/modules.ts
  */
-export const BASELINE_MODULES = ['tickets', 'suprimentos', 'arquivos'] as const;
+export const BASELINE_MODULES = ['tickets', 'suprimentos', 'arquivos', 'holerites'] as const;
 
 export const MODULES = [
   { key: 'dashboard', label: 'Dashboard' },
@@ -20,6 +20,7 @@ export const MODULES = [
   { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'bot', label: 'Bot Suporte' },
   { key: 'agente', label: 'Agente IA' },
+  { key: 'rh', label: 'RH — Holerites (importar e vincular)' },
 ] as const;
 
 export const MODULE_KEYS = MODULES.map((m) => m.key);

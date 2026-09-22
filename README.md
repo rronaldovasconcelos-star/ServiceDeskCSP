@@ -42,6 +42,14 @@ Acesse http://localhost:5173 e faça login com as credenciais acima.
 
 ---
 
+## Holerites
+
+O colaborador baixa o próprio demonstrativo de pagamento em **Meus Holerites**.
+O RH salva o TXT exportado da folha na pasta `Holerites` do Google Drive do
+portal (ou envia em **RH · Holerites**), o portal importa conferindo as somas,
+o RH vincula cada colaborador ao login uma única vez, e o PDF sai no formato
+da escola. Detalhes, layout do TXT, API e testes: [docs/holerites.md](docs/holerites.md).
+
 ## Variáveis de ambiente
 
 ### backend/.env

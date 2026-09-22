@@ -30,6 +30,8 @@ model User {
   maintenancesResponsavel ScheduledMaintenance[] @relation("MaintenanceResponsavel")
   maintenancesCreated     ScheduledMaintenance[] @relation("MaintenanceCreator")
   materialReminders       MaterialReminder[]     @relation("ReminderCreator")
+  colaborador             Colaborador?           @relation("ColaboradorUsuario")
+  holeriteImportacoes     HoleriteImportacao[]   @relation("HoleriteImportador")
 }
 
 model BotSession {
@@ -218,4 +220,80 @@ model MaterialReminder {
   createdBy User @relation("ReminderCreator", fields: [createdById], references: [id])
 
   @@index([status, nextRunAt])
+}
+
+// ---------------------------------------------------------------------------
+// Holerites — folha de pagamento importada do TXT do Folpag (ver docs/holerites.md)
+// ---------------------------------------------------------------------------
+
+// Colaborador da folha. Nasce na primeira importação (código + nome do TXT) e o
+// RH vincula uma vez ao login do portal; os dados que o TXT não traz (CPF, CTPS,
+// admissão, códigos de cargo/depto) são preenchidos aqui ou virão de um export
+// mais completo da folha.
+model Colaborador {
+  id          String   @id @default(cuid())
+  codigo      String   @unique // "000285" — código do funcionário na folha
+  nome        String            // como vem no TXT (atualizado a cada importação)
+  userId      String?  @unique  // login do portal vinculado pelo RH
+  cpf         String?
+  ctps        String?           // "0923499 / 00757"
+  admissao    String?           // "dd/mm/aaaa"
+  cargoCodigo String?           // "0005"
+  deptoCodigo String?           // "000005"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user      User?      @relation("ColaboradorUsuario", fields: [userId], references: [id], onDelete: SetNull)
+  holerites Holerite[]
+}
+
+// Um holerite por colaborador × competência. Valores em CENTAVOS (Int).
+// Reimportar a mesma competência substitui o registro (o TXT é a fonte).
+model Holerite {
+  id               String   @id @default(cuid())
+  colaboradorId    String
+  competencia      String   // "2026-08"
+  empresaNome      String   // como veio no TXT
+  empresaCnpj      String
+  departamento     String
+  cargo            String
+  salarioBase      Int
+  verbas           String   // JSON: [{codigo, descricao, referencia, vencimento, desconto}]
+  totalVencimentos Int
+  totalDescontos   Int
+  liquido          Int
+  dataGeracao      DateTime?
+  baseInss         Int?
+  baseFgts         Int?
+  baseIrrf         Int?
+  fgtsMes          Int?
+  faixaIrrf        String?  // "27,50"
+  importacaoId     String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  colaborador Colaborador        @relation(fields: [colaboradorId], references: [id], onDelete: Cascade)
+  importacao  HoleriteImportacao @relation(fields: [importacaoId], references: [id])
+
+  @@unique([colaboradorId, competencia])
+  @@index([competencia])
+}
+
+// Registro de cada arquivo importado (auditoria + dedupe do Drive por fileId).
+model HoleriteImportacao {
+  id                String   @id @default(cuid())
+  arquivo           String   // nome do arquivo
+  origem            String   // UPLOAD | DRIVE
+  driveFileId       String?  @unique
+  competencias      String   // JSON: ["2026-08"]
+  totalHolerites    Int
+  novosColaboradores Int
+  atorId            String?
+  atorNome          String   // snapshot ("Agendador" quando automático)
+  createdAt         DateTime @default(now())
+
+  ator      User?      @relation("HoleriteImportador", fields: [atorId], references: [id], onDelete: SetNull)
+  holerites Holerite[]
+
+  @@index([createdAt])
 }

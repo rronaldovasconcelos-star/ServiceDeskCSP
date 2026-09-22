@@ -4,6 +4,7 @@ import { env } from './config/env.js';
 import { initMaintenanceScheduler } from './modules/maintenances/maintenances.scheduler.js';
 import { initReminderScheduler } from './modules/reminders/reminders.scheduler.js';
 import { initBackupScheduler } from './modules/backup/backup.scheduler.js';
+import { initHoleriteScheduler } from './modules/holerites/holerites.scheduler.js';
 
 app.listen(env.port, () => {
   console.log(`[server] Running on http://localhost:${env.port} (${env.nodeEnv})`);
@@ -17,4 +18,5 @@ app.listen(env.port, () => {
   if (env.backupSchedulerEnabled) {
     initBackupScheduler();
   }
+  initHoleriteScheduler();
 });
