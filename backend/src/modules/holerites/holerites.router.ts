@@ -14,6 +14,11 @@ import {
   holeritesDoColaborador,
   importacoes,
   usuarios,
+  mensagens,
+  competencias,
+  mensagemCriar,
+  mensagemAtualizar,
+  mensagemExcluir,
 } from './holerites.controller.js';
 
 const router = Router();
@@ -31,6 +36,11 @@ rh.put('/colaboradores/:id/dados', dados);
 rh.get('/colaboradores/:id/holerites', holeritesDoColaborador);
 rh.get('/importacoes', importacoes);
 rh.get('/usuarios', usuarios);
+rh.get('/competencias', competencias);
+rh.get('/mensagens', mensagens);
+rh.post('/mensagens', mensagemCriar);
+rh.put('/mensagens/:id', mensagemAtualizar);
+rh.delete('/mensagens/:id', mensagemExcluir);
 router.use('/rh', rh);
 
 // --- colaborador (qualquer autenticado; o serviço confere o vínculo) ---

@@ -1,6 +1,6 @@
 # ESTADO — Portal de Chamados (Service Desk CSP)
 
-Handoff entre PCs. Atualizado em 23/09/2026.
+Handoff entre PCs. Atualizado em 23/09/2026 (fim da tarde).
 
 ## O que é
 
@@ -17,7 +17,34 @@ hospedagem Hostinger.
 - PC franc: `Desktop\ServiceDeskCSP` (clone de 22/09/2026; `.deploy.env` criado em
   23/09 com o token da Hostinger).
 
-## Onde parou (23/09/2026)
+## Onde parou (23/09/2026, fim da tarde)
+
+**Pronto no código, AINDA NÃO DEPLOYADO: campo "Observações" no PDF + aba
+"Mensagens" em RH · Holerites.** Pedido do Ronaldo por print (caixa em branco à
+esquerda de "Total / Valor Líquido" no papel): o RH escreve mensagens **gerais**
+(todos) ou **individuais** (um colaborador), com ou sem competência, e elas saem
+nessa caixa nas duas vias do PDF. Decisões dele: só no PDF (não na tela Meus
+Holerites) e o menu continua "RH · Holerites" com a aba nova.
+
+- Tabela `HoleriteMensagem` (migration `20260923184115_add_holerite_mensagens`;
+  o `start.sh` aplica no deploy). Rotas `/api/holerites/rh/mensagens` (GET, POST,
+  PUT/:id, DELETE/:id) e `/rh/competencias`. Tudo em `docs/holerites.md`.
+- Limite **120 caracteres** por mensagem e **guarda de espaço**: o serviço mede o
+  texto final de cada holerite alcançado com as fontes do pdfkit (7 pt → 6 pt) e
+  recusa com 422 o que não couber; nada sai cortado. Medido, não estimado: a
+  caixa tem 30 pt e cabem ~270 caracteres corridos em 6 pt.
+- Provas: suíte com **46 testes verdes** (16 novos, vermelhos antes; a guarda foi
+  provada vermelha desligando-a), PDF sem observação com o mesmo tamanho em bytes
+  de antes (layout intacto), prévias com o TXT real conferidas visualmente
+  (`holerite-preview.ts --observacoes`), `tsc` do backend e do frontend, `vite
+  build`. A tela **não foi exercitada no Chrome** nesta sessão.
+- **Para publicar**: os dois scripts de deploy com `!` (como em 23/09 de manhã);
+  depois conferir `GET /api/holerites/rh/mensagens` → 401 sem token e o bundle
+  com "Mensagens cadastradas"; cadastrar uma mensagem real e baixar o PDF.
+- Lint: `HoleritesRhPage.tsx` tem 2 erros `react-hooks/set-state-in-effect`
+  **anteriores** (abas Importar e Colaboradores); a aba nova não acrescenta nenhum.
+
+### Estado anterior (23/09, tarde)
 
 Módulo de holerites **EM PRODUÇÃO** desde 23/09/2026, deploy feito do PC franc.
 
@@ -81,7 +108,7 @@ texto novo. Parser provado em produção às 15h11 com o TXT real (ver acima).
   colaborador vinculado ao login pelo RH → PDF igual ao papel (duas vias).
 - Importação pela pasta `Holerites` do Google Drive (automática a cada 30 min) ou
   por upload na tela "RH · Holerites". Tela "Meus Holerites" para o colaborador.
-- Provas: `npx tsx scripts/testar-holerites.ts` (21 verdes), fluxo HTTP com o TXT
+- Provas: `npx tsx scripts/testar-holerites.ts` (46 verdes em 23/09), fluxo HTTP com o TXT
   real, telas no Chrome, build do frontend. Documentação em `docs/holerites.md`.
 - Decisões do Ronaldo: portal = este; vínculo feito pelo RH uma vez; CPF/CTPS/
   admissão/códigos não vêm no TXT → vai pedir export completo ao contador; até lá
@@ -89,6 +116,8 @@ texto novo. Parser provado em produção às 15h11 com o TXT real (ver acima).
 
 ## Próximos passos
 
+0. **Deploy das mensagens/observações** (backend + frontend, com `!`) e prova em
+   produção com uma mensagem real no PDF.
 1. Uso mensal: o RH salva o TXT completo de cada mês na pasta `Holerites` do
    Drive (ou faz upload) e vincula os colaboradores novos. Confirmar
    `STORAGE_PROVIDER=google-drive` no VPS antes de contar com a importação
@@ -111,4 +140,5 @@ Arquivo de amostra da folha (dados reais, fora do git): existia em
 `C:\Users\franc\Desktop\Nova pasta (4)`, apagado em 23/09; buscar no PC rrona ou na
 pasta `Holerites` do Drive. Deploy: `python update.py` (backend) e
 `python deploy_hostinger.py` (frontend), com `.deploy.env` preenchido.
-Prévia de um TXT sem tocar no banco: `npx tsx scripts/holerite-preview.ts arquivo.txt saida/`.
+Prévia de um TXT sem tocar no banco: `npx tsx scripts/holerite-preview.ts arquivo.txt saida/`
+(com `--observacoes "texto"` para ver a caixa de observações preenchida).

@@ -2,12 +2,14 @@
  * Pré-visualiza um TXT de holerites sem passar pelo portal: lê o arquivo,
  * valida o layout e gera um PDF por colaborador na pasta de saída.
  *
- *   npx tsx scripts/holerite-preview.ts <arquivo.txt> [pasta-de-saida]
+ *   npx tsx scripts/holerite-preview.ts <arquivo.txt> [pasta-de-saida] [--observacoes "texto"]
  *
  * Serve para conferir um arquivo novo da folha antes de importar, ou para
  * comparar o PDF gerado com o modelo da escola. Não grava nada no banco.
  * CPF/CTPS/admissão/códigos saem preenchidos se o TXT for do formato completo
  * (registros C/DP/DD/R); no formato antigo saem em branco (no portal vêm do cadastro).
+ * `--observacoes` preenche a caixa de observações (no portal vem das mensagens do RH);
+ * use "\n" no texto para separar mais de uma mensagem.
  */
 import 'dotenv/config';
 import fs from 'node:fs';
@@ -16,9 +18,13 @@ import { parseHolerites, HoleriteParseError } from '../src/modules/holerites/hol
 import { gerarHoleritePdf, formatarCentavos } from '../src/modules/holerites/holerite.pdf.js';
 import { env } from '../src/config/env.js';
 
-const [, , entrada, saida = 'holerites-preview'] = process.argv;
+const args = process.argv.slice(2);
+const iObs = args.indexOf('--observacoes');
+const observacoes = iObs >= 0 ? (args[iObs + 1] ?? '').replace(/\\n/g, '\n') : null;
+if (iObs >= 0) args.splice(iObs, 2);
+const [entrada, saida = 'holerites-preview'] = args;
 if (!entrada) {
-  console.error('Uso: npx tsx scripts/holerite-preview.ts <arquivo.txt> [pasta-de-saida]');
+  console.error('Uso: npx tsx scripts/holerite-preview.ts <arquivo.txt> [pasta-de-saida] [--observacoes "texto"]');
   process.exit(2);
 }
 
@@ -61,6 +67,7 @@ for (const h of holerites) {
     baseIrrf: h.baseIrrf,
     fgtsMes: h.fgtsMes,
     faixaIrrf: h.faixaIrrf,
+    observacoes,
   });
   const nome = `${h.competencia}_${h.colaboradorCodigo}.pdf`;
   fs.writeFileSync(path.join(saida, nome), pdf);

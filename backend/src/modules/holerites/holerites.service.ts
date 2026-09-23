@@ -9,9 +9,19 @@ import { prisma } from '../../lib/prisma.js';
 import { env } from '../../config/env.js';
 import type { AuthPayload } from '../../middlewares/authenticate.js';
 import { parseHolerites, type HoleriteParseado, type HoleriteVerba } from './holerite.parser.js';
-import { gerarHoleritePdf, formatarCompetencia, type DadosHoleritePdf } from './holerite.pdf.js';
+import { gerarHoleritePdf, formatarCompetencia, caberObservacoes, type DadosHoleritePdf } from './holerite.pdf.js';
 
 export const MODULO_RH = 'rh';
+
+/**
+ * Máximo de caracteres por mensagem do RH. A caixa de observações do PDF é fixa
+ * (30 pt de altura, ~270 caracteres corridos em 6 pt); uma geral + uma
+ * individual neste limite cabem. Além do limite, `garantirQueCabe` mede o texto
+ * final de cada holerite afetado e recusa a mensagem que não couber.
+ */
+export const LIMITE_MENSAGEM = 120;
+/** Separa as mensagens dentro da caixa (texto corrido, para não desperdiçar linha). */
+export const SEPARADOR_OBSERVACOES = ' · ';
 
 /** Erro de negócio com status HTTP (o controller devolve a mensagem ao cliente). */
 export class HoleriteErro extends Error {
@@ -193,8 +203,9 @@ export function nomeArquivoPdf(h: HoleriteComColaborador): string {
   return `holerite_${h.competencia}_${nome}.pdf`;
 }
 
-export function gerarPdf(h: HoleriteComColaborador): Promise<Buffer> {
+export async function gerarPdf(h: HoleriteComColaborador): Promise<Buffer> {
   const dados: DadosHoleritePdf = {
+    observacoes: await montarObservacoes(h.colaboradorId, h.competencia),
     empresaNome: env.holeriteEmpresaNome,
     empresaCnpj: h.empresaCnpj,
     empresaEndereco: env.holeriteEmpresaEndereco,
@@ -298,4 +309,157 @@ export async function listarUsuariosParaVinculo() {
     select: { id: true, name: true, email: true, colaborador: { select: { id: true, codigo: true, nome: true } } },
     orderBy: { name: 'asc' },
   });
+}
+
+// ---------- mensagens do RH (campo "Observações" do PDF) ----------
+
+export type EscopoMensagem = 'GERAL' | 'INDIVIDUAL';
+
+export interface DadosMensagem {
+  escopo: EscopoMensagem;
+  colaboradorId: string | null;
+  competencia: string | null; // "2026-08" ou null = todos os meses
+  texto: string;
+}
+
+const mensagemComColaborador = {
+  include: { colaborador: { select: { id: true, codigo: true, nome: true } } },
+} as const;
+
+function validarTexto(texto: string): string {
+  const limpo = texto.trim();
+  if (!limpo) throw new HoleriteErro('Escreva a mensagem.');
+  if (limpo.length > LIMITE_MENSAGEM) throw new HoleriteErro(`A mensagem pode ter no máximo ${LIMITE_MENSAGEM} caracteres.`);
+  return limpo;
+}
+
+function validarCompetencia(competencia: string | null | undefined): string | null {
+  const c = competencia?.trim() || null;
+  if (c !== null && !/^\d{4}-(0[1-9]|1[0-2])$/.test(c)) throw new HoleriteErro('Competência inválida (use aaaa-mm).');
+  return c;
+}
+
+export async function listarMensagens() {
+  return prisma.holeriteMensagem.findMany({ ...mensagemComColaborador, orderBy: { createdAt: 'desc' } });
+}
+
+/** Competências que já têm holerite importado, da mais recente para a mais antiga. */
+export async function listarCompetencias(): Promise<string[]> {
+  const linhas = await prisma.holerite.findMany({ distinct: ['competencia'], select: { competencia: true }, orderBy: { competencia: 'desc' } });
+  return linhas.map((l) => l.competencia);
+}
+
+interface MensagemBase {
+  id: string;
+  escopo: string;
+  colaboradorId: string | null;
+  competencia: string | null;
+  texto: string;
+}
+
+/** Une, em ordem, as mensagens que valem para um colaborador numa competência (pura). */
+export function juntarObservacoes(mensagens: MensagemBase[], colaboradorId: string, competencia: string): string | null {
+  const valem = mensagens.filter((m) =>
+    (m.competencia === null || m.competencia === competencia)
+    && (m.escopo === 'GERAL' || (m.escopo === 'INDIVIDUAL' && m.colaboradorId === colaboradorId)));
+  if (valem.length === 0) return null;
+  const gerais = valem.filter((m) => m.escopo === 'GERAL').map((m) => m.texto);
+  const individuais = valem.filter((m) => m.escopo === 'INDIVIDUAL').map((m) => m.texto);
+  return [...gerais, ...individuais].join(SEPARADOR_OBSERVACOES);
+}
+
+/**
+ * Guarda determinística: mede o texto final de cada holerite que a mensagem
+ * alcança (com as mensagens já cadastradas) e recusa se em algum deles a caixa
+ * do PDF não comportar tudo. Assim nenhuma observação sai cortada.
+ */
+async function garantirQueCabe(candidata: MensagemBase): Promise<void> {
+  const existentes = await prisma.holeriteMensagem.findMany({
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, escopo: true, colaboradorId: true, competencia: true, texto: true },
+  });
+  // edição mantém a posição original; criação entra por último
+  const posicao = existentes.findIndex((m) => m.id === candidata.id);
+  const todas = posicao >= 0
+    ? existentes.map((m, i) => (i === posicao ? candidata : m))
+    : [...existentes, candidata];
+
+  const competencias = candidata.competencia ? [candidata.competencia] : await listarCompetencias();
+  if (competencias.length === 0) competencias.push('0000-00'); // ainda sem holerite: confere só as mensagens sem mês
+  const colaboradores = candidata.escopo === 'INDIVIDUAL'
+    ? await prisma.colaborador.findMany({ where: { id: candidata.colaboradorId! }, select: { id: true, nome: true } })
+    : await prisma.colaborador.findMany({ select: { id: true, nome: true } });
+  if (colaboradores.length === 0) colaboradores.push({ id: '-', nome: 'qualquer colaborador' });
+
+  for (const c of colaboradores) {
+    for (const comp of competencias) {
+      const texto = juntarObservacoes(todas, c.id, comp);
+      if (texto && !caberObservacoes(texto)) {
+        const quando = comp === '0000-00' ? '' : ` (${formatarCompetencia(comp)})`;
+        throw new HoleriteErro(`Não cabe: junto com as mensagens já cadastradas, o holerite de ${c.nome}${quando} ficaria sem espaço na caixa de observações. Encurte o texto ou exclua outra mensagem.`, 422);
+      }
+    }
+  }
+}
+
+export async function criarMensagem(d: DadosMensagem, ator: Ator) {
+  const texto = validarTexto(d.texto);
+  const competencia = validarCompetencia(d.competencia);
+
+  let colaboradorId: string | null = null;
+  if (d.escopo === 'INDIVIDUAL') {
+    if (!d.colaboradorId) throw new HoleriteErro('Escolha o colaborador da mensagem individual.');
+    const existe = await prisma.colaborador.findUnique({ where: { id: d.colaboradorId }, select: { id: true } });
+    if (!existe) throw new HoleriteErro('Colaborador não encontrado.', 404);
+    colaboradorId = existe.id;
+  } else if (d.escopo !== 'GERAL') {
+    throw new HoleriteErro('Escopo inválido.');
+  }
+
+  await garantirQueCabe({ id: '', escopo: d.escopo, colaboradorId, competencia, texto });
+
+  return prisma.holeriteMensagem.create({
+    data: { escopo: d.escopo, colaboradorId, competencia, texto, atorId: ator.id, atorNome: ator.nome },
+    ...mensagemComColaborador,
+  });
+}
+
+export async function atualizarMensagem(id: string, d: { texto: string; competencia: string | null }) {
+  const atual = await prisma.holeriteMensagem.findUnique({ where: { id }, select: { id: true, escopo: true, colaboradorId: true } });
+  if (!atual) throw new HoleriteErro('Mensagem não encontrada.', 404);
+  const texto = validarTexto(d.texto);
+  const competencia = validarCompetencia(d.competencia);
+
+  await garantirQueCabe({ ...atual, competencia, texto });
+
+  return prisma.holeriteMensagem.update({
+    where: { id },
+    data: { texto, competencia },
+    ...mensagemComColaborador,
+  });
+}
+
+export async function excluirMensagem(id: string) {
+  const existe = await prisma.holeriteMensagem.findUnique({ where: { id }, select: { id: true } });
+  if (!existe) throw new HoleriteErro('Mensagem não encontrada.', 404);
+  await prisma.holeriteMensagem.delete({ where: { id } });
+}
+
+/**
+ * Texto que vai na caixa "Observações" do holerite de um colaborador numa
+ * competência: as gerais (do mês ou sem mês) e depois as individuais dele,
+ * cada grupo da mais antiga para a mais nova. Null se não há nenhuma.
+ */
+export async function montarObservacoes(colaboradorId: string, competencia: string): Promise<string | null> {
+  const mensagens = await prisma.holeriteMensagem.findMany({
+    where: {
+      AND: [
+        { OR: [{ competencia }, { competencia: null }] },
+        { OR: [{ escopo: 'GERAL' }, { escopo: 'INDIVIDUAL', colaboradorId }] },
+      ],
+    },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, escopo: true, colaboradorId: true, competencia: true, texto: true },
+  });
+  return juntarObservacoes(mensagens, colaboradorId, competencia);
 }

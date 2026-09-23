@@ -32,6 +32,16 @@ Folpag ──exporta──▶ Holerite<data>.txt ──▶ pasta "Holerites" no 
 - **Quem vê o quê**: o próprio colaborador (só os seus), ADMIN e quem tiver o
   módulo **rh** liberado em Usuários. O menu *Meus Holerites* é baseline (todo
   autenticado); *RH · Holerites* exige o módulo `rh`.
+- **Observações do RH** (desde 23/09/2026): na aba *Mensagens* de *RH · Holerites*
+  o RH escreve o que sai no campo **Observações** do PDF — a caixa em branco à
+  esquerda de "Total / Valor Líquido", como no papel. Mensagem **geral** vale para
+  todos os colaboradores; **individual**, para um só. Com competência, vale só
+  naquele mês; sem, em todos. No PDF saem as gerais e depois as individuais,
+  unidas por " · ", em 7 pt (2 linhas) ou 6 pt (3 linhas). A caixa é fixa, por
+  isso: **120 caracteres** por mensagem (`LIMITE_MENSAGEM`) e uma guarda que mede
+  o texto final de cada holerite alcançado com as fontes reais do PDF e **recusa**
+  (422) a mensagem que não couber — nada sai cortado. A mensagem vive fora do
+  `Holerite`: reimportar o TXT não a apaga; excluir o colaborador apaga as dele.
 
 ## Dois formatos de TXT
 
@@ -151,6 +161,7 @@ da verba de IRRF (`27,50` → `27,5%`); *Salário Base* = salário do cabeçalho
 | Tela do colaborador | `frontend/src/pages/HoleritesPage.tsx` (`/holerites`) |
 | Tela do RH (importar, vínculos, histórico) | `frontend/src/pages/HoleritesRhPage.tsx` (`/holerites/rh`) |
 | Tabelas `Colaborador`, `Holerite`, `HoleriteImportacao` | migration `20260922203813_add_holerites` |
+| Tabela `HoleriteMensagem` (observações do RH) | migration `20260923184115_add_holerite_mensagens` |
 
 Valores monetários ficam em **centavos (Int)** no banco.
 
@@ -171,6 +182,11 @@ Todas exigem `Authorization: Bearer <jwt>`.
 | GET | `/api/holerites/rh/colaboradores/:id/holerites` | `rh` | holerites de um colaborador |
 | GET | `/api/holerites/rh/importacoes` | `rh` | histórico (50 últimas) |
 | GET | `/api/holerites/rh/usuarios` | `rh` | usuários ativos + colaborador já vinculado |
+| GET | `/api/holerites/rh/competencias` | `rh` | competências com holerite importado, mais recente primeiro |
+| GET | `/api/holerites/rh/mensagens` | `rh` | mensagens do RH com o colaborador (individuais), mais recentes primeiro |
+| POST | `/api/holerites/rh/mensagens` | `rh` | `{escopo: GERAL\|INDIVIDUAL, colaboradorId?, competencia?, texto}` (≤120); 422 se não couber no PDF |
+| PUT | `/api/holerites/rh/mensagens/:id` | `rh` | `{texto, competencia?}` (mesma guarda) |
+| DELETE | `/api/holerites/rh/mensagens/:id` | `rh` | 204 |
 
 Erros do parser voltam como `400 {"error": "Arquivo recusado. Linha N: ..."}`.
 
@@ -191,8 +207,9 @@ Sem elas, a tela avisa e só o upload manual funciona.
 
 ```bash
 cd backend
-npx tsx scripts/testar-holerites.ts                 # 30 testes: parser (dois formatos), recusas, PDF, importação, vínculo, autorização
+npx tsx scripts/testar-holerites.ts                 # 46 testes: parser (dois formatos), recusas, PDF, importação, vínculo, autorização, mensagens do RH
 npx tsx scripts/holerite-preview.ts arquivo.txt saida/   # gera um PDF por colaborador sem tocar no banco
+npx tsx scripts/holerite-preview.ts arquivo.txt saida/ --observacoes "texto"   # idem, com a caixa de observações preenchida
 ```
 
 A suíte roda contra `prisma/dev.db` com dados fictícios prefixados
@@ -213,3 +230,6 @@ A suíte roda contra `prisma/dev.db` com dados fictícios prefixados
   preenchidos pelo RH.
 - 23/09/2026 — em produção. No mesmo dia chegou o export completo (`C`/`DP`/`DD`/`R`);
   parser passou a aceitar os dois formatos e a gravar CPF, CTPS, admissão e códigos.
+- 23/09/2026 (tarde) — validado de ponta a ponta em produção. Em seguida, a pedido
+  do Ronaldo (print da caixa vazia do papel): campo **Observações** no PDF e aba
+  *Mensagens* no RH (geral e individual), com guarda de espaço medida no pdfkit.

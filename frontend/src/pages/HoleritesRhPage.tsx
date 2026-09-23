@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import {
   BriefcaseBusiness, Upload, CloudDownload, RefreshCw, Users, History,
-  AlertTriangle, CheckCircle2, Link2, Pencil, Save, X, Download,
+  AlertTriangle, CheckCircle2, Link2, Pencil, Save, X, Download, MessageSquareText, Trash2,
 } from 'lucide-react';
 import api from '../lib/api';
 import { formatarCentavos, formatarCompetencia, baixarHoleritePdf, type HoleriteResumo } from '../lib/holerites';
@@ -72,7 +72,24 @@ interface Importacao {
   createdAt: string;
 }
 
-type Aba = 'importar' | 'colaboradores' | 'importacoes';
+type EscopoMensagem = 'GERAL' | 'INDIVIDUAL';
+
+interface Mensagem {
+  id: string;
+  escopo: EscopoMensagem;
+  colaboradorId: string | null;
+  competencia: string | null; // null = todos os meses
+  texto: string;
+  atorNome: string;
+  createdAt: string;
+  updatedAt: string;
+  colaborador: { id: string; codigo: string; nome: string } | null;
+}
+
+/** Mesmo limite do backend (LIMITE_MENSAGEM); a caixa do PDF é fixa. */
+const LIMITE_MENSAGEM = 120;
+
+type Aba = 'importar' | 'colaboradores' | 'mensagens' | 'importacoes';
 
 // ---------- estilos ----------
 
@@ -159,6 +176,7 @@ export default function HoleritesRhPage() {
         </h2>
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
           Importe o TXT exportado da folha (pelo Google Drive ou por upload), vincule cada colaborador ao login dele e o portal gera o PDF.
+          Em Mensagens, escreva o que deve sair no campo Observações do holerite.
         </p>
       </div>
 
@@ -166,6 +184,7 @@ export default function HoleritesRhPage() {
         {([
           ['importar', 'Importar', Upload],
           ['colaboradores', 'Colaboradores e vínculos', Users],
+          ['mensagens', 'Mensagens', MessageSquareText],
           ['importacoes', 'Histórico', History],
         ] as Array<[Aba, string, typeof Upload]>).map(([k, label, Icone]) => (
           <button
@@ -181,6 +200,7 @@ export default function HoleritesRhPage() {
 
       {aba === 'importar' && <AbaImportar irParaColaboradores={() => setAba('colaboradores')} />}
       {aba === 'colaboradores' && <AbaColaboradores />}
+      {aba === 'mensagens' && <AbaMensagens />}
       {aba === 'importacoes' && <AbaImportacoes />}
     </div>
   );
@@ -592,6 +612,274 @@ function AbaColaboradores() {
   );
 }
 
+
+// ---------- aba Mensagens (campo Observações do PDF) ----------
+
+const rotuloCompetencia = (c: string | null) => (c ? formatarCompetencia(c) : 'Todos os meses');
+
+function AbaMensagens() {
+  const [lista, setLista] = useState<Mensagem[]>([]);
+  const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
+  const [competencias, setCompetencias] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState('');
+  const [ok, setOk] = useState('');
+  const [salvando, setSalvando] = useState(false);
+
+  // formulário de nova mensagem
+  const [escopo, setEscopo] = useState<EscopoMensagem>('GERAL');
+  const [colaboradorId, setColaboradorId] = useState('');
+  const [competencia, setCompetencia] = useState('');
+  const [texto, setTexto] = useState('');
+
+  // edição e exclusão em linha
+  const [editando, setEditando] = useState<string | null>(null);
+  const [edicao, setEdicao] = useState({ texto: '', competencia: '' });
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  // buscar() só mexe no estado nos callbacks (a regra react-hooks/set-state-in-effect
+  // não aceita setState síncrono dentro do efeito); carregar() é o botão "Atualizar".
+  const buscar = () => Promise.all([
+    api.get<Mensagem[]>('/holerites/rh/mensagens'),
+    api.get<Colaborador[]>('/holerites/rh/colaboradores'),
+    api.get<string[]>('/holerites/rh/competencias'),
+  ])
+    .then(([m, c, k]) => { setLista(m.data); setColaboradores(c.data); setCompetencias(k.data); })
+    .catch((err) => setErro(mensagemErro(err, 'Não foi possível carregar as mensagens.')))
+    .finally(() => setLoading(false));
+
+  const carregar = () => {
+    setLoading(true);
+    setErro('');
+    void buscar();
+  };
+
+  useEffect(() => { void buscar(); }, []);
+
+  const salvar = async () => {
+    setSalvando(true);
+    setErro('');
+    setOk('');
+    try {
+      await api.post('/holerites/rh/mensagens', {
+        escopo,
+        colaboradorId: escopo === 'INDIVIDUAL' ? colaboradorId || null : null,
+        competencia: competencia || null,
+        texto,
+      });
+      setOk(escopo === 'GERAL' ? 'Mensagem geral salva. Ela sai no próximo PDF baixado.' : 'Mensagem individual salva. Ela sai no próximo PDF baixado.');
+      setTexto('');
+      carregar();
+    } catch (err) {
+      setErro(mensagemErro(err, 'Falha ao salvar a mensagem.'));
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const abrirEdicao = (m: Mensagem) => {
+    setConfirmandoExclusao(null);
+    setEditando(m.id);
+    setEdicao({ texto: m.texto, competencia: m.competencia ?? '' });
+  };
+
+  const salvarEdicao = async (m: Mensagem) => {
+    setBusyId(m.id);
+    setErro('');
+    setOk('');
+    try {
+      await api.put(`/holerites/rh/mensagens/${m.id}`, { texto: edicao.texto, competencia: edicao.competencia || null });
+      setOk('Mensagem atualizada.');
+      setEditando(null);
+      carregar();
+    } catch (err) {
+      setErro(mensagemErro(err, 'Falha ao atualizar a mensagem.'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const excluir = async (m: Mensagem) => {
+    setBusyId(m.id);
+    setErro('');
+    setOk('');
+    try {
+      await api.delete(`/holerites/rh/mensagens/${m.id}`);
+      setOk('Mensagem excluída.');
+      setConfirmandoExclusao(null);
+      carregar();
+    } catch (err) {
+      setErro(mensagemErro(err, 'Falha ao excluir a mensagem.'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const textoOk = texto.trim().length > 0 && texto.trim().length <= LIMITE_MENSAGEM;
+  const podeSalvar = textoOk && (escopo === 'GERAL' || colaboradorId !== '') && !salvando;
+
+  const contador = (t: string) => (
+    <span style={{ fontSize: '11px', color: t.length > LIMITE_MENSAGEM ? '#ef4444' : 'var(--text-secondary)' }}>
+      {t.length}/{LIMITE_MENSAGEM}
+    </span>
+  );
+
+  return (
+    <>
+      {erro && <Aviso tipo="erro">{erro}</Aviso>}
+      {ok && <Aviso tipo="ok">{ok}</Aviso>}
+
+      {/* Nova mensagem */}
+      <div style={cardStyle}>
+        <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <MessageSquareText size={16} /> Nova mensagem
+        </h3>
+        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 12px' }}>
+          Sai no campo <strong>Observações</strong> do holerite, nas duas vias. <strong>Geral</strong> vale para todos os colaboradores;
+          <strong> individual</strong>, só para o escolhido. Sem competência, vale para todos os meses.
+          Até {LIMITE_MENSAGEM} caracteres por mensagem: a caixa do holerite é pequena, e o portal recusa o que não couber.
+        </p>
+
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+          {([['GERAL', 'Geral (todos)'], ['INDIVIDUAL', 'Individual']] as Array<[EscopoMensagem, string]>).map(([k, label]) => (
+            <button key={k} type="button" className="filter-btn" onClick={() => setEscopo(k)} style={escopo === k ? btnPrimary : btnGhost}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', marginBottom: '10px' }}>
+          {escopo === 'INDIVIDUAL' && (
+            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              Colaborador
+              <select value={colaboradorId} onChange={(e) => setColaboradorId(e.target.value)} style={inputStyle}>
+                <option value="">— escolha —</option>
+                {colaboradores.map((c) => <option key={c.id} value={c.id}>{c.codigo} · {c.nome}</option>)}
+              </select>
+            </label>
+          )}
+          <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            Competência
+            <select value={competencia} onChange={(e) => setCompetencia(e.target.value)} style={inputStyle}>
+              <option value="">Todos os meses</option>
+              {competencias.map((c) => <option key={c} value={c}>{formatarCompetencia(c)}</option>)}
+            </select>
+          </label>
+        </div>
+
+        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <span style={{ display: 'flex', justifyContent: 'space-between' }}>Mensagem {contador(texto)}</span>
+          <textarea
+            value={texto}
+            maxLength={LIMITE_MENSAGEM}
+            rows={3}
+            placeholder="Ex.: Lembramos que o recesso escolar começa em 15/10. Dúvidas, procure o RH."
+            onChange={(e) => setTexto(e.target.value)}
+            style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
+          />
+        </label>
+
+        <div style={{ marginTop: '10px' }}>
+          <button onClick={salvar} disabled={!podeSalvar} style={{ ...btnPrimary, opacity: podeSalvar ? 1 : 0.6 }}>
+            <Save size={14} /> {salvando ? 'Salvando...' : 'Salvar mensagem'}
+          </button>
+        </div>
+      </div>
+
+      {/* Cadastradas */}
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
+        <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>Mensagens cadastradas</h3>
+        <button onClick={carregar} disabled={loading} style={btnGhost}><RefreshCw size={14} /> Atualizar</button>
+        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{lista.length} mensagem(ns)</span>
+      </div>
+
+      {loading ? (
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Carregando...</p>
+      ) : lista.length === 0 ? (
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhuma mensagem. O que você escrever aqui sai no campo Observações do holerite.</p>
+      ) : (
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'auto', boxShadow: 'var(--shadow)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-card-hover)', borderBottom: '1px solid var(--border)' }}>
+                <th style={thStyle}>Tipo</th>
+                <th style={thStyle}>Colaborador</th>
+                <th style={thStyle}>Competência</th>
+                <th style={thStyle}>Texto</th>
+                <th style={thStyle}>Por</th>
+                <th style={thStyle}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {lista.map((m) => {
+                const emEdicao = editando === m.id;
+                const ocupado = busyId === m.id;
+                return (
+                  <Fragment key={m.id}>
+                    <tr style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', background: m.escopo === 'GERAL' ? 'rgba(59,130,246,0.12)' : 'rgba(234,179,8,0.15)', color: m.escopo === 'GERAL' ? '#2563eb' : '#ca8a04' }}>
+                          {m.escopo === 'GERAL' ? 'Geral' : 'Individual'}
+                        </span>
+                      </td>
+                      <td style={tdStyle}>{m.colaborador ? <>{m.colaborador.codigo} · {m.colaborador.nome}</> : <span style={{ color: 'var(--text-secondary)' }}>todos</span>}</td>
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                        {emEdicao ? (
+                          <select value={edicao.competencia} onChange={(e) => setEdicao({ ...edicao, competencia: e.target.value })} style={{ ...inputStyle, padding: '5px 8px' }}>
+                            <option value="">Todos os meses</option>
+                            {competencias.map((c) => <option key={c} value={c}>{formatarCompetencia(c)}</option>)}
+                          </select>
+                        ) : rotuloCompetencia(m.competencia)}
+                      </td>
+                      <td style={{ ...tdStyle, minWidth: '280px' }}>
+                        {emEdicao ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <textarea
+                              value={edicao.texto}
+                              maxLength={LIMITE_MENSAGEM}
+                              rows={2}
+                              onChange={(e) => setEdicao({ ...edicao, texto: e.target.value })}
+                              style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
+                            />
+                            {contador(edicao.texto)}
+                          </div>
+                        ) : m.texto}
+                      </td>
+                      <td style={{ ...tdStyle, color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontSize: '12px' }}>
+                        {m.atorNome}<br />
+                        {new Date(m.updatedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                      </td>
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap', textAlign: 'right' }}>
+                        {emEdicao ? (
+                          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button onClick={() => salvarEdicao(m)} disabled={ocupado || !edicao.texto.trim()} style={btnLink}><Save size={13} /> Salvar</button>
+                            <button onClick={() => setEditando(null)} style={{ ...btnLink, color: 'var(--text-secondary)' }}><X size={13} /> Cancelar</button>
+                          </div>
+                        ) : confirmandoExclusao === m.id ? (
+                          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Excluir?</span>
+                            <button onClick={() => excluir(m)} disabled={ocupado} style={{ ...btnLink, color: '#ef4444' }}>Sim</button>
+                            <button onClick={() => setConfirmandoExclusao(null)} style={{ ...btnLink, color: 'var(--text-secondary)' }}>Não</button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button onClick={() => abrirEdicao(m)} style={btnLink}><Pencil size={13} /> Editar</button>
+                            <button onClick={() => { setEditando(null); setConfirmandoExclusao(m.id); }} style={{ ...btnLink, color: '#ef4444' }}><Trash2 size={13} /> Excluir</button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
 
 // ---------- aba Histórico ----------
 

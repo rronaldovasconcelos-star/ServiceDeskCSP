@@ -14,6 +14,12 @@ import {
   listarHoleritesDoColaborador,
   listarImportacoes,
   listarUsuariosParaVinculo,
+  listarMensagens,
+  listarCompetencias,
+  criarMensagem,
+  atualizarMensagem,
+  excluirMensagem,
+  LIMITE_MENSAGEM,
   type Ator,
 } from './holerites.service.js';
 import {
@@ -185,6 +191,68 @@ export async function importacoes(_req: Request, res: Response, next: NextFuncti
 export async function usuarios(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     res.json(await listarUsuariosParaVinculo());
+  } catch (err) {
+    responderErro(err, res, next);
+  }
+}
+
+// ---------- mensagens do RH (campo "Observações" do PDF) ----------
+
+const competenciaSchema = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? null : v),
+  z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Competência no formato aaaa-mm').nullable().optional(),
+);
+const textoMensagem = z.string().trim().min(1, 'Escreva a mensagem.').max(LIMITE_MENSAGEM, `A mensagem pode ter no máximo ${LIMITE_MENSAGEM} caracteres.`);
+
+/** Exportado para a suíte de testes provar as recusas. */
+export const mensagemSchema = z.object({
+  escopo: z.enum(['GERAL', 'INDIVIDUAL']),
+  colaboradorId: z.string().min(1).nullable().optional(),
+  competencia: competenciaSchema,
+  texto: textoMensagem,
+});
+const mensagemEdicaoSchema = z.object({ texto: textoMensagem, competencia: competenciaSchema });
+
+export async function mensagens(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    res.json(await listarMensagens());
+  } catch (err) {
+    responderErro(err, res, next);
+  }
+}
+
+export async function competencias(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    res.json(await listarCompetencias());
+  } catch (err) {
+    responderErro(err, res, next);
+  }
+}
+
+export async function mensagemCriar(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const d = mensagemSchema.parse(req.body);
+    res.status(201).json(await criarMensagem({
+      escopo: d.escopo, colaboradorId: d.colaboradorId ?? null, competencia: d.competencia ?? null, texto: d.texto,
+    }, atorDe(req)));
+  } catch (err) {
+    responderErro(err, res, next);
+  }
+}
+
+export async function mensagemAtualizar(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const d = mensagemEdicaoSchema.parse(req.body);
+    res.json(await atualizarMensagem(req.params.id as string, { texto: d.texto, competencia: d.competencia ?? null }));
+  } catch (err) {
+    responderErro(err, res, next);
+  }
+}
+
+export async function mensagemExcluir(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await excluirMensagem(req.params.id as string);
+    res.status(204).end();
   } catch (err) {
     responderErro(err, res, next);
   }

@@ -34,6 +34,8 @@ export interface DadosHoleritePdf {
   baseIrrf: number | null;
   fgtsMes: number | null;
   faixaIrrf: string | null;      // "27,50"
+  /** Mensagens do RH (geral e/ou individual), separadas por "\n"; null = caixa vazia como no papel. */
+  observacoes: string | null;
 }
 
 type Doc = InstanceType<typeof PDFDocument>;
@@ -81,6 +83,37 @@ const COL_VENC = 122;
 const COL_DESC = LARGURA - COL_VERBAS - COL_REF - COL_VENC; // 122
 
 const ALTURA_ITENS = 160;
+
+// Caixa de observações: o espaço em branco à esquerda de "Total / Valor Líquido"
+// (30 pt de altura, da moldura até a coluna de vencimentos), como no papel.
+const MARGEM_OBSERVACOES_X = 4;
+const MARGEM_OBSERVACOES_Y = 3;
+export const LARGURA_OBSERVACOES = COL_VERBAS + COL_REF - 2 * MARGEM_OBSERVACOES_X; // 287
+export const ALTURA_OBSERVACOES = 30 - 2 * MARGEM_OBSERVACOES_Y;                    // 24: 3 linhas em 7 pt ou 4 em 6 pt
+const ROTULO_OBSERVACOES = 'Observações: ';
+
+/**
+ * Decide a fonte das observações: tenta 7 pt (2 linhas), cai para 6 pt (3
+ * linhas, ~270 caracteres corridos); `cabe` = false significa que nem em 6 pt o
+ * texto entra na caixa e ele sairia cortado com reticências. O serviço usa
+ * `caberObservacoes` para recusar mensagem que levaria a isso.
+ */
+export function ajustarObservacoes(doc: Doc, texto: string, largura: number, altura: number): { fontSize: 7 | 6; cabe: boolean } {
+  for (const fontSize of [7, 6] as const) {
+    doc.font('Helvetica').fontSize(fontSize);
+    const h = doc.heightOfString(ROTULO_OBSERVACOES + texto, { width: largura });
+    if (h <= altura) return { fontSize, cabe: true };
+  }
+  return { fontSize: 6, cabe: false };
+}
+
+/** Mede o texto com as mesmas fontes do PDF real: cabe na caixa sem corte? */
+export function caberObservacoes(texto: string): boolean {
+  const doc = new PDFDocument({ size: 'A4', margin: 0 });
+  const { cabe } = ajustarObservacoes(doc, texto, LARGURA_OBSERVACOES, ALTURA_OBSERVACOES);
+  doc.end();
+  return cabe;
+}
 
 function linha(doc: Doc, x1: number, y1: number, x2: number, y2: number, espessura = 0.8): void {
   doc.lineWidth(espessura).moveTo(x1, y1).lineTo(x2, y2).stroke('#000');
@@ -188,6 +221,18 @@ function desenharVia(doc: Doc, d: DadosHoleritePdf, y0: number): void {
   doc.text(formatarCentavos(d.totalDescontos), xDesc, yTotais + 4, { width: COL_DESC - 6, align: 'right', lineBreak: false });
   doc.text('Valor Líquido', xVenc + 4, yLiquido + 4, { lineBreak: false });
   doc.text(formatarCentavos(d.liquido), xDesc, yLiquido + 4, { width: COL_DESC - 6, align: 'right', lineBreak: false });
+
+  // Observações do RH, na caixa em branco à esquerda dos totais
+  const observacoes = d.observacoes?.trim();
+  if (observacoes) {
+    const { fontSize } = ajustarObservacoes(doc, observacoes, LARGURA_OBSERVACOES, ALTURA_OBSERVACOES);
+    const xObs = X0 + MARGEM_OBSERVACOES_X;
+    const yObs = yTotais + MARGEM_OBSERVACOES_Y;
+    doc.font('Helvetica-Bold').fontSize(fontSize).fillColor('#000')
+      .text(ROTULO_OBSERVACOES, xObs, yObs, { width: LARGURA_OBSERVACOES, height: ALTURA_OBSERVACOES, continued: true })
+      .font('Helvetica')
+      .text(observacoes, { width: LARGURA_OBSERVACOES, height: ALTURA_OBSERVACOES, ellipsis: true });
+  }
 
   // Recibo / assinatura
   linha(doc, X0, yAssinatura, xFim, yAssinatura);

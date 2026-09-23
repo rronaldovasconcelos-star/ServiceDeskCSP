@@ -32,6 +32,7 @@ model User {
   materialReminders       MaterialReminder[]     @relation("ReminderCreator")
   colaborador             Colaborador?           @relation("ColaboradorUsuario")
   holeriteImportacoes     HoleriteImportacao[]   @relation("HoleriteImportador")
+  holeriteMensagens       HoleriteMensagem[]     @relation("HoleriteMensagemAutor")
 }
 
 model BotSession {
@@ -245,6 +246,7 @@ model Colaborador {
 
   user      User?      @relation("ColaboradorUsuario", fields: [userId], references: [id], onDelete: SetNull)
   holerites Holerite[]
+  mensagens HoleriteMensagem[]
 }
 
 // Um holerite por colaborador × competência. Valores em CENTAVOS (Int).
@@ -296,4 +298,25 @@ model HoleriteImportacao {
   holerites Holerite[]
 
   @@index([createdAt])
+}
+
+// Mensagem do RH que sai no campo "Observações" do holerite (PDF).
+// escopo GERAL (todos os colaboradores) ou INDIVIDUAL (um colaborador);
+// competencia null = vale para todos os meses.
+model HoleriteMensagem {
+  id            String   @id @default(cuid())
+  escopo        String   // GERAL | INDIVIDUAL
+  colaboradorId String?  // obrigatório quando INDIVIDUAL
+  competencia   String?  // "2026-08" ou null
+  texto         String
+  atorId        String?
+  atorNome      String   // snapshot de quem escreveu
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  colaborador Colaborador? @relation(fields: [colaboradorId], references: [id], onDelete: Cascade)
+  ator        User?        @relation("HoleriteMensagemAutor", fields: [atorId], references: [id], onDelete: SetNull)
+
+  @@index([competencia])
+  @@index([colaboradorId])
 }

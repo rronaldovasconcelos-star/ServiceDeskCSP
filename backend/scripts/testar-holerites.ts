@@ -16,10 +16,14 @@ import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { prisma } from '../src/lib/prisma.js';
 import { parseHolerites, HoleriteParseError, paraCentavos } from '../src/modules/holerites/holerite.parser.js';
-import { gerarHoleritePdf, formatarCentavos, formatarFaixaIrrf } from '../src/modules/holerites/holerite.pdf.js';
+import { gerarHoleritePdf, formatarCentavos, formatarFaixaIrrf, ajustarObservacoes, LARGURA_OBSERVACOES, ALTURA_OBSERVACOES } from '../src/modules/holerites/holerite.pdf.js';
 import {
   importarArquivo, listarMeus, obterHoleriteAutorizado, gerarPdf, vincularUsuario, atualizarDados, HoleriteErro,
+  criarMensagem, atualizarMensagem, excluirMensagem, listarMensagens, listarCompetencias, montarObservacoes, juntarObservacoes,
+  LIMITE_MENSAGEM, SEPARADOR_OBSERVACOES,
 } from '../src/modules/holerites/holerites.service.js';
+import { mensagemSchema } from '../src/modules/holerites/holerites.controller.js';
+import PDFDocument from 'pdfkit';
 
 // ---------- fixture sintética (mesmo layout do Folpag) ----------
 
@@ -133,6 +137,7 @@ async function esperaErro(fn: () => Promise<unknown> | unknown, tipo: new (...a:
 
 const PREFIXO_EMAIL = 'teste-holerite-';
 async function limpar() {
+  await prisma.holeriteMensagem.deleteMany({ where: { OR: [{ texto: { startsWith: 'TESTE-HOLERITE' } }, { colaborador: { codigo: { in: [COD_A, COD_B] } } }] } });
   await prisma.holerite.deleteMany({ where: { colaborador: { codigo: { in: [COD_A, COD_B] } } } });
   await prisma.colaborador.deleteMany({ where: { codigo: { in: [COD_A, COD_B] } } });
   await prisma.holeriteImportacao.deleteMany({ where: { arquivo: { startsWith: 'TESTE-HOLERITE' } } });
@@ -277,20 +282,65 @@ await teste('formato completo: recusa CPF fora do padrão', async () => {
 });
 
 console.log('\nPDF');
-await teste('gera PDF válido com duas vias', async () => {
+function dadosPdf(observacoes: string | null = null) {
   const h = parseHolerites(fixture())[0];
-  const pdf = await gerarHoleritePdf({
+  return {
     empresaNome: 'EMPRESA TESTE', empresaCnpj: h.empresaCnpj, empresaEndereco: 'Rua Teste, 1',
     competencia: h.competencia, colaboradorCodigo: h.colaboradorCodigo, colaboradorNome: h.colaboradorNome,
     cargo: h.cargo, cargoCodigo: '0001', departamento: h.departamento, deptoCodigo: '000001', matricula: null,
     ctps: '1 / 2', admissao: '01/01/2020', cpf: '000.000.000-00', verbas: h.verbas,
     totalVencimentos: h.totalVencimentos, totalDescontos: h.totalDescontos, liquido: h.liquido, salarioBase: h.salarioBase,
     baseInss: h.baseInss, baseFgts: h.baseFgts, baseIrrf: h.baseIrrf, fgtsMes: h.fgtsMes, faixaIrrf: h.faixaIrrf,
-  });
+    observacoes,
+  };
+}
+// Tamanho do PDF sem observações medido antes do campo existir (23/09/2026):
+// a caixa vazia não pode mudar um byte do layout.
+const TAMANHO_PDF_SEM_OBSERVACOES = 3247;
+
+await teste('gera PDF válido com duas vias', async () => {
+  const pdf = await gerarHoleritePdf(dadosPdf());
   assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
   assert.ok(pdf.length > 2000, `PDF pequeno demais: ${pdf.length} bytes`);
   // duas vias = o nome do colaborador aparece nos dois blocos de conteúdo (texto pode vir comprimido; contamos páginas)
   assert.equal((pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length, 1, 'uma página A4');
+});
+
+await teste('sem observações o PDF continua idêntico em tamanho (layout intacto)', async () => {
+  const pdf = await gerarHoleritePdf(dadosPdf(null));
+  assert.equal(pdf.length, TAMANHO_PDF_SEM_OBSERVACOES);
+});
+
+await teste('com observações o PDF gera e fica maior', async () => {
+  const pdf = await gerarHoleritePdf(dadosPdf('TESTE-HOLERITE aviso geral' + SEPARADOR_OBSERVACOES + 'TESTE-HOLERITE aviso individual'));
+  assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
+  assert.ok(pdf.length > TAMANHO_PDF_SEM_OBSERVACOES + 40, `esperava mais bytes com o texto: ${pdf.length}`);
+});
+
+await teste('duas mensagens no limite cabem na caixa sem corte; texto curto fica em 7 pt', () => {
+  const doc = new PDFDocument({ size: 'A4', margin: 0 });
+  const curto = ajustarObservacoes(doc, 'Aviso curto.', LARGURA_OBSERVACOES, ALTURA_OBSERVACOES);
+  assert.deepEqual(curto, { fontSize: 7, cabe: true });
+  // texto corrido em português, esticado até o limite de cada mensagem
+  const frase = 'Lembramos que o recesso escolar começa em 15/10 e o adiantamento sai no dia 20. Dúvidas, procure o RH na secretaria. ';
+  const noLimite = frase.repeat(3).slice(0, LIMITE_MENSAGEM);
+  const cheio = ajustarObservacoes(doc, noLimite + SEPARADOR_OBSERVACOES + noLimite, LARGURA_OBSERVACOES, ALTURA_OBSERVACOES);
+  assert.equal(cheio.cabe, true, `geral + individual no limite (${LIMITE_MENSAGEM} cada) precisam caber (fonte ${cheio.fontSize})`);
+  const estourado = ajustarObservacoes(doc, frase.repeat(6), LARGURA_OBSERVACOES, ALTURA_OBSERVACOES);
+  assert.equal(estourado.cabe, false, 'acima do limite o gerador sabe que vai cortar');
+  doc.end();
+});
+
+console.log('\nValidação das mensagens (schema do controller)');
+await teste('recusa texto vazio, acima do limite, competência inválida e escopo desconhecido', () => {
+  assert.equal(mensagemSchema.safeParse({ escopo: 'GERAL', texto: '   ' }).success, false, 'texto vazio');
+  assert.equal(mensagemSchema.safeParse({ escopo: 'GERAL', texto: 'x'.repeat(LIMITE_MENSAGEM + 1) }).success, false, 'acima do limite');
+  assert.equal(mensagemSchema.safeParse({ escopo: 'GERAL', texto: 'ok', competencia: '2026-13' }).success, false, 'mês 13');
+  assert.equal(mensagemSchema.safeParse({ escopo: 'TODOS', texto: 'ok' }).success, false, 'escopo inválido');
+  const ok = mensagemSchema.parse({ escopo: 'GERAL', texto: '  ok  ', competencia: '' });
+  assert.equal(ok.texto, 'ok', 'texto sai sem espaços nas pontas');
+  assert.equal(ok.competencia, null, 'competência vazia vira null');
+  assert.equal(mensagemSchema.parse({ escopo: 'GERAL', texto: 'x'.repeat(LIMITE_MENSAGEM) }).texto.length, LIMITE_MENSAGEM);
 });
 
 await teste('formata centavos e faixa IRRF como no modelo', () => {
@@ -435,6 +485,119 @@ try {
     const c = await prisma.colaborador.findUnique({ where: { id: colabAna.id } });
     assert.equal(c!.cpf, '000.000.001-91');
     assert.equal(c!.admissao, '02/05/2001');
+  });
+
+  console.log('\nMensagens do RH (campo Observações do PDF)');
+  const atorRh = { id: rh.id, nome: rh.name };
+  let idGeral = '';
+  let idIndividual = '';
+
+  await teste('sem mensagem, o holerite sai sem observações', async () => {
+    assert.equal(await montarObservacoes(colabAna.id, '2026-08'), null);
+  });
+
+  await teste('geral sem competência sai para qualquer colaborador em qualquer mês', async () => {
+    const m = await criarMensagem({ escopo: 'GERAL', colaboradorId: null, competencia: null, texto: 'TESTE-HOLERITE aviso geral' }, atorRh);
+    idGeral = m.id;
+    assert.equal(m.atorNome, rh.name);
+    assert.equal(await montarObservacoes(colabAna.id, '2026-08'), 'TESTE-HOLERITE aviso geral');
+    assert.equal(await montarObservacoes(colabBruno.id, '2026-09'), 'TESTE-HOLERITE aviso geral');
+  });
+
+  await teste('geral com competência sai só naquele mês', async () => {
+    await criarMensagem({ escopo: 'GERAL', colaboradorId: null, competencia: '2026-09', texto: 'TESTE-HOLERITE só setembro' }, atorRh);
+    assert.equal(await montarObservacoes(colabAna.id, '2026-09'), 'TESTE-HOLERITE aviso geral' + SEPARADOR_OBSERVACOES + 'TESTE-HOLERITE só setembro');
+    assert.equal(await montarObservacoes(colabAna.id, '2026-08'), 'TESTE-HOLERITE aviso geral');
+  });
+
+  await teste('individual sai só para o colaborador escolhido, depois da geral', async () => {
+    const m = await criarMensagem({ escopo: 'INDIVIDUAL', colaboradorId: colabAna.id, competencia: null, texto: 'TESTE-HOLERITE só Ana' }, atorRh);
+    idIndividual = m.id;
+    assert.equal(await montarObservacoes(colabAna.id, '2026-08'), 'TESTE-HOLERITE aviso geral' + SEPARADOR_OBSERVACOES + 'TESTE-HOLERITE só Ana');
+    assert.equal(await montarObservacoes(colabBruno.id, '2026-08'), 'TESTE-HOLERITE aviso geral');
+  });
+
+  await teste('juntarObservacoes é pura: geral antes de individual, cada grupo na ordem de cadastro', () => {
+    const base = { colaboradorId: null, competencia: null };
+    const texto = juntarObservacoes([
+      { id: '1', escopo: 'INDIVIDUAL', colaboradorId: 'ana', competencia: null, texto: 'ind1' },
+      { id: '2', escopo: 'GERAL', ...base, texto: 'ger1' },
+      { id: '3', escopo: 'GERAL', colaboradorId: null, competencia: '2026-01', texto: 'outro mês' },
+      { id: '4', escopo: 'INDIVIDUAL', colaboradorId: 'bruno', competencia: null, texto: 'de outro' },
+      { id: '5', escopo: 'GERAL', ...base, texto: 'ger2' },
+    ], 'ana', '2026-08');
+    assert.equal(texto, ['ger1', 'ger2', 'ind1'].join(SEPARADOR_OBSERVACOES));
+    assert.equal(juntarObservacoes([], 'ana', '2026-08'), null);
+  });
+
+  await teste('o PDF do colaborador leva as observações dele', async () => {
+    const h = await obterHoleriteAutorizado(idHoleriteAna, payload(ana));
+    const com = await gerarPdf(h);
+    assert.equal(com.subarray(0, 5).toString(), '%PDF-');
+    await excluirMensagem(idIndividual);
+    const sem = await gerarPdf(h);
+    assert.ok(com.length > sem.length, 'com a mensagem individual o PDF é maior');
+  });
+
+  await teste('individual sem colaborador e colaborador inexistente são recusados', async () => {
+    await esperaErro(() => criarMensagem({ escopo: 'INDIVIDUAL', colaboradorId: null, competencia: null, texto: 'TESTE-HOLERITE x' }, atorRh), HoleriteErro, 'colaborador');
+    await esperaErro(() => criarMensagem({ escopo: 'INDIVIDUAL', colaboradorId: 'nao-existe', competencia: null, texto: 'TESTE-HOLERITE x' }, atorRh), HoleriteErro, 'não encontrado');
+  });
+
+  await teste('geral ignora colaborador informado por engano', async () => {
+    const m = await criarMensagem({ escopo: 'GERAL', colaboradorId: colabBruno.id, competencia: '2026-07', texto: 'TESTE-HOLERITE julho' }, atorRh);
+    assert.equal(m.colaboradorId, null);
+  });
+
+  await teste('editar troca texto e competência; excluir some; id inexistente dá 404', async () => {
+    await atualizarMensagem(idGeral, { texto: 'TESTE-HOLERITE aviso geral editado', competencia: '2026-08' });
+    assert.equal(await montarObservacoes(colabBruno.id, '2026-08'), 'TESTE-HOLERITE aviso geral editado');
+    assert.equal(await montarObservacoes(colabBruno.id, '2026-09'), 'TESTE-HOLERITE só setembro');
+    await excluirMensagem(idGeral);
+    assert.equal(await montarObservacoes(colabBruno.id, '2026-08'), null);
+    await esperaErro(() => excluirMensagem(idGeral), HoleriteErro, 'não encontrada');
+    await esperaErro(() => atualizarMensagem('nao-existe', { texto: 'x', competencia: null }), HoleriteErro, 'não encontrada');
+  });
+
+  await teste('lista traz o colaborador e as competências vêm dos holerites importados', async () => {
+    const lista = await listarMensagens();
+    const minhas = lista.filter((m) => m.texto.startsWith('TESTE-HOLERITE'));
+    assert.equal(minhas.length, 2, 'setembro e julho');
+    assert.ok(minhas.every((m) => m.escopo === 'GERAL' && m.colaborador === null));
+    const comps = await listarCompetencias();
+    for (const c of ['2026-09', '2026-08', '2026-07', '2026-06', '2026-05']) assert.ok(comps.includes(c), `faltou ${c}`);
+    assert.deepEqual([...comps].sort().reverse(), comps, 'mais recente primeiro');
+  });
+
+  await teste('reimportar a competência não apaga a mensagem', async () => {
+    await importarArquivo(Buffer.from(fixture('092026'), 'latin1'), { arquivo: 'TESTE-HOLERITE-8.txt', origem: 'UPLOAD', ator });
+    assert.equal(await montarObservacoes(colabAna.id, '2026-09'), 'TESTE-HOLERITE só setembro');
+  });
+
+  await teste('guarda de espaço: recusa a mensagem que não caberia na caixa de algum holerite', async () => {
+    await prisma.holeriteMensagem.deleteMany({ where: { texto: { startsWith: 'TESTE-HOLERITE' } } });
+    const frase = 'TESTE-HOLERITE lembramos que o recesso escolar começa em 15/10 e o adiantamento sai no dia 20. Dúvidas, procure o RH na secretaria. ';
+    const cheia = frase.slice(0, LIMITE_MENSAGEM);
+    assert.equal(cheia.length, LIMITE_MENSAGEM);
+    await criarMensagem({ escopo: 'GERAL', colaboradorId: null, competencia: null, texto: cheia }, atorRh);
+    await criarMensagem({ escopo: 'GERAL', colaboradorId: null, competencia: null, texto: cheia }, atorRh); // 2 × limite cabem
+    await esperaErro(
+      () => criarMensagem({ escopo: 'GERAL', colaboradorId: null, competencia: null, texto: cheia }, atorRh),
+      HoleriteErro, 'Não cabe',
+    );
+    await esperaErro(
+      () => criarMensagem({ escopo: 'INDIVIDUAL', colaboradorId: colabAna.id, competencia: '2026-08', texto: cheia }, atorRh),
+      HoleriteErro, 'ficaria sem espaço',
+    );
+    // uma individual curta ainda entra; editá-la para o limite estoura e é recusada, e a original fica intacta
+    const curta = await criarMensagem({ escopo: 'INDIVIDUAL', colaboradorId: colabAna.id, competencia: '2026-08', texto: 'TESTE-HOLERITE ok' }, atorRh);
+    await esperaErro(() => atualizarMensagem(curta.id, { texto: cheia, competencia: '2026-08' }), HoleriteErro, 'Não cabe');
+    const m = await prisma.holeriteMensagem.findUnique({ where: { id: curta.id } });
+    assert.equal(m!.texto, 'TESTE-HOLERITE ok');
+    // e o que está gravado sempre cabe no PDF real
+    const h = await obterHoleriteAutorizado(idHoleriteAna, payload(ana));
+    const pdf = await gerarPdf(h);
+    assert.equal(pdf.subarray(0, 5).toString(), '%PDF-');
   });
 } finally {
   await limpar();
