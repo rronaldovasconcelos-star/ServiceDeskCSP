@@ -42,6 +42,52 @@ function bases(inss: string, fgts: string, irrf: string, fgtsMes: string): strin
 const COD_A = '990001';
 const COD_B = '990002';
 
+// ---------- fixture sintética do formato completo (registros C / DP / DD / R, 23/09/2026) ----------
+
+function centavos12(v: number): string {
+  return String(v).padStart(12, '0');
+}
+interface CabC {
+  comp: string; codigo: string; nome: string; deptoCod: string; depto: string; cargoCod: string; cargo: string;
+  salarioUs: string; admissao: string; ctpsNum: string; cpf: string; serie: string;
+}
+function cabecalhoC(c: CabC): string {
+  const l = 'C' + '   ' + 'EMPRESA TESTE HOLERITE LTDA - UNIDADE'.padEnd(44) + ' ' + '00000000000100' + c.comp
+    + c.codigo.padStart(11, '0') + c.nome.padEnd(45) + c.deptoCod.padStart(20, '0') + c.depto.padEnd(45)
+    + c.cargoCod.padStart(6, '0') + c.cargo.padEnd(34) + c.salarioUs.padStart(13) + c.admissao + '00000000'
+    + ' '.repeat(15) + '31082026' + ' '.repeat(115) + c.ctpsNum.padStart(20, '0') + c.cpf + c.serie.padStart(5, '0') + 'MG';
+  assert.equal(l.length, 435, 'fixture C fora do layout');
+  return l;
+}
+/** tipo 'P' (provento) ou 'D' (desconto); referência e valor em centavos. */
+function verbaC(tipo: 'P' | 'D', codigo: string, ref: number, desc: string, valor: number): string {
+  return 'D' + tipo + codigo.padStart(5, '0') + desc.padEnd(50) + centavos12(ref) + centavos12(valor);
+}
+function totaisR(venc: number, desc: number, liq: number, inss: number, fgts: number, fgtsMes: number, irrf: number): string {
+  return 'R' + [venc, desc, liq, inss, fgts, fgtsMes, irrf].map(centavos12).join('');
+}
+
+function fixtureC(comp = '082026'): string {
+  return [
+    cabecalhoC({
+      comp, codigo: COD_A, nome: 'TESTE-HOLERITE ANA FICTICIA', deptoCod: '5', depto: 'Administração Escolar',
+      cargoCod: '22', cargo: 'Assistente Teste', salarioUs: '3,000.00', admissao: '02052001', ctpsNum: '60810', cpf: '00000000191', serie: '125',
+    }),
+    verbaC('P', '1', 3000, 'Salário Contratual', 300000),
+    verbaC('D', '520', 900, 'Desconto INSS', 27000),
+    verbaC('D', '530', 750, 'Desconto IRRF', 5000),
+    verbaC('D', '1006', 200, 'Mensalidade Sindical', 2000),
+    totaisR(300000, 34000, 266000, 300000, 300000, 24000, 273000),
+    cabecalhoC({
+      comp, codigo: COD_B, nome: 'TESTE-HOLERITE BRUNO FICTICIO', deptoCod: '5', depto: 'Administração Escolar',
+      cargoCod: '5', cargo: 'Auxiliar Teste', salarioUs: '1,500.00', admissao: '01042025', ctpsNum: '923499', cpf: '00000000272', serie: '757',
+    }),
+    verbaC('P', '1', 3000, 'Salário Contratual', 150000),
+    verbaC('D', '520', 750, 'Desconto INSS', 11250),
+    totaisR(150000, 11250, 138750, 150000, 150000, 12000, 138750),
+  ].join('\r\n') + '\r\n';
+}
+
 function fixture(comp = '082026'): string {
   return [
     cabecalho(comp, COD_A, 'TESTE-HOLERITE ANA FICTICIA', 'Administração Escolar', 'Assistente Teste', '3.000,00'),
@@ -155,6 +201,79 @@ await teste('recusa bloco sem a linha 5', async () => {
 
 await teste('recusa arquivo vazio', async () => {
   await esperaErro(() => parseHolerites('\r\n\r\n'), HoleriteParseError, 'nenhum holerite');
+});
+
+console.log('\nParser — formato completo (C / DP / DD / R)');
+await teste('lê os dois blocos com CPF, CTPS, admissão e códigos', () => {
+  const hs = parseHolerites(Buffer.from(fixtureC(), 'latin1'));
+  assert.equal(hs.length, 2);
+  const a = hs[0];
+  assert.equal(a.formato, 'C');
+  assert.equal(a.competencia, '2026-08');
+  assert.equal(a.empresaNome, 'EMPRESA TESTE HOLERITE LTDA - UNIDADE');
+  assert.equal(a.empresaCnpj, '00.000.000/0001-00');
+  assert.equal(a.colaboradorCodigo, COD_A);
+  assert.equal(a.colaboradorNome, 'TESTE-HOLERITE ANA FICTICIA');
+  assert.equal(a.departamento, 'Administração Escolar');
+  assert.equal(a.deptoCodigo, '000005');
+  assert.equal(a.cargo, 'Assistente Teste');
+  assert.equal(a.cargoCodigo, '0022');
+  assert.equal(a.salarioBase, 300000, 'salário no formato americano 3,000.00');
+  assert.equal(a.admissao, '02/05/2001');
+  assert.equal(a.cpf, '000.000.001-91');
+  assert.equal(a.ctps, '0060810 / 00125');
+  assert.equal(a.verbas.length, 4);
+  assert.deepEqual(a.verbas[0], { codigo: '0001', descricao: 'Salário Contratual', referencia: '30,00', vencimento: 300000, desconto: null });
+  assert.deepEqual(a.verbas[1], { codigo: '0520', descricao: 'Desconto INSS', referencia: '9,00', vencimento: null, desconto: 27000 });
+  assert.equal(a.verbas[3].referencia, '2,00');
+  assert.equal(a.totalVencimentos, 300000);
+  assert.equal(a.totalDescontos, 34000);
+  assert.equal(a.liquido, 266000);
+  assert.equal(a.baseInss, 300000);
+  assert.equal(a.baseFgts, 300000);
+  assert.equal(a.fgtsMes, 24000);
+  assert.equal(a.baseIrrf, 273000);
+  assert.equal(a.faixaIrrf, '7,50');
+  assert.equal(a.dataGeracao, null, 'o formato completo não traz data de geração');
+  const b = hs[1];
+  assert.equal(b.ctps, '0923499 / 00757');
+  assert.equal(b.cargoCodigo, '0005');
+  assert.equal(b.faixaIrrf, null);
+});
+
+await teste('formato antigo continua sem os dados extras', () => {
+  const a = parseHolerites(fixture())[0];
+  assert.equal(a.formato, '1');
+  assert.equal(a.cpf, null);
+  assert.equal(a.ctps, null);
+  assert.equal(a.admissao, null);
+});
+
+await teste('formato completo: recusa soma das verbas diferente do total', async () => {
+  const quebrado = fixtureC().replace(verbaC('D', '520', 900, 'Desconto INSS', 27000), verbaC('D', '520', 900, 'Desconto INSS', 27100));
+  assert.notEqual(quebrado, fixtureC());
+  await esperaErro(() => parseHolerites(quebrado), HoleriteParseError, 'soma dos descontos');
+});
+
+await teste('formato completo: recusa líquido diferente de vencimentos − descontos', async () => {
+  const quebrado = fixtureC().replace(totaisR(150000, 11250, 138750, 150000, 150000, 12000, 138750), totaisR(150000, 11250, 138760, 150000, 150000, 12000, 138750));
+  await esperaErro(() => parseHolerites(quebrado), HoleriteParseError, 'líquido');
+});
+
+await teste('formato completo: recusa cabeçalho seguido de outro sem a linha R', async () => {
+  const semR = fixtureC().replace(totaisR(300000, 34000, 266000, 300000, 300000, 24000, 273000) + '\r\n', '');
+  await esperaErro(() => parseHolerites(semR), HoleriteParseError, 'sem fechar');
+});
+
+await teste('formato completo: recusa arquivo que termina sem a linha R', async () => {
+  const semFim = fixtureC().replace(totaisR(150000, 11250, 138750, 150000, 150000, 12000, 138750) + '\r\n', '');
+  await esperaErro(() => parseHolerites(semFim), HoleriteParseError, 'sem fechar');
+});
+
+await teste('formato completo: recusa CPF fora do padrão', async () => {
+  const ruim = fixtureC().replace('00000000191' + '00125MG', 'ABCDEFGHIJK' + '00125MG');
+  assert.notEqual(ruim, fixtureC());
+  await esperaErro(() => parseHolerites(ruim), HoleriteParseError, 'CPF');
 });
 
 console.log('\nPDF');
@@ -296,6 +415,26 @@ try {
   await teste('histórico registra as importações', async () => {
     const imps = await prisma.holeriteImportacao.findMany({ where: { arquivo: { startsWith: 'TESTE-HOLERITE' } } });
     assert.equal(imps.length, 4, 'quatro importações válidas (a recusada não registra)');
+  });
+
+  await teste('formato completo grava CPF, CTPS, admissão e códigos no colaborador', async () => {
+    const r = await importarArquivo(Buffer.from(fixtureC('062026'), 'latin1'), { arquivo: 'TESTE-HOLERITE-6.txt', origem: 'UPLOAD', ator });
+    assert.equal(r.totalHolerites, 2);
+    const c = await prisma.colaborador.findUnique({ where: { id: colabAna.id } });
+    assert.equal(c!.cpf, '000.000.001-91', 'o TXT sobrepõe o que o RH digitou');
+    assert.equal(c!.ctps, '0060810 / 00125');
+    assert.equal(c!.admissao, '02/05/2001');
+    assert.equal(c!.cargoCodigo, '0022');
+    assert.equal(c!.deptoCodigo, '000005');
+    const h = await obterHoleriteAutorizado(idHoleriteAna, payload(ana));
+    assert.equal(h.colaborador.cpf, '000.000.001-91', 'o PDF de qualquer competência usa o cadastro atualizado');
+  });
+
+  await teste('reimportar o formato antigo não apaga os dados vindos do completo', async () => {
+    await importarArquivo(Buffer.from(fixture('052026'), 'latin1'), { arquivo: 'TESTE-HOLERITE-7.txt', origem: 'UPLOAD', ator });
+    const c = await prisma.colaborador.findUnique({ where: { id: colabAna.id } });
+    assert.equal(c!.cpf, '000.000.001-91');
+    assert.equal(c!.admissao, '02/05/2001');
   });
 } finally {
   await limpar();

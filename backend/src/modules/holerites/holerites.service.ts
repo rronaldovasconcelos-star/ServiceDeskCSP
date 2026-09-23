@@ -80,10 +80,18 @@ export async function importarArquivo(
     });
 
     for (const h of holerites) {
+      // Dados do colaborador que o export completo traz (CPF, CTPS, admissão,
+      // códigos). Só entram quando vêm preenchidos: o formato antigo não os tem
+      // e não pode apagar o que um arquivo completo (ou o RH) já gravou.
+      const dadosColaborador = Object.fromEntries(
+        Object.entries({ cpf: h.cpf, ctps: h.ctps, admissao: h.admissao, cargoCodigo: h.cargoCodigo, deptoCodigo: h.deptoCodigo })
+          .filter(([, v]) => v !== null),
+      ) as Partial<Record<'cpf' | 'ctps' | 'admissao' | 'cargoCodigo' | 'deptoCodigo', string>>;
+
       const colaborador = await tx.colaborador.upsert({
         where: { codigo: h.colaboradorCodigo },
-        create: { codigo: h.colaboradorCodigo, nome: h.colaboradorNome },
-        update: { nome: h.colaboradorNome },
+        create: { codigo: h.colaboradorCodigo, nome: h.colaboradorNome, ...dadosColaborador },
+        update: { nome: h.colaboradorNome, ...dadosColaborador },
       });
 
       const dados = paraRegistro(h, colaborador.id, imp.id);

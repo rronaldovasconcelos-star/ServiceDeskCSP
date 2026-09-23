@@ -6,7 +6,8 @@
  *
  * Serve para conferir um arquivo novo da folha antes de importar, ou para
  * comparar o PDF gerado com o modelo da escola. Não grava nada no banco.
- * CPF/CTPS/admissão saem em branco (não vêm no TXT; no portal vêm do cadastro).
+ * CPF/CTPS/admissão/códigos saem preenchidos se o TXT for do formato completo
+ * (registros C/DP/DD/R); no formato antigo saem em branco (no portal vêm do cadastro).
  */
 import 'dotenv/config';
 import fs from 'node:fs';
@@ -43,13 +44,13 @@ for (const h of holerites) {
     colaboradorCodigo: h.colaboradorCodigo,
     colaboradorNome: h.colaboradorNome,
     cargo: h.cargo,
-    cargoCodigo: null,
+    cargoCodigo: h.cargoCodigo,
     departamento: h.departamento,
-    deptoCodigo: null,
+    deptoCodigo: h.deptoCodigo,
     matricula: null,
-    ctps: null,
-    admissao: null,
-    cpf: null,
+    ctps: h.ctps,
+    admissao: h.admissao,
+    cpf: h.cpf,
     verbas: h.verbas,
     totalVencimentos: h.totalVencimentos,
     totalDescontos: h.totalDescontos,
@@ -63,7 +64,10 @@ for (const h of holerites) {
   });
   const nome = `${h.competencia}_${h.colaboradorCodigo}.pdf`;
   fs.writeFileSync(path.join(saida, nome), pdf);
-  console.log(`${nome}  ${h.colaboradorNome}  líquido ${formatarCentavos(h.liquido)}  (${h.verbas.length} verbas)`);
+  const extras = h.formato === 'C'
+    ? `  CPF ${h.cpf ?? '-'}  CTPS ${h.ctps ?? '-'}  admissão ${h.admissao ?? '-'}  cargo ${h.cargoCodigo}  depto ${h.deptoCodigo}`
+    : '  (formato antigo: sem CPF/CTPS/admissão)';
+  console.log(`${nome}  ${h.colaboradorNome}  líquido ${formatarCentavos(h.liquido)}  (${h.verbas.length} verbas)${extras}`);
 }
 
 console.log(`\n${holerites.length} holerite(s) gerado(s) em ${path.resolve(saida)}`);
