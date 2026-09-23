@@ -1,6 +1,6 @@
 # ESTADO — Portal de Chamados (Service Desk CSP)
 
-Handoff entre PCs. Atualizado em 22/09/2026.
+Handoff entre PCs. Atualizado em 23/09/2026.
 
 ## O que é
 
@@ -14,11 +14,37 @@ hospedagem Hostinger.
 
 - Repositório privado: `rronaldovasconcelos-star/ServiceDeskCSP`, branch `main`.
 - PC rrona: `Desktop\CSP - Colégio Santa Paula\ATENDIMENTO CSP` (tem o `.deploy.env`).
-- PC franc: `Desktop\ServiceDeskCSP` (clone de 22/09/2026, sem `.deploy.env`).
+- PC franc: `Desktop\ServiceDeskCSP` (clone de 22/09/2026; `.deploy.env` criado em
+  23/09 com o token da Hostinger).
 
-## Onde parou (22/09/2026)
+## Onde parou (23/09/2026)
 
-Módulo de holerites **pronto, testado e commitado** (`da8b0e9`), **não implantado**.
+Módulo de holerites **EM PRODUÇÃO** desde 23/09/2026, deploy feito do PC franc.
+
+- Backend no VPS: `/api/holerites/meus` passou de 404 para 401 (existe, exige
+  login); a migration rodou (o `start.sh` tem `set -e` e o servidor subiu).
+- Frontend na Hostinger: o HTML de produção serve o bundle novo e ele contém a
+  tela de holerites.
+- Ainda **não foi usado**: nenhum TXT importado, nenhum colaborador vinculado.
+
+### Deploy: o que mudou em 23/09
+
+- O VPS (2.24.115.74) **só aceita chave SSH** (`publickey`); a senha não serve
+  mais. `update.py` usa `CSP_VPS_KEY` do `.deploy.env` ou, por padrão,
+  `~/.ssh/pdi_vps_ed25519` (a chave do PDI, que é o mesmo servidor). Cada PC
+  precisa ter essa chave.
+- `update.py` gravava o pacote num caminho fixo do PC rrona; agora usa a pasta
+  temporária do PC em uso.
+- **Histórico reescrito**: três commits antigos tinham `Co-Authored-By`; as
+  linhas foram removidas (conteúdo idêntico; tag local
+  `backup-antes-limpeza-coautor` no franc). **No PC rrona, antes de qualquer
+  coisa** (com `git stash` antes, se houver alteração local):
+  ```
+  git fetch origin
+  git reset --hard origin/main
+  ```
+
+### O módulo (feito em 22/09)
 
 - TXT da folha (Folpag) → parser posicional que recusa arquivo com soma errada →
   colaborador vinculado ao login pelo RH → PDF igual ao papel (duas vias).
@@ -32,15 +58,10 @@ Módulo de holerites **pronto, testado e commitado** (`da8b0e9`), **não implant
 
 ## Próximos passos
 
-1. **Deploy (só do PC rrona)**:
-   ```
-   git pull
-   python update.py              # backend no VPS; a migration roda no start.sh
-   python deploy_hostinger.py    # frontend na Hostinger
-   ```
-2. Em produção: confirmar `STORAGE_PROVIDER=google-drive`; liberar o módulo `rh`
+1. Em produção: confirmar `STORAGE_PROVIDER=google-drive`; liberar o módulo `rh`
    em Usuários para quem faz a folha; importar o primeiro TXT; vincular os
    colaboradores na aba "Colaboradores e vínculos".
+2. Validar na tela, com um colaborador real, o PDF baixado em "Meus Holerites".
 3. Quando o export completo da folha chegar: ajustar `lerCabecalho` em
    `backend/src/modules/holerites/holerite.parser.ts` e gravar CPF/CTPS/admissão/
    códigos nos campos do `Colaborador`.
@@ -54,5 +75,8 @@ cd frontend && npm ci && VITE_API_URL=http://localhost:3199/api npx vite --port 
 ```
 
 Admin de desenvolvimento: `admin@santapaula.com.br` / `Admin@123` (só local).
-Arquivo de amostra da folha (dados reais, fora do git): `C:\Users\franc\Desktop\Nova pasta (4)`.
+Arquivo de amostra da folha (dados reais, fora do git): existia em
+`C:\Users\franc\Desktop\Nova pasta (4)`, apagado em 23/09; buscar no PC rrona ou na
+pasta `Holerites` do Drive. Deploy: `python update.py` (backend) e
+`python deploy_hostinger.py` (frontend), com `.deploy.env` preenchido.
 Prévia de um TXT sem tocar no banco: `npx tsx scripts/holerite-preview.ts arquivo.txt saida/`.
