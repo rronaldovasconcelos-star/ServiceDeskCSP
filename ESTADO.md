@@ -37,8 +37,13 @@ o formato antigo continua entrando e não apaga o que o completo gravou. Prova:
 suíte com 30 testes verdes (9 novos, vermelhos antes do parser) e prévia dos
 dois colaboradores do arquivo real comparada com o demonstrativo impresso:
 idêntica. Layout coluna a coluna em `docs/holerites.md`. Texto da tela do RH
-ajustado (pede build do frontend). Arquivo real fora do git, em
-`Desktop\PROJETO OLERITE CSP` do PC franc.
+ajustado. Arquivo real fora do git, em `Desktop\PROJETO OLERITE CSP` do PC franc.
+
+**Deploy do parser novo feito às 15h10 de 23/09** (os dois scripts, disparados
+com `!`): backend reconstruído no VPS (`/api/health` ok, rota de holerites 401),
+frontend na Hostinger servindo `index-BydJeUnk.js` com URL da API, Client ID e o
+texto novo. Ainda **sem importação real**: a prova do parser em produção é
+importar o TXT de 23/09 em *RH · Holerites*.
 
 ### Deploy: o que mudou em 23/09
 
@@ -84,9 +89,8 @@ ajustado (pede build do frontend). Arquivo real fora do git, em
    em Usuários para quem faz a folha; importar o primeiro TXT; vincular os
    colaboradores na aba "Colaboradores e vínculos".
 2. Validar na tela, com um colaborador real, o PDF baixado em "Meus Holerites".
-3. Deploy do parser novo: `python update.py` (backend) e
-   `python deploy_hostinger.py` (texto da tela do RH). Prova: importar o TXT de
-   23/09 em produção e conferir CPF/CTPS/admissão no PDF baixado.
+3. Provar o parser em produção: importar o TXT de 23/09 em *RH · Holerites* e
+   conferir CPF/CTPS/admissão no PDF baixado em *Meus Holerites*.
 
 ## Rodar local
 
