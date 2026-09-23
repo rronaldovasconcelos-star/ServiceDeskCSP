@@ -19,8 +19,11 @@ hospedagem Hostinger.
 
 ## Onde parou (23/09/2026, fim da tarde)
 
-**Pronto no código, AINDA NÃO DEPLOYADO: campo "Observações" no PDF + aba
-"Mensagens" em RH · Holerites.** Pedido do Ronaldo por print (caixa em branco à
+**EM PRODUÇÃO desde 23/09 ~16h (deploy do franc, os dois scripts com `!`):
+campo "Observações" no PDF + aba "Mensagens" em RH · Holerites.** Provado:
+`/api/health` 200, rotas de mensagens 401 sem token, bundle `index-B4YGixZH.js`
+servido com a aba nova, a URL da API e o Client ID. Falta o Ronaldo cadastrar a
+primeira mensagem real e conferir o PDF. Pedido do Ronaldo por print (caixa em branco à
 esquerda de "Total / Valor Líquido" no papel): o RH escreve mensagens **gerais**
 (todos) ou **individuais** (um colaborador), com ou sem competência, e elas saem
 nessa caixa nas duas vias do PDF. Decisões dele: só no PDF (não na tela Meus
@@ -38,9 +41,7 @@ Holerites) e o menu continua "RH · Holerites" com a aba nova.
   de antes (layout intacto), prévias com o TXT real conferidas visualmente
   (`holerite-preview.ts --observacoes`), `tsc` do backend e do frontend, `vite
   build`. A tela **não foi exercitada no Chrome** nesta sessão.
-- **Para publicar**: os dois scripts de deploy com `!` (como em 23/09 de manhã);
-  depois conferir `GET /api/holerites/rh/mensagens` → 401 sem token e o bundle
-  com "Mensagens cadastradas"; cadastrar uma mensagem real e baixar o PDF.
+- Publicado às ~16h de 23/09; resta cadastrar uma mensagem real e baixar o PDF.
 - Lint: `HoleritesRhPage.tsx` tem 2 erros `react-hooks/set-state-in-effect`
   **anteriores** (abas Importar e Colaboradores); a aba nova não acrescenta nenhum.
 
@@ -116,8 +117,8 @@ texto novo. Parser provado em produção às 15h11 com o TXT real (ver acima).
 
 ## Próximos passos
 
-0. **Deploy das mensagens/observações** (backend + frontend, com `!`) e prova em
-   produção com uma mensagem real no PDF.
+0. Cadastrar a primeira mensagem real em RH · Holerites → Mensagens e conferir
+   a caixa "Observações" no PDF baixado em Meus Holerites.
 1. Uso mensal: o RH salva o TXT completo de cada mês na pasta `Holerites` do
    Drive (ou faz upload) e vincula os colaboradores novos. Confirmar
    `STORAGE_PROVIDER=google-drive` no VPS antes de contar com a importação
