@@ -35,6 +35,15 @@ Módulo de holerites **EM PRODUÇÃO** desde 23/09/2026, deploy feito do PC fran
   precisa ter essa chave.
 - `update.py` gravava o pacote num caminho fixo do PC rrona; agora usa a pasta
   temporária do PC em uso.
+- **O build do frontend embute duas variáveis**: `VITE_API_URL` (URL absoluta do
+  backend; o `.htaccess` da Hostinger NÃO encaminha `/api`) e
+  `VITE_GOOGLE_CLIENT_ID` (sem ele o botão "Entrar com Google" some). Elas vinham
+  de um `frontend/.env.production` que só existia no rrona; o primeiro build do
+  franc saiu sem as duas e **o site ficou ~40 min sem API e sem login** (23/09,
+  10h28 a 11h10). Agora as duas moram no `.deploy.env` de cada PC e o
+  `deploy_hostinger.py` **recusa o build** sem elas (guardas provadas vermelhas).
+  O Client ID é público e pode ser recuperado do bundle do container de frontend
+  do VPS (`curl -k --resolve servicedeskcsp.com.br:443:2.24.115.74 ...`).
 - **Histórico reescrito**: três commits antigos tinham `Co-Authored-By`; as
   linhas foram removidas (conteúdo idêntico; tag local
   `backup-antes-limpeza-coautor` no franc). **No PC rrona, antes de qualquer
