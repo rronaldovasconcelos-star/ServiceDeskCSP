@@ -294,9 +294,10 @@ function dadosPdf(observacoes: string | null = null) {
     observacoes,
   };
 }
-// Tamanho do PDF sem observações medido antes do campo existir (23/09/2026):
-// a caixa vazia não pode mudar um byte do layout.
-const TAMANHO_PDF_SEM_OBSERVACOES = 3247;
+// Tamanho do PDF sem observações, medido em 23/09/2026 (após a linha de corte
+// acima dos totais passar a atravessar a largura toda, como no papel): a caixa
+// vazia não pode mudar um byte do layout.
+const TAMANHO_PDF_SEM_OBSERVACOES = 3246;
 
 await teste('gera PDF válido com duas vias', async () => {
   const pdf = await gerarHoleritePdf(dadosPdf());

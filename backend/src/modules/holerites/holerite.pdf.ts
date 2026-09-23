@@ -209,7 +209,9 @@ function desenharVia(doc: Doc, d: DadosHoleritePdf, y0: number): void {
   const yLiquido = yTotais + 15;
   const yAssinatura = yLiquido + 15;
   doc.rect(xVenc, yTotais, xFim - xVenc, 30).fill(CINZA);
-  linha(doc, xVenc, yTotais, xFim, yTotais);
+  // A linha acima dos totais atravessa a largura toda: é ela que separa as verbas
+  // da caixa de observações (linha de corte do papel; conferida no print de 23/09).
+  linha(doc, X0, yTotais, xFim, yTotais);
   linha(doc, xVenc, yLiquido, xFim, yLiquido);
   linha(doc, xVenc, yTotais, xVenc, yAssinatura);
   linha(doc, xDesc, yTotais, xDesc, yLiquido);

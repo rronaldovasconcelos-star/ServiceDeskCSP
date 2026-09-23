@@ -233,3 +233,6 @@ A suíte roda contra `prisma/dev.db` com dados fictícios prefixados
 - 23/09/2026 (tarde) — validado de ponta a ponta em produção. Em seguida, a pedido
   do Ronaldo (print da caixa vazia do papel): campo **Observações** no PDF e aba
   *Mensagens* no RH (geral e individual), com guarda de espaço medida no pdfkit.
+- 23/09/2026 (16h) — linha acima dos totais passou a atravessar a largura toda
+  (linha de corte do papel, que fecha a caixa de observações por cima); apontado
+  por ele no print do primeiro PDF com mensagem.

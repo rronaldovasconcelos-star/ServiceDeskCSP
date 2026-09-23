@@ -117,8 +117,10 @@ texto novo. Parser provado em produção às 15h11 com o TXT real (ver acima).
 
 ## Próximos passos
 
-0. Cadastrar a primeira mensagem real em RH · Holerites → Mensagens e conferir
-   a caixa "Observações" no PDF baixado em Meus Holerites.
+0. **Deploy do backend** (`update.py` com `!`) com a linha de corte acima dos
+   totais na largura toda (commit após `5c26fcb`); ele já cadastrou a primeira
+   mensagem individual (000285, 08/2026) e o PDF saiu com o texto certo, só
+   faltava essa linha.
 1. Uso mensal: o RH salva o TXT completo de cada mês na pasta `Holerites` do
    Drive (ou faz upload) e vincula os colaboradores novos. Confirmar
    `STORAGE_PROVIDER=google-drive` no VPS antes de contar com a importação
