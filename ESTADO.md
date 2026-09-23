@@ -25,7 +25,12 @@ Módulo de holerites **EM PRODUÇÃO** desde 23/09/2026, deploy feito do PC fran
   login); a migration rodou (o `start.sh` tem `set -e` e o servidor subiu).
 - Frontend na Hostinger: o HTML de produção serve o bundle novo e ele contém a
   tela de holerites.
-- Ainda **não foi usado**: nenhum TXT importado, nenhum colaborador vinculado.
+- **Primeiro uso real em 23/09 às 15h11**: o Ronaldo liberou o módulo `rh`,
+  importou o `Holerite23092026.txt` (formato completo) em *RH · Holerites*,
+  vinculou o colaborador 000285 ao próprio login e baixou o PDF em *Meus
+  Holerites*. PDF conferido campo a campo contra o demonstrativo impresso do
+  Folpag (08/2026): idêntico, com CPF, CTPS, admissão e códigos vindos do TXT.
+  **O módulo está validado de ponta a ponta em produção.**
 
 ### 23/09 à tarde: chegou o export completo da folha
 
@@ -42,8 +47,7 @@ ajustado. Arquivo real fora do git, em `Desktop\PROJETO OLERITE CSP` do PC franc
 **Deploy do parser novo feito às 15h10 de 23/09** (os dois scripts, disparados
 com `!`): backend reconstruído no VPS (`/api/health` ok, rota de holerites 401),
 frontend na Hostinger servindo `index-BydJeUnk.js` com URL da API, Client ID e o
-texto novo. Ainda **sem importação real**: a prova do parser em produção é
-importar o TXT de 23/09 em *RH · Holerites*.
+texto novo. Parser provado em produção às 15h11 com o TXT real (ver acima).
 
 ### Deploy: o que mudou em 23/09
 
@@ -85,12 +89,14 @@ importar o TXT de 23/09 em *RH · Holerites*.
 
 ## Próximos passos
 
-1. Em produção: confirmar `STORAGE_PROVIDER=google-drive`; liberar o módulo `rh`
-   em Usuários para quem faz a folha; importar o primeiro TXT; vincular os
-   colaboradores na aba "Colaboradores e vínculos".
-2. Validar na tela, com um colaborador real, o PDF baixado em "Meus Holerites".
-3. Provar o parser em produção: importar o TXT de 23/09 em *RH · Holerites* e
-   conferir CPF/CTPS/admissão no PDF baixado em *Meus Holerites*.
+1. Uso mensal: o RH salva o TXT completo de cada mês na pasta `Holerites` do
+   Drive (ou faz upload) e vincula os colaboradores novos. Confirmar
+   `STORAGE_PROVIDER=google-drive` no VPS antes de contar com a importação
+   automática; o upload manual já funciona.
+2. Liberar o módulo `rh` para quem realmente faz a folha na escola.
+3. Vincular os demais colaboradores conforme forem ganhando login no portal.
+4. Se algum mês vier com base INSS ≠ base FGTS, conferir a ordem dos dois campos
+   da linha `R` contra o papel (ver `docs/holerites.md`).
 
 ## Rodar local
 
