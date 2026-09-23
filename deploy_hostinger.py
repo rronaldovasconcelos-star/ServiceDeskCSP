@@ -57,6 +57,31 @@ DOMAIN = os.environ.get("HOSTINGER_DOMAIN", "servicedeskcsp.com.br")
 if not TOKEN:
     sys.exit("ERRO: HOSTINGER_API_TOKEN ausente no .deploy.env (token da API do Hostinger).")
 
+# Client ID do login com Google. Vai embutido no bundle no momento do build; sem ele o
+# botao "Entrar com Google" some do site (aconteceu em 23/09/2026 num build feito num PC
+# sem o frontend/.env.production). Vem do .deploy.env (VITE_GOOGLE_CLIENT_ID) ou de um
+# frontend/.env.production; sem nenhum dos dois o build e recusado.
+def _google_client_id_do_env_production():
+    p = os.path.join(FRONTEND, ".env.production")
+    if not os.path.isfile(p):
+        return ""
+    for line in open(p, encoding="utf-8"):
+        line = line.strip()
+        if line.startswith("VITE_GOOGLE_CLIENT_ID="):
+            return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return ""
+
+GOOGLE_CLIENT_ID = os.environ.get("VITE_GOOGLE_CLIENT_ID") or _google_client_id_do_env_production()
+if not GOOGLE_CLIENT_ID:
+    sys.exit("ERRO: VITE_GOOGLE_CLIENT_ID ausente. Coloque no .deploy.env (ou em frontend/.env.production); sem ele o login com Google some do site.")
+
+# URL da API, tambem embutida no build. O .htaccess da Hostinger NAO encaminha /api ao
+# backend, entao o build de producao precisa da URL absoluta do VPS. Um build com o
+# padrao "/api" deixa o site inteiro sem API (aconteceu em 23/09/2026).
+API_URL = os.environ.get("VITE_API_URL", "https://api.servicedeskcsp.com.br/api")
+if not API_URL.startswith("https://"):
+    sys.exit(f"ERRO: VITE_API_URL precisa ser a URL absoluta do backend (https://...), recebido: {API_URL!r}")
+
 
 def api(path, data=None, method=None, extra_headers=None, raw=False):
     """Chamada JSON à API do Hostinger (Bearer token)."""
@@ -80,7 +105,10 @@ def api(path, data=None, method=None, extra_headers=None, raw=False):
 def build():
     print("Buildando o frontend (npm run build)...")
     npm = "npm.cmd" if os.name == "nt" else "npm"
-    if subprocess.run([npm, "run", "build"], cwd=FRONTEND).returncode != 0:
+    env = dict(os.environ, VITE_GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID, VITE_API_URL=API_URL)
+    print(f"  VITE_API_URL = {API_URL}")
+    print(f"  VITE_GOOGLE_CLIENT_ID = {GOOGLE_CLIENT_ID[:12]}...")
+    if subprocess.run([npm, "run", "build"], cwd=FRONTEND, env=env).returncode != 0:
         sys.exit("ERRO: o build do frontend falhou.")
 
 
