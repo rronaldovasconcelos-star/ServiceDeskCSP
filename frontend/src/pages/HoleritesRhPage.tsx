@@ -555,7 +555,7 @@ function AbaColaboradores() {
                             ))}
                           </div>
                           <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '8px 0 0' }}>
-                            Esses dados não vêm no TXT da folha; o que estiver em branco sai em branco no PDF.
+                            O TXT completo da folha já traz esses dados e os atualiza a cada importação; preencha aqui só se o arquivo vier no formato antigo. O que estiver em branco sai em branco no PDF.
                           </p>
                         </td>
                       </tr>

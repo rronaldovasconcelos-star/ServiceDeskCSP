@@ -27,6 +27,19 @@ Módulo de holerites **EM PRODUÇÃO** desde 23/09/2026, deploy feito do PC fran
   tela de holerites.
 - Ainda **não foi usado**: nenhum TXT importado, nenhum colaborador vinculado.
 
+### 23/09 à tarde: chegou o export completo da folha
+
+O contador mandou o `Holerite23092026.txt` num **layout novo** (registros `C`,
+`DP`/`DD`, `R`) que traz **CPF, CTPS, admissão e códigos de cargo e depto** — tudo
+que o RH teria de digitar. O parser passou a aceitar os dois formatos (decide
+pelo primeiro caractere) e grava esses dados no `Colaborador` a cada importação;
+o formato antigo continua entrando e não apaga o que o completo gravou. Prova:
+suíte com 30 testes verdes (9 novos, vermelhos antes do parser) e prévia dos
+dois colaboradores do arquivo real comparada com o demonstrativo impresso:
+idêntica. Layout coluna a coluna em `docs/holerites.md`. Texto da tela do RH
+ajustado (pede build do frontend). Arquivo real fora do git, em
+`Desktop\PROJETO OLERITE CSP` do PC franc.
+
 ### Deploy: o que mudou em 23/09
 
 - O VPS (2.24.115.74) **só aceita chave SSH** (`publickey`); a senha não serve
@@ -71,9 +84,9 @@ Módulo de holerites **EM PRODUÇÃO** desde 23/09/2026, deploy feito do PC fran
    em Usuários para quem faz a folha; importar o primeiro TXT; vincular os
    colaboradores na aba "Colaboradores e vínculos".
 2. Validar na tela, com um colaborador real, o PDF baixado em "Meus Holerites".
-3. Quando o export completo da folha chegar: ajustar `lerCabecalho` em
-   `backend/src/modules/holerites/holerite.parser.ts` e gravar CPF/CTPS/admissão/
-   códigos nos campos do `Colaborador`.
+3. Deploy do parser novo: `python update.py` (backend) e
+   `python deploy_hostinger.py` (texto da tela do RH). Prova: importar o TXT de
+   23/09 em produção e conferir CPF/CTPS/admissão no PDF baixado.
 
 ## Rodar local
 

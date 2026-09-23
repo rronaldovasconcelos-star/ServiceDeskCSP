@@ -33,22 +33,70 @@ Folpag ──exporta──▶ Holerite<data>.txt ──▶ pasta "Holerites" no 
   módulo **rh** liberado em Usuários. O menu *Meus Holerites* é baseline (todo
   autenticado); *RH · Holerites* exige o módulo `rh`.
 
-## Dados que o TXT NÃO traz
+## Dois formatos de TXT
 
-O PDF da escola mostra CPF, CTPS, data de admissão e os códigos de cargo
-(`0005`) e depto (`000005`). Nada disso vem no TXT atual. Enquanto o sistema
-de folha não exportar um arquivo mais completo, o RH preenche esses campos
-uma vez por colaborador (botão *Preencher* na aba de colaboradores). Campo em
-branco sai em branco no PDF. O cabeçalho da empresa (nome completo e
-endereço) vem das variáveis `HOLERITE_EMPRESA_NOME` / `HOLERITE_EMPRESA_ENDERECO`,
-porque o TXT trunca o nome em 42 caracteres e não traz endereço.
+O Folpag já exportou em dois layouts. O parser decide pelo **primeiro
+caractere da primeira linha** e aceita os dois:
 
-Quando chegar o export mais completo, o lugar de mexer é
-`backend/src/modules/holerites/holerite.parser.ts` (`lerCabecalho`) e o
-`paraRegistro`/`atualizarDados` do serviço, gravando nos mesmos campos do
-`Colaborador`.
+| Formato | Primeiro caractere | Arquivo medido | Traz CPF, CTPS, admissão e códigos? |
+|---------|-------------------|----------------|-------------------------------------|
+| **completo** | `C` | `Holerite23092026.txt` (23/09/2026) | **Sim** — gravados no `Colaborador` a cada importação |
+| antigo | `1` | `Holerite22092026.txt` (22/09/2026) | Não — o RH preenche na tela (botão *Preencher*) |
 
-## Layout do TXT (medido em `Holerite22092026.txt`, 22/09/2026)
+O export completo foi o que o Ronaldo pediu ao contador em 22/09/2026 e chegou
+no dia seguinte. É o formato a usar daqui para a frente. Um arquivo do formato
+antigo continua entrando, mas **não apaga** CPF/CTPS/admissão/códigos que um
+arquivo completo (ou o RH) já gravou: só sobrescreve o que vier preenchido.
+
+O que **nenhum** dos dois traz: o nome completo da empresa (vem truncado, sem
+"SANTA PAULA") e o endereço. Os dois saem das variáveis `HOLERITE_EMPRESA_NOME`
+/ `HOLERITE_EMPRESA_ENDERECO`. Campo em branco sai em branco no PDF.
+
+## Layout do formato completo (medido em `Holerite23092026.txt`, 23/09/2026)
+
+Codificação **Windows-1252**, quebra CRLF, colunas fixas (índices começam em 0,
+intervalo `[início, fim)`). Um bloco por colaborador: uma linha `C`, uma linha
+`D?` por verba e uma linha `R` que fecha o bloco. **Não há registro de fim.**
+
+**`C` — cabeçalho (435 caracteres)**
+
+| Colunas | Tam. | Campo | Exemplo (colaborador 285) | Como sai |
+|--------:|-----:|-------|---------------------------|----------|
+| 1–49 | 48 | nome da empresa (3 espaços à esquerda, truncado) | `SEBASTIANA CABRAL DE SOUSA PEREIRA - COLEGIO` | como vem |
+| 49–63 | 14 | CNPJ só dígitos | `01241815000125` | `01.241.815/0001-25` |
+| 63–69 | 6 | competência `MMAAAA` | `082026` | `2026-08` |
+| 69–80 | 11 | código do colaborador | `00000000285` | `000285` |
+| 80–125 | 45 | nome do colaborador | | |
+| 125–145 | 20 | código do departamento | `…00005` | `000005` (6 dígitos, como no papel) |
+| 145–190 | 45 | departamento | `Administração Escolar` | |
+| 190–196 | 6 | código do cargo | `000005` | `0005` (4 dígitos, como no papel) |
+| 196–243 | 47 | cargo à esquerda + salário **em formato americano** alinhado à direita | `Tecnico de Informatica … 5,458.30` | cargo e `545830` centavos |
+| 243–251 | 8 | admissão `ddmmaaaa` | `01042025` | `01/04/2025` |
+| 251–259 | 8 | demissão `ddmmaaaa` ou zeros | `00000000` | não usado |
+| 274–282 | 8 | `31082026` — parece o fim do período | | não usado |
+| 397–417 | 20 | CTPS número | `…0923499` | `0923499 / 00757` |
+| 417–428 | 11 | CPF só dígitos | `09234990757` | `092.349.907-57` |
+| 428–433 | 5 | CTPS série | `00757` | idem |
+| 433–435 | 2 | CTPS UF | `MG` | não usado |
+
+O salário é lido por expressão regular no fim do trecho 196–243 (`d,ddd.dd`),
+porque o limite exato entre cargo e salário não pôde ser medido com dois
+exemplos. As demais colunas são posicionais.
+
+**`DP` / `DD` — verba (81 caracteres)**: `D`, depois `P` (provento →
+vencimento) ou `D` (desconto), código em 5 dígitos (2–7, sai com 4: `0520`),
+descrição em 50 (7–57), referência em 12 dígitos com duas casas (57–69:
+`000000003000` → `30,00`) e valor em 12 dígitos **já em centavos** (69–81:
+`000000680126` → 6.801,26).
+
+**`R` — totais e bases (85 caracteres)**: `R` e sete campos de 12 dígitos em
+centavos, nesta ordem: vencimentos, descontos, líquido, **base INSS, base
+FGTS, FGTS do mês, base IRRF**. A ordem foi conferida contra o demonstrativo
+impresso de 08/2026; base INSS e base FGTS vieram iguais nas duas amostras,
+então a ordem entre elas segue a do papel e não pôde ser distinguida pelo dado.
+Não há data de geração neste formato (`dataGeracao` fica nula).
+
+## Layout do formato antigo (medido em `Holerite22092026.txt`, 22/09/2026)
 
 Codificação **Windows-1252**, quebra CRLF, colunas fixas (índices começam em 0).
 Um bloco por colaborador; o primeiro caractere é o tipo do registro.
@@ -143,7 +191,7 @@ Sem elas, a tela avisa e só o upload manual funciona.
 
 ```bash
 cd backend
-npx tsx scripts/testar-holerites.ts                 # 21 testes: parser, recusas, PDF, importação, vínculo, autorização
+npx tsx scripts/testar-holerites.ts                 # 30 testes: parser (dois formatos), recusas, PDF, importação, vínculo, autorização
 npx tsx scripts/holerite-preview.ts arquivo.txt saida/   # gera um PDF por colaborador sem tocar no banco
 ```
 
@@ -152,7 +200,16 @@ A suíte roda contra `prisma/dev.db` com dados fictícios prefixados
 
 ## Pendências
 
-- **Export mais completo da folha** (CPF, CTPS, admissão, códigos): pedido ao
-  contador em 22/09/2026. Até lá, o RH preenche na tela.
 - **Produção**: criar a pasta `Holerites` no Drive do portal (o portal cria
-  sozinha na primeira consulta) e liberar o módulo **rh** para quem faz a folha.
+  sozinha na primeira consulta), liberar o módulo **rh** para quem faz a folha,
+  importar o primeiro TXT (formato completo) e vincular os colaboradores.
+- **Validar com um colaborador real** o PDF baixado em *Meus Holerites*.
+- Se algum mês vier com base INSS ≠ base FGTS, conferir contra o papel se a
+  ordem dos dois campos na linha `R` está certa (ver acima).
+
+## Histórico
+
+- 22/09/2026 — módulo criado sobre o formato antigo (`1`…`5`); CPF/CTPS/admissão
+  preenchidos pelo RH.
+- 23/09/2026 — em produção. No mesmo dia chegou o export completo (`C`/`DP`/`DD`/`R`);
+  parser passou a aceitar os dois formatos e a gravar CPF, CTPS, admissão e códigos.
