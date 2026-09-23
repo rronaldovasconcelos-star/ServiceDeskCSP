@@ -72,8 +72,8 @@ def _google_client_id_do_env_production():
     return ""
 
 GOOGLE_CLIENT_ID = os.environ.get("VITE_GOOGLE_CLIENT_ID") or _google_client_id_do_env_production()
-if not GOOGLE_CLIENT_ID:
-    sys.exit("ERRO: VITE_GOOGLE_CLIENT_ID ausente. Coloque no .deploy.env (ou em frontend/.env.production); sem ele o login com Google some do site.")
+if not GOOGLE_CLIENT_ID or "COLE_AQUI" in GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_ID.endswith(".apps.googleusercontent.com"):
+    sys.exit("ERRO: VITE_GOOGLE_CLIENT_ID ausente ou invalido (precisa terminar em .apps.googleusercontent.com). Coloque no .deploy.env (ou em frontend/.env.production); sem ele o login com Google some do site.")
 
 # URL da API, tambem embutida no build. O .htaccess da Hostinger NAO encaminha /api ao
 # backend, entao o build de producao precisa da URL absoluta do VPS. Um build com o
