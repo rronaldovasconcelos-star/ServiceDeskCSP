@@ -27,8 +27,13 @@ _load_deploy_env()
 VPS_IP   = os.environ.get("CSP_VPS_HOST", "2.24.115.74")
 VPS_USER = os.environ.get("CSP_VPS_USER", "root")
 VPS_PASS = os.environ.get("CSP_VPS_PASS")
-if not VPS_PASS:
-    sys.exit("ERRO: senha do VPS ausente. Crie .deploy.env (copie de .deploy.env.example) com CSP_VPS_PASS=...")
+# Chave SSH (o VPS aceita só publickey desde 09/2026). CSP_VPS_KEY no .deploy.env,
+# ou a chave padrao ~/.ssh/pdi_vps_ed25519 se existir; senha fica como alternativa.
+VPS_KEY = os.path.expanduser(os.environ.get("CSP_VPS_KEY") or "~/.ssh/pdi_vps_ed25519")
+if not os.path.isfile(VPS_KEY):
+    VPS_KEY = None
+if not VPS_KEY and not VPS_PASS:
+    sys.exit("ERRO: acesso ao VPS ausente. Crie .deploy.env (copie de .deploy.env.example) com CSP_VPS_KEY=<chave> ou CSP_VPS_PASS=...")
 
 EXCLUDE_DIRS  = {"node_modules", ".git", "dist", "__pycache__"}
 EXCLUDE_FILES = {"dev.db", "dev.db-shm", "dev.db-wal"}
@@ -58,7 +63,11 @@ print(f"  {count} arquivos, {size:.0f} KB")
 print("Enviando ao VPS...")
 client = paramiko.SSHClient()
 client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-client.connect(VPS_IP, username=VPS_USER, password=VPS_PASS)
+if VPS_KEY:
+    print(f"  autenticando com chave {VPS_KEY}")
+    client.connect(VPS_IP, username=VPS_USER, key_filename=VPS_KEY)
+else:
+    client.connect(VPS_IP, username=VPS_USER, password=VPS_PASS)
 
 sftp = client.open_sftp()
 sftp.put(ARCHIVE, "/root/csp-deploy.tar.gz")
