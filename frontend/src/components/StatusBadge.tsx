@@ -1,28 +1,32 @@
-type BadgeStyle = { background: string; color: string; fontWeight?: number };
+/**
+ * Pílulas de status, urgência e pedido de suprimento. As cores vêm das classes
+ * `.pill-*` do index.css (variáveis do tema), nunca de hex aqui.
+ */
+type Tom = 'electric' | 'teal' | 'amber' | 'coral' | 'violet' | 'muted';
 
-const statusStyles: Record<string, BadgeStyle> = {
-  ABERTO:                { background: 'rgba(59,130,246,0.12)',  color: '#3b82f6' },
-  AGUARDANDO_APROVACAO:  { background: 'rgba(249,115,22,0.12)',  color: '#f97316' },
-  APROVADO:              { background: 'rgba(20,184,166,0.12)',  color: '#0d9488' },
-  REJEITADO:             { background: 'rgba(239,68,68,0.12)',   color: '#ef4444' },
-  EM_ANDAMENTO:          { background: 'rgba(234,179,8,0.12)',   color: '#d97706' },
-  CONCLUIDO:             { background: 'rgba(34,197,94,0.12)',   color: '#16a34a' },
-  CANCELADO:             { background: 'rgba(100,116,139,0.12)', color: '#64748b' },
+const statusTom: Record<string, Tom> = {
+  ABERTO: 'amber',
+  AGUARDANDO_APROVACAO: 'amber',
+  APROVADO: 'teal',
+  REJEITADO: 'coral',
+  EM_ANDAMENTO: 'electric',
+  CONCLUIDO: 'teal',
+  CANCELADO: 'muted',
 };
 
-const urgencyStyles: Record<string, BadgeStyle> = {
-  BAIXA:   { background: 'rgba(100,116,139,0.12)', color: '#64748b' },
-  MEDIA:   { background: 'rgba(59,130,246,0.12)',  color: '#2563eb' },
-  ALTA:    { background: 'rgba(249,115,22,0.12)',  color: '#ea580c' },
-  URGENTE: { background: 'rgba(239,68,68,0.12)',   color: '#ef4444', fontWeight: 600 },
+const urgencyTom: Record<string, Tom> = {
+  BAIXA: 'muted',
+  MEDIA: 'electric',
+  ALTA: 'amber',
+  URGENTE: 'coral',
 };
 
 const statusLabels: Record<string, string> = {
   ABERTO: 'Aberto',
-  AGUARDANDO_APROVACAO: 'Aguardando Aprovação',
+  AGUARDANDO_APROVACAO: 'Aguardando aprovação',
   APROVADO: 'Aprovado',
   REJEITADO: 'Rejeitado',
-  EM_ANDAMENTO: 'Em Andamento',
+  EM_ANDAMENTO: 'Em andamento',
   CONCLUIDO: 'Concluído',
   CANCELADO: 'Cancelado',
 };
@@ -31,32 +35,28 @@ const urgencyLabels: Record<string, string> = {
   BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta', URGENTE: 'Urgente',
 };
 
-const fallback: BadgeStyle = { background: 'rgba(100,116,139,0.12)', color: '#64748b' };
-
-export function StatusBadge({ status }: { status: string }) {
-  const s = statusStyles[status] ?? fallback;
+function Pill({ tom, bold, children }: { tom: Tom; bold?: boolean; children: string }) {
   return (
-    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: s.fontWeight ?? 500, background: s.background, color: s.color, whiteSpace: 'nowrap' }}>
-      {statusLabels[status] ?? status}
+    <span className={`pill pill-${tom}`} style={bold ? { fontWeight: 600 } : undefined}>
+      {children}
     </span>
   );
+}
+
+export function StatusBadge({ status }: { status: string }) {
+  return <Pill tom={statusTom[status] ?? 'muted'}>{statusLabels[status] ?? status}</Pill>;
 }
 
 export function UrgencyBadge({ urgency }: { urgency: string }) {
-  const s = urgencyStyles[urgency] ?? fallback;
-  return (
-    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: s.fontWeight ?? 500, background: s.background, color: s.color, whiteSpace: 'nowrap' }}>
-      {urgencyLabels[urgency] ?? urgency}
-    </span>
-  );
+  return <Pill tom={urgencyTom[urgency] ?? 'muted'} bold={urgency === 'URGENTE'}>{urgencyLabels[urgency] ?? urgency}</Pill>;
 }
 
-const supplyStatusStyles: Record<string, BadgeStyle> = {
-  PENDENTE:  { background: 'rgba(234,179,8,0.12)',   color: '#d97706' },
-  APROVADO:  { background: 'rgba(59,130,246,0.12)',  color: '#2563eb' },
-  COMPRADO:  { background: 'rgba(168,85,247,0.12)',  color: '#7c3aed' },
-  ENTREGUE:  { background: 'rgba(34,197,94,0.12)',   color: '#16a34a' },
-  CANCELADO: { background: 'rgba(239,68,68,0.12)',   color: '#ef4444' },
+const supplyTom: Record<string, Tom> = {
+  PENDENTE: 'amber',
+  APROVADO: 'electric',
+  COMPRADO: 'violet',
+  ENTREGUE: 'teal',
+  CANCELADO: 'coral',
 };
 
 const supplyStatusLabels: Record<string, string> = {
@@ -65,10 +65,5 @@ const supplyStatusLabels: Record<string, string> = {
 };
 
 export function SupplyStatusBadge({ status }: { status: string }) {
-  const s = supplyStatusStyles[status] ?? fallback;
-  return (
-    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 500, background: s.background, color: s.color, whiteSpace: 'nowrap' }}>
-      {supplyStatusLabels[status] ?? status}
-    </span>
-  );
+  return <Pill tom={supplyTom[status] ?? 'muted'}>{supplyStatusLabels[status] ?? status}</Pill>;
 }

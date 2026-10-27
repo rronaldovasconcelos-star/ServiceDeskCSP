@@ -10,6 +10,10 @@ import {
 } from 'lucide-react';
 import api from '../lib/api';
 import KanbanBoard from '../components/KanbanBoard';
+import PageHeader from '../components/PageHeader';
+import { IconTile } from '../components/ui';
+
+type Tone = 'electric' | 'teal' | 'amber' | 'coral' | 'violet';
 
 interface SupplyMetrics {
   total: number;
@@ -48,9 +52,10 @@ const STATUS_COLORS: Record<string, string> = {
   'Concluído':    'var(--status-concluido)',
   'Cancelado':    'var(--status-cancelado)',
 };
-const FALLBACK_COLORS = ['#4d8ef0', '#f59e0b', '#22c55e', '#6b7280', '#a855f7'];
+const FALLBACK_COLORS = ['var(--electric)', 'var(--amber)', 'var(--teal)', 'var(--status-cancelado)', 'var(--violet)'];
 
-const SUPPLY_COLORS = ['#f59e0b', '#3b82f6', '#a855f7', '#22c55e', '#ef4444'];
+// Pendente, Aprovado, Comprado, Entregue, Cancelado — mesma ordem das pílulas.
+const SUPPLY_COLORS = ['var(--amber)', 'var(--electric)', 'var(--violet)', 'var(--teal)', 'var(--coral)'];
 
 const statusLabels: Record<string, string> = {
   ABERTO: 'Aberto', EM_ANDAMENTO: 'Em Andamento', CONCLUIDO: 'Concluído', CANCELADO: 'Cancelado',
@@ -75,21 +80,18 @@ interface KpiCardProps {
   title: string;
   value: string | number;
   sub?: string;
-  topColor: string;
+  tone: Tone;
   icon: React.ElementType;
 }
-function KpiCard({ title, value, sub, topColor, icon: Icon }: KpiCardProps) {
+function KpiCard({ title, value, sub, tone, icon: Icon }: KpiCardProps) {
   return (
-    <div
-      className="kpi-card"
-      style={{ borderTop: `2px solid ${topColor}` }}
-    >
-      <span className="kpi-card-icon" style={{ color: topColor }}>
-        <Icon size={22} aria-hidden="true" />
-      </span>
-      <p className="kpi-label">{title}</p>
-      <p className="kpi-value">{value}</p>
-      {sub && <p className="kpi-sub">{sub}</p>}
+    <div className="kpi-card">
+      <IconTile tone={tone} size={44}><Icon size={20} aria-hidden="true" /></IconTile>
+      <div className="min-w-0">
+        <p className="kpi-label">{title}</p>
+        <p className="kpi-value">{value}</p>
+        {sub && <p className="kpi-sub">{sub}</p>}
+      </div>
     </div>
   );
 }
@@ -98,7 +100,7 @@ function KpiCard({ title, value, sub, topColor, icon: Icon }: KpiCardProps) {
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: {value: number; name: string}[]; label?: string }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '8px 12px' }}>
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-tile)', padding: '8px 12px', boxShadow: 'var(--shadow)' }}>
       {label && <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 4px' }}>{label}</p>}
       {payload.map((p, i) => (
         <p key={i} style={{ color: 'var(--text-primary)', fontSize: '13px', margin: 0 }}>
@@ -180,43 +182,34 @@ export default function DashboardPage() {
 
   return (
     <>
-      {/* ══════════════ HEADER DA PÁGINA ══════════════ */}
-      <header className="page-header">
-        <h1 className="page-title">Dashboard</h1>
-
-        <div className="page-header-actions">
-          {/* Busca global */}
-          <div className="search-bar" role="search">
-            <Search size={14} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} aria-hidden="true" />
-            <input
-              type="search"
-              placeholder="Buscar chamados..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              aria-label="Buscar chamados"
-            />
-          </div>
-
-          {/* Exportar chamados */}
-          <button
-            onClick={() => handleExport('/reports/export/csv', 'chamados.xlsx')}
-            className="btn-export btn-export-csv"
-            aria-label="Exportar chamados em Excel"
-          >
-            Exportar Excel
-          </button>
-          <button
-            onClick={() => handleExport('/reports/export/pdf', 'chamados.pdf')}
-            className="btn-export btn-export-pdf"
-            aria-label="Exportar chamados em PDF"
-          >
-            Exportar PDF
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Dashboard"
+        subtitle={metrics ? `${metrics.pending} chamado${metrics.pending === 1 ? '' : 's'} aguardando atendimento` : 'Visão geral dos chamados e pedidos'}
+        actions={(
+          <>
+            <div className="search-bar" role="search" style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.18)' }}>
+              <Search size={14} style={{ color: 'var(--on-navy-muted)', flexShrink: 0 }} aria-hidden="true" />
+              <input
+                type="search"
+                placeholder="Buscar chamados..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                aria-label="Buscar chamados"
+                style={{ color: 'var(--on-navy)' }}
+              />
+            </div>
+            <button onClick={() => handleExport('/reports/export/csv', 'chamados.xlsx')} className="btn btn-secondary" aria-label="Exportar chamados em Excel">
+              Exportar Excel
+            </button>
+            <button onClick={() => handleExport('/reports/export/pdf', 'chamados.pdf')} className="btn btn-on-navy" aria-label="Exportar chamados em PDF">
+              Exportar PDF
+            </button>
+          </>
+        )}
+      />
 
       {/* ══════════════ CONTEÚDO PRINCIPAL ══════════════ */}
-      <main style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '1400px', width: '100%', margin: '0 auto' }}>
+      <main className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
 
         {/* ── Seção: KPIs de Chamados ── */}
         <section aria-labelledby="section-kpi-chamados">
@@ -226,26 +219,26 @@ export default function DashboardPage() {
               <KpiCard
                 title="Total de Chamados"
                 value={metrics?.total ?? 0}
-                topColor="var(--status-andamento)"
+                tone="electric"
                 icon={Ticket}
               />
               <KpiCard
                 title="Aguardando Atendimento"
                 value={metrics?.pending ?? 0}
-                topColor="var(--status-aberto)"
+                tone="amber"
                 icon={Clock}
               />
               <KpiCard
                 title="Em Andamento"
                 value={metrics?.inProgress ?? 0}
-                topColor="var(--accent)"
+                tone="electric"
                 icon={Activity}
               />
               <KpiCard
                 title="Tempo Médio de Resolução"
                 value={metrics?.avgResolutionHours != null ? `${metrics.avgResolutionHours}h` : '—'}
                 sub="chamados concluídos"
-                topColor="var(--status-concluido)"
+                tone="teal"
                 icon={Timer}
               />
             </div>
@@ -281,7 +274,7 @@ export default function DashboardPage() {
                     <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
                     <YAxis tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} allowDecimals={false} />
                     <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="value" fill="var(--accent)" radius={[4, 4, 0, 0]} name="Chamados" />
+                    <Bar dataKey="value" fill="var(--electric)" radius={[6, 6, 0, 0]} name="Chamados" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -351,25 +344,25 @@ export default function DashboardPage() {
               <KpiCard
                 title="Total de Pedidos"
                 value={metrics.supply.total}
-                topColor="#a855f7"
+                tone="violet"
                 icon={ShoppingCart}
               />
               <KpiCard
                 title="Pendentes de Aprovação"
                 value={metrics.supply.pending}
-                topColor="var(--status-aberto)"
+                tone="amber"
                 icon={AlertCircle}
               />
               <KpiCard
                 title="Aprovados / Em Compra"
                 value={metrics.supply.approved}
-                topColor="var(--status-andamento)"
+                tone="electric"
                 icon={CheckCircle}
               />
               <KpiCard
                 title="Entregues"
                 value={metrics.supply.byStatus['ENTREGUE'] ?? 0}
-                topColor="var(--status-concluido)"
+                tone="teal"
                 icon={Package}
               />
             </div>
@@ -405,7 +398,7 @@ export default function DashboardPage() {
                     <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
                     <YAxis tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} allowDecimals={false} />
                     <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="value" fill="#a855f7" radius={[4, 4, 0, 0]} name="Pedidos" />
+                    <Bar dataKey="value" fill="var(--violet)" radius={[6, 6, 0, 0]} name="Pedidos" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>

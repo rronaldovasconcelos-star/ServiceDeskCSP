@@ -1,61 +1,84 @@
 @import "tailwindcss";
 @variant dark (&:where(.dark, .dark *));
 
+/*
+  Tokens do visual "Telehap" (27/10/2026): moldura azul-marinho com formas em
+  azul-elétrico e botões-pílula; miolo claro para o trabalho do dia a dia.
+  Regra: NENHUMA cor hex fora deste arquivo. Páginas usam variáveis ou classes.
+  Os nomes antigos (--bg-card, --accent, --text-secondary…) continuam como
+  aliases para as páginas que ainda têm estilo inline.
+*/
 :root {
-  /* Light mode */
-  --bg-primary: #f1f5f9;
-  --bg-sidebar: #ffffff;
+  /* bases */
+  --navy: #1c2440;
+  --navy-2: #2c2a48;
+  --navy-3: #343256;
+  --electric: #2f6fed;
+  --electric-soft: rgba(47,111,237,0.12);
+  --sky: #8db4ff;
+  --teal: #3fb5c8;
+  --teal-soft: rgba(63,181,200,0.14);
+  --amber: #f0b429;
+  --amber-soft: rgba(240,180,41,0.16);
+  --coral: #ef6b6b;
+  --coral-soft: rgba(239,107,107,0.14);
+  --violet: #8b6cf0;
+  --violet-soft: rgba(139,108,240,0.14);
+  --paper: #f3f6fb;
+
+  /* casca (sidebar, hero): texto sobre navy */
+  --on-navy: #ffffff;
+  --on-navy-muted: #aab4d4;
+  --navy-line: rgba(255,255,255,0.08);
+
+  /* miolo claro */
+  --bg-primary: var(--paper);
+  --bg-sidebar: var(--navy);
   --bg-card: #ffffff;
-  --bg-card-hover: #f8fafc;
-  --bg-active: #eff6ff;
-  --accent: #2563eb;
-  --text-primary: #0f172a;
-  --text-secondary: #64748b;
-  --border: #e2e8f0;
-  --kanban-col-bg: rgba(241,245,249,0.7);
+  --bg-card-hover: #f7f9fe;
+  --bg-active: var(--electric-soft);
+  --accent: var(--electric);
+  --text-primary: #1c2440;
+  --text-secondary: #5f6b8a;
+  --border: #e3e8f3;
+  --kanban-col-bg: rgba(227,232,243,0.45);
 
-  --status-aberto: #d97706;
-  --status-andamento: #2563eb;
-  --status-concluido: #16a34a;
-  --status-cancelado: #6b7280;
+  --status-aberto: var(--amber);
+  --status-andamento: var(--electric);
+  --status-concluido: var(--teal);
+  --status-cancelado: #7a849f;
 
-  --prio-alta: #dc2626;
-  --prio-media: #d97706;
-  --prio-baixa: #16a34a;
+  --prio-alta: var(--coral);
+  --prio-media: var(--amber);
+  --prio-baixa: var(--teal);
 
-  --btn-export-csv: #16a34a;
-  --btn-export-pdf: #dc2626;
+  --btn-export-csv: var(--teal);
+  --btn-export-pdf: var(--coral);
 
-  --radius: 8px;
-  --radius-sm: 4px;
-  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  /* três raios, três papéis */
+  --radius-card: 12px;
+  --radius-tile: 10px;
+  --radius-pill: 999px;
+  --radius: var(--radius-card);
+  --radius-sm: var(--radius-tile);
+  --shadow: 0 6px 24px rgba(28,36,64,0.08);
+  --shadow-navy: 0 10px 30px rgba(10,16,40,0.35);
 }
 
 .dark {
-  --bg-primary: #0f1b2d;
-  --bg-sidebar: #0d1825;
-  --bg-card: #1a2942;
-  --bg-card-hover: #1e3358;
-  --bg-active: #1e3a5f;
-  --accent: #4d8ef0;
-  --text-primary: #e2e8f0;
-  --text-secondary: #94a3b8;
-  --border: #1e3358;
-  --kanban-col-bg: rgba(13,24,37,0.5);
-
-  --status-aberto: #f59e0b;
-  --status-andamento: #3b82f6;
-  --status-concluido: #22c55e;
-  --status-cancelado: #6b7280;
-
-  --prio-alta: #ef4444;
-  --prio-media: #f59e0b;
-  --prio-baixa: #22c55e;
-
-  --btn-export-csv: #22c55e;
-  --btn-export-pdf: #ef4444;
-
-  --shadow: 0 2px 8px rgba(0,0,0,0.4);
+  --paper: #161c33;
+  --bg-primary: var(--paper);
+  --bg-card: #222b4a;
+  --bg-card-hover: #283356;
+  --bg-active: rgba(47,111,237,0.22);
+  --accent: var(--sky);
+  --text-primary: #e6ecf7;
+  --text-secondary: #a3add0;
+  --border: #30395e;
+  --kanban-col-bg: rgba(22,28,51,0.6);
+  --electric-soft: rgba(47,111,237,0.22);
+  --status-cancelado: #8f99b8;
+  --shadow: 0 6px 24px rgba(0,0,0,0.35);
 }
 
 * {
@@ -64,17 +87,29 @@
 
 html, body {
   margin: 0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Poppins', system-ui, -apple-system, sans-serif;
   font-size: 14px;
   background-color: var(--bg-primary);
   color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.01em; }
+
+:focus-visible {
+  outline: 2px solid var(--electric);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg-sidebar); }
-::-webkit-scrollbar-thumb { background: var(--bg-active); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-secondary); }
 
 /* ── Animations ── */
 @keyframes fadeIn {
@@ -88,42 +123,52 @@ html, body {
   to   { background-position: calc(400px + 100%) 0; }
 }
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--bg-card) 25%,
-    var(--bg-card-hover) 50%,
-    var(--bg-card) 75%
-  );
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-card-hover) 50%, var(--bg-card) 75%);
   background-size: 400px 100%;
   animation: shimmer 1.5s infinite;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-tile);
 }
 
-/* ── Sidebar nav links ── */
+/* ── Sidebar (sempre navy, nos dois temas) ── */
 .sidebar-link {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 14px;
-  border-radius: var(--radius-sm);
+  gap: 10px;
+  padding: 7px 10px 7px 8px;
+  border-radius: var(--radius-pill);
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: var(--on-navy-muted);
   background: transparent;
-  border-left: 3px solid transparent;
+  border: none;
   text-decoration: none;
   transition: background 0.15s, color 0.15s;
   white-space: nowrap;
   overflow: hidden;
+  cursor: pointer;
+}
+.sidebar-link .link-tile {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-tile);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--navy-line);
+  color: var(--on-navy);
+  transition: background 0.15s;
 }
 .sidebar-link:hover {
-  background: rgba(77,142,240,0.1);
-  color: var(--text-primary);
+  background: rgba(255,255,255,0.06);
+  color: var(--on-navy);
 }
 .sidebar-link.active {
-  background: var(--bg-active);
-  border-left-color: var(--accent);
-  color: var(--text-primary);
+  background: var(--electric);
+  color: var(--on-navy);
+}
+.sidebar-link.active .link-tile {
+  background: rgba(255,255,255,0.18);
 }
 .sidebar-link .link-label {
   flex: 1;
@@ -131,7 +176,55 @@ html, body {
   text-overflow: ellipsis;
 }
 
-/* ── Dashboard page header ── */
+/* ── Faixa de cabeçalho (PageHeader): o elemento memorável ── */
+.page-hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--navy);
+  color: var(--on-navy);
+  padding: 26px 28px 24px;
+}
+.page-hero-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.page-hero-blob {
+  position: absolute;
+  right: -40px;
+  top: -70px;
+  width: 360px;
+  height: 260px;
+  pointer-events: none;
+  opacity: 0.95;
+}
+.page-hero-title {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.15;
+  margin: 0;
+  color: var(--on-navy);
+}
+.page-hero-subtitle {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sky);
+}
+.page-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ── Cabeçalho antigo (ainda usado por páginas não migradas) ── */
 .page-header {
   display: flex;
   align-items: center;
@@ -140,14 +233,14 @@ html, body {
   gap: 12px;
   padding: 20px 24px 16px;
   border-bottom: 1px solid var(--border);
-  max-width: 1400px;
+  max-width: 1280px;
   width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
 }
 .page-title {
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-primary);
   margin: 0;
 }
@@ -158,6 +251,82 @@ html, body {
   flex-wrap: wrap;
 }
 
+/* ── Miolo de página ── */
+.page-body {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* ── Botões-pílula ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: var(--radius-pill);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: filter 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+}
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn:not(:disabled):hover { filter: brightness(1.08); }
+.btn-sm { padding: 6px 12px; font-size: 12px; }
+.btn-primary { background: var(--electric); color: #fff; }
+.btn-secondary { background: var(--teal); color: #fff; }
+.btn-ghost {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+.btn-ghost:not(:disabled):hover { background: var(--bg-card-hover); filter: none; }
+.btn-danger { background: var(--coral); color: #fff; }
+.btn-on-navy {
+  background: rgba(255,255,255,0.12);
+  color: var(--on-navy);
+  border-color: rgba(255,255,255,0.18);
+}
+
+/* ── Tile de ícone (KPI, sidebar, destaque) ── */
+.icon-tile {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-tile);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--electric);
+  color: #fff;
+}
+.icon-tile.teal { background: var(--teal); }
+.icon-tile.amber { background: var(--amber); }
+.icon-tile.coral { background: var(--coral); }
+.icon-tile.violet { background: var(--violet); }
+.icon-tile.soft { background: var(--electric-soft); color: var(--electric); }
+
+/* ── Cards ── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 20px;
+}
+.card-raised { box-shadow: var(--shadow); }
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 14px;
+}
+
 /* ── Search bar ── */
 .search-bar {
   display: flex;
@@ -165,8 +334,8 @@ html, body {
   gap: 8px;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  padding: 7px 14px;
   min-width: 200px;
 }
 .search-bar input {
@@ -183,25 +352,23 @@ html, body {
 
 /* ── Export buttons ── */
 .btn-export {
-  padding: 6px 14px;
+  padding: 7px 14px;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-pill);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   color: #fff;
   transition: filter 0.15s;
 }
-.btn-export:hover { filter: brightness(1.12); }
+.btn-export:hover { filter: brightness(1.1); }
 .btn-export-csv { background: var(--btn-export-csv); }
 .btn-export-pdf { background: var(--btn-export-pdf); }
 
-/* ── Section titles ── */
+/* ── Section titles (sem caixa alta) ── */
 .section-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: var(--text-secondary);
   margin: 0 0 12px;
 }
@@ -210,12 +377,11 @@ html, body {
 .kpi-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   padding: 18px 20px;
-  box-shadow: var(--shadow);
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: 14px;
   position: relative;
   animation: fadeIn 0.3s ease forwards;
 }
@@ -228,17 +394,15 @@ html, body {
 .kpi-label {
   font-size: 12px;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: var(--text-secondary);
   margin: 0;
 }
 .kpi-value {
-  font-size: 32px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 600;
   color: var(--text-primary);
   line-height: 1.1;
-  margin: 4px 0 0;
+  margin: 2px 0 0;
 }
 .kpi-sub {
   font-size: 12px;
@@ -250,18 +414,17 @@ html, body {
 .chart-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   padding: 20px;
-  box-shadow: var(--shadow);
 }
 .chart-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0 0 16px;
 }
 
-/* ── Kanban filter buttons ── */
+/* ── Filtros em pílula ── */
 .kanban-filters {
   display: flex;
   gap: 8px;
@@ -269,11 +432,12 @@ html, body {
   margin-bottom: 16px;
 }
 .filter-btn {
-  padding: 5px 12px;
-  border-radius: 20px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   background: var(--bg-card);
   color: var(--text-secondary);
+  font-family: inherit;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -284,18 +448,18 @@ html, body {
   color: var(--text-primary);
 }
 .filter-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--electric);
+  border-color: var(--electric);
   color: #fff;
 }
 
-/* ── Kanban columns ── */
+/* ── Kanban ── */
 .kanban-col-header {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: var(--radius) var(--radius) 0 0;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
   border: 1px solid var(--border);
   border-bottom: none;
   background: var(--bg-card);
@@ -306,25 +470,17 @@ html, body {
   flex-direction: column;
   gap: 8px;
   padding: 8px;
-  border-radius: 0 0 var(--radius) var(--radius);
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
   border: 1px solid var(--border);
   min-height: 180px;
-  /* Altura máxima: a coluna nunca cresce além da viewport — o scroll
-     interno mantém o board compacto e o rodapé sempre acessível. */
   max-height: calc(100vh - 240px);
   overflow-y: auto;
   overscroll-behavior: contain;
   transition: background 0.15s;
   background: var(--kanban-col-bg);
 }
-
-/* Scrollbar discreta no tema escuro */
-.kanban-col-body::-webkit-scrollbar {
-  width: 8px;
-}
-.kanban-col-body::-webkit-scrollbar-track {
-  background: transparent;
-}
+.kanban-col-body::-webkit-scrollbar { width: 8px; }
+.kanban-col-body::-webkit-scrollbar-track { background: transparent; }
 .kanban-col-body::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 8px;
@@ -336,15 +492,13 @@ html, body {
   background-clip: padding-box;
 }
 .kanban-col-body.over {
-  background: rgba(77,142,240,0.06);
-  border-color: var(--accent);
+  background: var(--electric-soft);
+  border-color: var(--electric);
 }
-
-/* ── Kanban cards ── */
 .kanban-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-tile);
   padding: 10px 12px;
   cursor: default;
   transition: background 0.15s, box-shadow 0.15s;
@@ -354,24 +508,21 @@ html, body {
   background: var(--bg-card-hover);
   box-shadow: var(--shadow);
 }
-.kanban-card.draggable {
-  cursor: grab;
-}
+.kanban-card.draggable { cursor: grab; }
 .kanban-card.dragging {
-  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-navy);
   opacity: 0.85;
   transform: rotate(1deg);
 }
-
-/* ── Botão "ver mais" das colunas de histórico ── */
 .kanban-show-more {
   width: 100%;
   padding: 8px;
   margin-top: 2px;
   background: transparent;
   border: 1px dashed var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-tile);
   color: var(--text-secondary);
+  font-family: inherit;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -380,19 +531,51 @@ html, body {
 .kanban-show-more:hover {
   background: var(--bg-card-hover);
   color: var(--text-primary);
-  border-color: var(--accent);
+  border-color: var(--electric);
 }
 
-/* ── Pill badges ── */
+/* ── Pílulas de status ── */
 .pill {
   display: inline-block;
-  padding: 2px 8px;
-  border-radius: 20px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   font-weight: 500;
+  white-space: nowrap;
 }
+.pill-electric { background: var(--electric-soft); color: var(--electric); }
+.pill-teal { background: var(--teal-soft); color: var(--teal); }
+.pill-amber { background: var(--amber-soft); color: #b07d10; }
+.pill-coral { background: var(--coral-soft); color: var(--coral); }
+.pill-violet { background: var(--violet-soft); color: var(--violet); }
+.pill-muted { background: rgba(122,132,159,0.14); color: var(--status-cancelado); }
+.dark .pill-amber { color: var(--amber); }
 
-/* ── Table row hover ── */
+/* ── Tabelas ── */
+.table-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.table-wrap table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table-wrap thead th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card-hover);
+}
+.table-wrap tbody td {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+.table-wrap tbody tr:last-child td { border-bottom: none; }
 .table-row { cursor: pointer; transition: background 0.1s; }
 .table-row:hover { background: var(--bg-card-hover) !important; }
 
@@ -407,18 +590,56 @@ details[open] > summary .tree-caret { transform: rotate(90deg); }
 .detail-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-card);
   padding: 24px;
-  box-shadow: var(--shadow);
 }
 
-/* ── Form overrides — adaptam automaticamente com as CSS variables ── */
+/* ── Modal ── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(16,22,44,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-navy);
+  width: 100%;
+  max-width: 520px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  animation: fadeIn 0.2s ease forwards;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 0;
+}
+.modal-title { font-size: 17px; font-weight: 600; margin: 0; color: var(--text-primary); }
+.modal-body { padding: 16px 22px 22px; }
+.modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 22px 20px;
+}
+
+/* ── Formulários ── */
 input,
 textarea,
 select {
   background-color: var(--bg-card);
   color: var(--text-primary);
   border-color: var(--border);
+  font-family: inherit;
 }
 input::placeholder,
 textarea::placeholder {
@@ -427,11 +648,27 @@ textarea::placeholder {
 input:focus,
 textarea:focus,
 select:focus {
-  border-color: var(--accent);
-  outline-color: var(--accent);
+  border-color: var(--electric);
+  outline-color: var(--electric);
 }
 option,
 optgroup {
   background-color: var(--bg-card);
   color: var(--text-primary);
+}
+.field {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-tile);
+  font-size: 13px;
+}
+.field.with-icon { padding-left: 36px; }
+.field.with-prefix { padding-left: 64px; }
+.field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
 }
