@@ -19,6 +19,12 @@ hospedagem Hostinger.
 
 ## Onde parou (27/10/2026, noite) — "Abrir no Word" + ajustes do Google
 
+**EM PRODUÇÃO desde 27/10 ~17h50** (deploy do franc pelos dois scripts com `!`, Python 3.12).
+Provado: `/api/health` 200; `edit-local` 401 sem token; `OPTIONS /api/dav/...` devolve
+`DAV: 1,2` e `MS-Author-Via: DAV`; token inválido → 403 sem `WWW-Authenticate`; site serve
+`index-DjFRqlcA.js` com "Abrir no", "salva direto no portal", o aviso do formato antigo,
+a URL da API e o Client ID. Falta a prova dele com o Word (abaixo).
+
 **O que o Ronaldo viu:** editou um `.doc` pelo "Editar no Google" e o arquivo
 baixado veio desconfigurado (WordArt do cabeçalho sumiu, linha atravessando as
 fotos, 1 → 2 páginas). Diagnóstico: o Google **converte** `.doc` em `.docx` ao
