@@ -36,7 +36,6 @@ function buildTree(files: FileRecord[]): Node {
 interface RowActions {
   canDelete: (f: FileRecord) => boolean;
   onDelete: (f: FileRecord) => void;
-  canEditOnline: (f: FileRecord) => boolean;
   canEditOffice?: (f: FileRecord) => boolean;
   onPreview: (f: FileRecord) => void;
   canReplace?: boolean;
@@ -148,7 +147,6 @@ function FileRow({ f, actions }: { f: FileRecord; actions: RowActions }) {
         onDelete={actions.onDelete}
         canReplace={actions.canReplace}
         onReplace={actions.onReplace}
-        canEditOnline={actions.canEditOnline(f)}
         canEditOffice={actions.canEditOffice?.(f) ?? false}
         onPreview={actions.onPreview}
       />

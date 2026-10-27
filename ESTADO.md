@@ -59,7 +59,7 @@ fazer os dois ajustes do portal **e** seguir com o Word direto.
 "Habilitar Edição" → digitar → Ctrl+S → voltar ao portal: linha mostra a caneta
 e o tamanho novo; Baixar traz a edição; Histórico mostra "Aberto no Word…" e
 "Salvo pelo Word…". Repetir num `.doc` (abre no Word em formato antigo, sem
-conversão). **Pendente: decidir se o "Editar no Google" continua visível** (hoje fica, com o aviso no formato antigo).
+conversão). **Decisão dele (27/10, noite): "Editar no Google" SAIU da tela.** Só o botão do Office fica. O backend continua com a rota `edit-session` e os testes (sem botão que a chame); `canEditOnline` removido do front.
 
 ## Estado anterior (27/10/2026, tarde) — editar arquivos no próprio portal
 

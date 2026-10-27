@@ -63,7 +63,6 @@ export default function RepositorioPage() {
   const [previewTarget, setPreviewTarget] = useState<FileRecord | null>(null);
   useEffect(() => { fetchCapabilities().then(setCapabilities).catch(() => setCapabilities(SEM_CAPACIDADES)); }, []);
   const podeEditar = (f: FileRecord) => user?.role === 'ADMIN' || user?.role === 'GESTOR' || f.ownerId === user?.id;
-  const canEditOnline = (f: FileRecord) => !!capabilities?.editInDrive && podeEditar(f);
   const canEditOffice = (f: FileRecord) => !!capabilities?.editInOffice && podeEditar(f);
   useSyncOnFocus((f) => { setFiles((prev) => prev.map((x) => (x.id === f.id ? f : x))); loadMetrics(); });
   const [loading, setLoading] = useState(true);
@@ -333,7 +332,7 @@ export default function RepositorioPage() {
       ) : filteredFiles.length === 0 ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhum arquivo encontrado.</p>
       ) : view === 'arvore' ? (
-        <FilesTreeView files={filteredFiles} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} showOwner canEditOnline={canEditOnline} canEditOffice={canEditOffice} onPreview={setPreviewTarget} canReplace={canEdit} onReplace={setReplaceTarget} />
+        <FilesTreeView files={filteredFiles} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} showOwner canEditOffice={canEditOffice} onPreview={setPreviewTarget} canReplace={canEdit} onReplace={setReplaceTarget} />
       ) : (
         <>
           {/* Desktop: tabela */}
@@ -371,7 +370,7 @@ export default function RepositorioPage() {
                       {f.lastEditedAt && <PenLine size={12} style={{ marginLeft: '6px', verticalAlign: '-2px', color: 'var(--accent)' }} aria-label="Editado on-line" />}
                     </td>
                     <td style={{ padding: '10px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOnline={canEditOnline(f)} canEditOffice={canEditOffice(f)} onPreview={setPreviewTarget} />
+                      <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOffice={canEditOffice(f)} onPreview={setPreviewTarget} />
                     </td>
                   </tr>
                 ))}
@@ -392,7 +391,7 @@ export default function RepositorioPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                    <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOnline={canEditOnline(f)} canEditOffice={canEditOffice(f)} onPreview={setPreviewTarget} />
+                    <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOffice={canEditOffice(f)} onPreview={setPreviewTarget} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>

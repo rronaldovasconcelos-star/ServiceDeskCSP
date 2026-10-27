@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, Eye, FilePenLine, PenLine, Replace, Trash2 } from 'lucide-react';
+import { Download, Eye, FilePenLine, Replace, Trash2 } from 'lucide-react';
 import {
-  apiErrorMessage, avisoConversaoGoogle, downloadFile, editorKindFor, editorLabel, isLegacyOffice, isPreviewable, markOpenedForEdit,
-  officeAppFor, officeLabel, openEditSession, openOfficeSession, type FileRecord,
+  apiErrorMessage, downloadFile, isPreviewable, markOpenedForEdit,
+  officeAppFor, officeLabel, openOfficeSession, type FileRecord,
 } from '../lib/files';
 
 interface Props {
@@ -11,8 +11,6 @@ interface Props {
   onDelete: (f: FileRecord) => void;
   canReplace?: boolean;
   onReplace?: (f: FileRecord) => void;
-  /** dono ou ADMIN/GESTOR, e o storage permite edição on-line (Google Drive). */
-  canEditOnline: boolean;
   /** dono ou ADMIN/GESTOR: abre no Word/Excel/PowerPoint instalado, salvando direto no portal. */
   canEditOffice?: boolean;
   onPreview: (f: FileRecord) => void;
@@ -26,43 +24,23 @@ const iconBtnStyle: React.CSSProperties = {
 
 /**
  * Ações de uma linha de arquivo: Abrir (PDF/imagem) · Abrir no Word/Excel/PowerPoint
- * (docx/doc/xlsx/pptx…) · Editar no Google · Baixar · Substituir · Excluir.
- * Usado na tabela, nos cards e na árvore.
+ * (docx/doc/xlsx/pptx…) · Baixar · Substituir · Excluir. Usado na tabela, nos cards e na árvore.
+ * O "Editar no Google" saiu em 27/10/2026 (decisão do Ronaldo: o Google converte e
+ * desconfigura os modelos da escola); o backend continua servindo a rota.
  */
-export default function FileActionButtons({ f, canDelete, onDelete, canReplace, onReplace, canEditOnline, canEditOffice, onPreview, size = 16 }: Props) {
+export default function FileActionButtons({ f, canDelete, onDelete, canReplace, onReplace, canEditOffice, onPreview, size = 16 }: Props) {
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState('');
   const [aviso, setAviso] = useState('');
   const timer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
-  const editor = editorKindFor(f.mimeType);
   const office = officeAppFor(f.mimeType);
 
   function mostrar(set: (s: string) => void, msg: string, ms: number) {
     set(msg);
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => { setErro(''); setAviso(''); }, ms);
-  }
-
-  async function editar() {
-    if (busy) return;
-    // Formato antigo: o Google converte e desconfigura. Pergunta ANTES de abrir a aba.
-    if (isLegacyOffice(f.mimeType) && !window.confirm(avisoConversaoGoogle(f.originalName))) return;
-    // A aba precisa ser aberta de forma síncrona no clique, senão o bloqueador
-    // de pop-up barra; o endereço entra depois que o backend responde.
-    const win = window.open('', '_blank');
-    setBusy(true);
-    try {
-      const { url } = await openEditSession(f.id);
-      if (win) win.location.href = url; else window.open(url, '_blank');
-      markOpenedForEdit(f.id);
-    } catch (e: unknown) {
-      win?.close();
-      mostrar(setErro, apiErrorMessage(e, 'Não foi possível abrir o editor. Tente novamente.'), 6000);
-    } finally {
-      setBusy(false);
-    }
   }
 
   async function abrirNoOffice() {
@@ -82,7 +60,6 @@ export default function FileActionButtons({ f, canDelete, onDelete, canReplace, 
     }
   }
 
-  const tituloEditar = editor ? (busy ? 'Abrindo...' : `Editar no ${editorLabel(editor)}`) : '';
   const tituloOffice = office ? (busy ? 'Abrindo...' : `Abrir no ${officeLabel(office)} (salva direto no portal)`) : '';
 
   return (
@@ -109,17 +86,6 @@ export default function FileActionButtons({ f, canDelete, onDelete, canReplace, 
           aria-label={tituloOffice}
         >
           <FilePenLine size={size} />
-        </button>
-      )}
-      {canEditOnline && editor && (
-        <button
-          onClick={editar}
-          disabled={busy}
-          style={{ ...iconBtnStyle, color: 'var(--accent)', opacity: busy ? 0.5 : 1, cursor: busy ? 'default' : 'pointer' }}
-          title={tituloEditar}
-          aria-label={tituloEditar}
-        >
-          <PenLine size={size} />
         </button>
       )}
       <button onClick={() => downloadFile(f.id, f.originalName)} style={iconBtnStyle} title="Baixar" aria-label="Baixar"><Download size={size} /></button>

@@ -51,7 +51,6 @@ export default function MeusArquivosPage() {
   const [capabilities, setCapabilities] = useState<FileCapabilities | null>(null);
   const [previewTarget, setPreviewTarget] = useState<FileRecord | null>(null);
   useEffect(() => { fetchCapabilities().then(setCapabilities).catch(() => setCapabilities(SEM_CAPACIDADES)); }, []);
-  const canEditOnline = () => !!capabilities?.editInDrive; // tudo aqui é do próprio usuário
   const canEditOffice = () => !!capabilities?.editInOffice;
   useSyncOnFocus((f) => setFiles((prev) => prev.map((x) => (x.id === f.id ? f : x))));
   const [loading, setLoading] = useState(true);
@@ -201,7 +200,7 @@ export default function MeusArquivosPage() {
       ) : files.length === 0 ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhum arquivo encontrado.</p>
       ) : view === 'arvore' ? (
-        <FilesTreeView files={files} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} canEditOnline={canEditOnline} canEditOffice={canEditOffice} onPreview={setPreviewTarget} />
+        <FilesTreeView files={files} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} canEditOffice={canEditOffice} onPreview={setPreviewTarget} />
       ) : (
         <>
           {/* Desktop: tabela */}
@@ -237,7 +236,7 @@ export default function MeusArquivosPage() {
                       {f.lastEditedAt && <PenLine size={12} style={{ marginLeft: '6px', verticalAlign: '-2px', color: 'var(--accent)' }} aria-label="Editado on-line" />}
                     </td>
                     <td style={{ padding: '10px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canEditOnline={canEditOnline()} canEditOffice={canEditOffice()} onPreview={setPreviewTarget} />
+                      <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canEditOffice={canEditOffice()} onPreview={setPreviewTarget} />
                     </td>
                   </tr>
                 ))}
@@ -255,7 +254,7 @@ export default function MeusArquivosPage() {
                     <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '13px', wordBreak: 'break-word' }}>{f.originalName}</span>
                   </div>
                   <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                    <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canEditOnline={canEditOnline()} canEditOffice={canEditOffice()} onPreview={setPreviewTarget} />
+                    <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canEditOffice={canEditOffice()} onPreview={setPreviewTarget} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
