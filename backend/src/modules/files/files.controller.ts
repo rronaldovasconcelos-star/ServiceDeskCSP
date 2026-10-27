@@ -13,10 +13,12 @@ import {
   isValidTipo,
 } from './taxonomy.js';
 import { isEditableStorage } from '../../services/storage/types.js';
+import { env } from '../../config/env.js';
 import {
   FileErro,
   canAccessFile,
   openEditSession,
+  openOfficeSession,
   storageSupportsEdit,
   syncFileMetadata,
 } from './files.service.js';
@@ -351,7 +353,19 @@ export async function replaceFile(req: Request, res: Response, next: NextFunctio
 // ─── Edição on-line (Google Docs/Planilhas/Apresentações no Drive) ──────────────
 
 export async function fileCapabilities(_req: Request, res: Response): Promise<void> {
-  res.json({ editInDrive: storageSupportsEdit() });
+  // editInOffice: o WebDAV funciona com qualquer storage; o que decide é ter o Office no PC.
+  res.json({ editInDrive: storageSupportsEdit(), editInOffice: true });
+}
+
+// Emite o link ms-word:ofe|u|... (ou Excel/PowerPoint) que abre o arquivo no Office
+// instalado, direto pelo WebDAV do portal. Base da URL: PUBLIC_API_URL ou a própria requisição.
+export async function openOfficeSessionHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const base = env.publicApiUrl || `${req.protocol}://${req.get('host')}`;
+    res.json(await openOfficeSession(req.params.id as string, req.user!, base));
+  } catch (err) {
+    handleFileErro(err, res, next);
+  }
 }
 
 // Compartilha o arquivo do Drive com o e-mail do usuário e devolve o link do editor.

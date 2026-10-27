@@ -12,6 +12,12 @@ export interface StorageProvider {
    * passado — ex: Google Drive retorna o ID do arquivo em vez do caminho).
    */
   save(key: string, sourcePath: string, mimeType?: string): Promise<string>;
+  /**
+   * Troca o CONTEÚDO de uma chave já existente pelo arquivo de `sourcePath`,
+   * mantendo a mesma chave (no Drive: mesmo id, mesmas permissões). Usado quando
+   * o Word/Excel/PowerPoint salva pelo WebDAV do portal. Remove o temporário.
+   */
+  overwrite(key: string, sourcePath: string, mimeType?: string): Promise<void>;
   /** Abre um stream de leitura para a chave persistida. */
   createReadStream(key: string): Readable;
   /** Remove o arquivo da chave (idempotente). */

@@ -6,6 +6,7 @@ import ticketsRouter from './modules/tickets/tickets.router.js';
 import reportsRouter from './modules/reports/reports.router.js';
 import suprimesRouter from './modules/suprimentos/suprimentos.router.js';
 import filesRouter from './modules/files/files.router.js';
+import filesDavRouter from './modules/files/files.dav.js';
 import whatsappRouter from './modules/whatsapp/whatsapp.router.js';
 import agentRouter from './modules/agent/agent.router.js';
 import botRouter from './modules/bot/bot.router.js';
@@ -22,6 +23,18 @@ const app = express();
 // Atrás do Traefik/Coolify: confia no primeiro proxy para que req.ip reflita o
 // IP real do cliente (X-Forwarded-For), essencial para o rate-limit por IP.
 app.set('trust proxy', 1);
+
+// WebDAV do Office (Word/Excel/PowerPoint abrindo arquivos do repositório). Fica
+// ANTES do cors (que responderia todo OPTIONS como preflight, sem os cabeçalhos
+// DAV) e do express.json (o PUT do Office é binário). Autentica pelo token do path.
+app.use('/api/dav', filesDavRouter);
+// O Office sonda a raiz do servidor com OPTIONS antes de abrir o arquivo.
+app.options('/', (_req, res) => {
+  res.setHeader('DAV', '1,2');
+  res.setHeader('MS-Author-Via', 'DAV');
+  res.setHeader('Allow', 'OPTIONS, GET, HEAD, PUT, PROPFIND, PROPPATCH, LOCK, UNLOCK');
+  res.status(200).end();
+});
 
 // CORS: em produção restringe à allowlist (CORS_ALLOWED_ORIGINS); em dev libera
 // qualquer origem (localhost:5173 etc.). Requisições sem Origin (curl, health

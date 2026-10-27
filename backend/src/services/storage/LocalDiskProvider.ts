@@ -19,6 +19,16 @@ export class LocalDiskProvider implements StorageProvider {
     return key; // chave local é o próprio path relativo
   }
 
+  async overwrite(key: string, sourcePath: string, _mimeType?: string): Promise<void> {
+    const dest = path.join(ROOT, key);
+    await fsp.mkdir(path.dirname(dest), { recursive: true });
+    // Grava ao lado e troca por rename: quem lê nunca vê um arquivo pela metade.
+    const tmp = `${dest}.novo-${process.pid}-${Date.now()}`;
+    await fsp.copyFile(sourcePath, tmp);
+    await fsp.rename(tmp, dest);
+    await fsp.rm(sourcePath, { force: true });
+  }
+
   createReadStream(key: string): Readable {
     return fs.createReadStream(path.join(ROOT, key));
   }

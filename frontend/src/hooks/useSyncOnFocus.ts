@@ -11,6 +11,9 @@ export function useSyncOnFocus(onUpdated: (f: FileRecord) => void): void {
   const cb = useRef(onUpdated);
   useEffect(() => { cb.current = onUpdated; }, [onUpdated]);
   const ultimaSync = useRef(new Map<string, number>());
+  // Última edição conhecida por arquivo: o Word salva pelo WebDAV sem o Drive
+  // "mudar" (changed=false), então a tela compara o lastEditedAt devolvido.
+  const ultimaEdicao = useRef(new Map<string, string | null>());
 
   useEffect(() => {
     let cancelado = false;
@@ -21,7 +24,10 @@ export function useSyncOnFocus(onUpdated: (f: FileRecord) => void): void {
         ultimaSync.current.set(id, agora);
         try {
           const r = await syncFile(id);
-          if (!cancelado && r.changed) cb.current(r.file);
+          const marca = `${r.file.lastEditedAt ?? ''}|${r.file.sizeBytes}|${r.file.originalName}`;
+          const mudou = r.changed || (ultimaEdicao.current.has(id) && ultimaEdicao.current.get(id) !== marca);
+          ultimaEdicao.current.set(id, marca);
+          if (!cancelado && mudou) cb.current(r.file);
         } catch {
           // silencioso: o próximo foco tenta de novo
         }

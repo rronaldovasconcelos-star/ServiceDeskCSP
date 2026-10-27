@@ -1,6 +1,6 @@
 # ESTADO — Portal de Chamados (Service Desk CSP)
 
-Handoff entre PCs. Atualizado em 27/10/2026.
+Handoff entre PCs. Atualizado em 27/10/2026 (noite).
 
 ## O que é
 
@@ -17,7 +17,45 @@ hospedagem Hostinger.
 - PC franc: `Desktop\ServiceDeskCSP` (clone de 22/09/2026; `.deploy.env` criado em
   23/09 com o token da Hostinger).
 
-## Onde parou (27/10/2026) — editar arquivos no próprio portal
+## Onde parou (27/10/2026, noite) — "Abrir no Word" + ajustes do Google
+
+**O que o Ronaldo viu:** editou um `.doc` pelo "Editar no Google" e o arquivo
+baixado veio desconfigurado (WordArt do cabeçalho sumiu, linha atravessando as
+fotos, 1 → 2 páginas). Diagnóstico: o Google **converte** `.doc` em `.docx` ao
+abrir (o arquivo baixado era um `.docx` com nome `.doc`) e não tem WordArt nem
+respeita formas ancoradas. Limite do editor, não defeito do portal. Decisão dele:
+fazer os dois ajustes do portal **e** seguir com o Word direto.
+
+**Feito nesta sessão (documentação completa em `docs/edicao-arquivos.md`):**
+- **Abrir no Word/Excel/PowerPoint**: `POST /files/:id/edit-local` → link
+  `ms-word:ofe|u|https://api…/api/dav/<token>/<nome>`; WebDAV mínimo em
+  `backend/src/modules/files/files.dav.ts` (OPTIONS/PROPFIND/HEAD/GET/LOCK/PUT/
+  UNLOCK/PROPPATCH), token JWT escopo `dav` por arquivo+usuário (12 h), lock
+  exclusivo (outro usuário → 423), `storage.overwrite` grava na MESMA chave
+  (Drive: `files.update`, mesmo id). Logs `EDIT_OFFICE` e `SAVED_OFFICE`.
+  Funciona com storage em disco e com Drive.
+- **Ajuste 1**: a sincronização renomeia a extensão quando o Drive converteu
+  (`.doc` → `.docx`), em `originalName` e `storedName`.
+- **Ajuste 2**: `confirm` antes de mandar `.doc/.xls/.ppt` para o Google, com
+  sugestão de "Abrir no Word"; `edit-session` devolve `converts`.
+- Provas: 27 testes unitários (mock) + 11 por HTTP contra o app real, todos
+  verdes; tsc dos dois lados; lint com os mesmos 37 problemas antigos; build.
+  **Word de verdade (franc, 27/10):** abrindo a URL do WebDAV pelo próprio Word,
+  `ReadOnly=false`, `Save()` gravou, o arquivo no storage passou a ter o texto
+  digitado, `SAVED_OFFICE` registrado com o nome do usuário. O link
+  `ms-word:ofe|u|…` pelo protocolo abriu o Word com o documento, em **Modo de
+  Exibição Protegido** (barra "Habilitar Edição") — o clique nessa barra não foi
+  automatizado (o classificador de segurança barrou); é o mesmo caminho do
+  `Open` provado acima. Para sumir com a barra na escola: API nos Sites
+  Confiáveis do Windows.
+
+**Falta (ele faz, em produção):** num `.docx` real, clicar "Abrir no Word" →
+"Habilitar Edição" → digitar → Ctrl+S → voltar ao portal: linha mostra a caneta
+e o tamanho novo; Baixar traz a edição; Histórico mostra "Aberto no Word…" e
+"Salvo pelo Word…". Repetir num `.doc` (abre no Word em formato antigo, sem
+conversão). Depois disso, decidir se o "Editar no Google" continua visível.
+
+## Estado anterior (27/10/2026, tarde) — editar arquivos no próprio portal
 
 **Pedido do Ronaldo (print de 27/10):** no Repositório de Arquivos, parar de "baixar,
 editar fora e subir de novo". Decisões dele: editor = **Google Docs/Planilhas/

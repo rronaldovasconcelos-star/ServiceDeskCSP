@@ -100,6 +100,9 @@ export const env = {
   uploadDir: optional('UPLOAD_DIR', 'uploads'),
   maxFileSizeMb: parseInt(optional('MAX_FILE_SIZE_MB', '100'), 10),
   storageProvider: optional('STORAGE_PROVIDER', 'local'), // 'local' | 'google-drive'
+  // URL pública da API, usada nos links `ms-word:ofe|u|...` do Office. Vazio =
+  // deduz da própria requisição (protocolo + host, atrás do Traefik).
+  publicApiUrl: optional('PUBLIC_API_URL', ''),
 
   // Google Drive — OAuth2 (usado quando STORAGE_PROVIDER=google-drive)
   googleDriveRootFolderId: optional('GOOGLE_DRIVE_ROOT_FOLDER_ID', ''),

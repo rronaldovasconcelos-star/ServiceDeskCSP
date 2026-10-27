@@ -81,21 +81,64 @@ export function editorLabel(kind: EditorKind): string {
   return kind === 'docs' ? 'Google Documentos' : kind === 'sheets' ? 'Google Planilhas' : 'Google Apresentações';
 }
 
+/**
+ * Formato antigo do Office (.doc/.xls/.ppt): o Google não edita no lugar, CONVERTE
+ * para .docx/.xlsx/.pptx e perde WordArt, caixas de texto e cabeçalhos. Avisar antes.
+ */
+export function isLegacyOffice(mime: string): boolean {
+  const m = (mime ?? '').toLowerCase();
+  return m === 'application/msword' || m === 'application/vnd.ms-excel' || m === 'application/vnd.ms-powerpoint';
+}
+
+/** Aviso antes de mandar um .doc/.xls/.ppt para o Google, que converte e desconfigura. */
+export function avisoConversaoGoogle(nome: string): string {
+  const ext = nome.includes('.') ? nome.slice(nome.lastIndexOf('.')).toLowerCase() : '';
+  const novo = ext === '.doc' ? '.docx' : ext === '.xls' ? '.xlsx' : ext === '.ppt' ? '.pptx' : 'formato novo';
+  return `"${nome}" está no formato antigo do Office (${ext || 'antigo'}). ` +
+    `O Google vai convertê-lo para ${novo} e pode perder formatação: WordArt, caixas de texto, cabeçalhos e imagens posicionadas.\n\n` +
+    `Para manter o visual, use o botão "Abrir no Word" (edita e salva direto no portal).\n\n` +
+    `Abrir no Google mesmo assim?`;
+}
+
+// ─── Office instalado (Word/Excel/PowerPoint) pelo WebDAV do portal ─────────────
+
+export type OfficeApp = 'word' | 'excel' | 'powerpoint';
+
+/** Mime → programa do Office (mesma tabela do backend). null = não é documento Office. */
+export function officeAppFor(mime: string): OfficeApp | null {
+  const k = editorKindFor(mime);
+  return k === 'docs' ? 'word' : k === 'sheets' ? 'excel' : k === 'slides' ? 'powerpoint' : null;
+}
+
+export function officeLabel(app: OfficeApp): string {
+  return app === 'word' ? 'Word' : app === 'excel' ? 'Excel' : 'PowerPoint';
+}
+
+/** Emite o link ms-word:ofe|u|... que abre o arquivo no Office instalado, salvando direto no portal. */
+export async function openOfficeSession(id: string): Promise<{ url: string; app: OfficeApp }> {
+  const res = await api.post(`/files/${id}/edit-local`);
+  return res.data as { url: string; app: OfficeApp };
+}
+
 /** PDF e imagens abrem num visualizador dentro do portal. */
 export function isPreviewable(mime: string): boolean {
   const m = (mime ?? '').toLowerCase();
   return m === 'application/pdf' || m.startsWith('image/');
 }
 
-export async function fetchCapabilities(): Promise<{ editInDrive: boolean }> {
+export interface FileCapabilities { editInDrive: boolean; editInOffice: boolean }
+export const SEM_CAPACIDADES: FileCapabilities = { editInDrive: false, editInOffice: false };
+
+export async function fetchCapabilities(): Promise<FileCapabilities> {
   const res = await api.get('/files/capabilities');
-  return res.data as { editInDrive: boolean };
+  const d = res.data as Partial<FileCapabilities>;
+  return { editInDrive: !!d.editInDrive, editInOffice: !!d.editInOffice };
 }
 
 /** Libera a edição para o usuário logado e devolve o link do editor do Google. */
-export async function openEditSession(id: string): Promise<{ url: string; editor: EditorKind }> {
+export async function openEditSession(id: string): Promise<{ url: string; editor: EditorKind; converts: boolean }> {
   const res = await api.post(`/files/${id}/edit-session`);
-  return res.data as { url: string; editor: EditorKind };
+  return res.data as { url: string; editor: EditorKind; converts: boolean };
 }
 
 /** Confere no Drive se o arquivo mudou; devolve o registro atualizado. */
@@ -158,6 +201,8 @@ export async function fetchFileLogs(params?: { fileId?: string; limit?: number }
 export function actionLabel(l: FileChangeLogRecord): string {
   if (l.action === 'EDIT') return 'Aberto para edição no Google por';
   if (l.action === 'MODIFIED') return 'Modificado no Google Drive por';
+  if (l.action === 'EDIT_OFFICE') return 'Aberto no Word/Excel/PowerPoint por';
+  if (l.action === 'SAVED_OFFICE') return 'Salvo pelo Word/Excel/PowerPoint por';
   return 'Substituído por';
 }
 

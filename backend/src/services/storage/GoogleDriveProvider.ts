@@ -105,6 +105,28 @@ export class GoogleDriveProvider implements EditableStorageProvider {
   }
 
   /**
+   * Troca o conteúdo do arquivo do Drive mantendo o MESMO id (e, portanto, as
+   * permissões e o lugar na árvore). Usado quando o Word/Excel/PowerPoint salva
+   * pelo WebDAV do portal.
+   */
+  async overwrite(key: string, sourcePath: string, mimeType?: string): Promise<void> {
+    try {
+      await this.drive.files.update({
+        fileId: key,
+        media: {
+          mimeType: mimeType ?? 'application/octet-stream',
+          body: fs.createReadStream(sourcePath),
+        },
+        fields: 'id',
+      });
+    } catch (err) {
+      throw toStorageError(err);
+    } finally {
+      await fsp.rm(sourcePath, { force: true });
+    }
+  }
+
+  /**
    * Baixa o arquivo do Drive como stream.
    * Usa PassThrough para retornar o stream de forma síncrona.
    */

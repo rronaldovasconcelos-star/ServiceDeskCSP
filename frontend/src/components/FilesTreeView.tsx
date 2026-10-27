@@ -37,6 +37,7 @@ interface RowActions {
   canDelete: (f: FileRecord) => boolean;
   onDelete: (f: FileRecord) => void;
   canEditOnline: (f: FileRecord) => boolean;
+  canEditOffice?: (f: FileRecord) => boolean;
   onPreview: (f: FileRecord) => void;
   canReplace?: boolean;
   onReplace?: (f: FileRecord) => void;
@@ -148,6 +149,7 @@ function FileRow({ f, actions }: { f: FileRecord; actions: RowActions }) {
         canReplace={actions.canReplace}
         onReplace={actions.onReplace}
         canEditOnline={actions.canEditOnline(f)}
+        canEditOffice={actions.canEditOffice?.(f) ?? false}
         onPreview={actions.onPreview}
       />
     </div>

@@ -6,8 +6,8 @@ import FileActionButtons from '../components/FileActionButtons';
 import FilePreviewModal from '../components/FilePreviewModal';
 import { useSyncOnFocus } from '../hooks/useSyncOnFocus';
 import {
-  formatBytes, downloadZip, replaceFile, fetchFileLogs, fetchCapabilities, actionLabel,
-  type FileRecord, type FileChangeLogRecord,
+  formatBytes, downloadZip, replaceFile, fetchFileLogs, fetchCapabilities, actionLabel, SEM_CAPACIDADES,
+  type FileCapabilities, type FileRecord, type FileChangeLogRecord,
 } from '../lib/files';
 import { labelFor, SEGMENTOS, SERIES_BY_SEGMENTO, DISCIPLINAS, TIPOS_MATERIAL } from '../lib/taxonomy';
 import { useAuth } from '../context/AuthContext';
@@ -59,10 +59,12 @@ export default function RepositorioPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [files, setFiles] = useState<FileRecord[]>([]);
-  const [capabilities, setCapabilities] = useState<{ editInDrive: boolean } | null>(null);
+  const [capabilities, setCapabilities] = useState<FileCapabilities | null>(null);
   const [previewTarget, setPreviewTarget] = useState<FileRecord | null>(null);
-  useEffect(() => { fetchCapabilities().then(setCapabilities).catch(() => setCapabilities({ editInDrive: false })); }, []);
-  const canEditOnline = (f: FileRecord) => !!capabilities?.editInDrive && (user?.role === 'ADMIN' || user?.role === 'GESTOR' || f.ownerId === user?.id);
+  useEffect(() => { fetchCapabilities().then(setCapabilities).catch(() => setCapabilities(SEM_CAPACIDADES)); }, []);
+  const podeEditar = (f: FileRecord) => user?.role === 'ADMIN' || user?.role === 'GESTOR' || f.ownerId === user?.id;
+  const canEditOnline = (f: FileRecord) => !!capabilities?.editInDrive && podeEditar(f);
+  const canEditOffice = (f: FileRecord) => !!capabilities?.editInOffice && podeEditar(f);
   useSyncOnFocus((f) => { setFiles((prev) => prev.map((x) => (x.id === f.id ? f : x))); loadMetrics(); });
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
@@ -331,7 +333,7 @@ export default function RepositorioPage() {
       ) : filteredFiles.length === 0 ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhum arquivo encontrado.</p>
       ) : view === 'arvore' ? (
-        <FilesTreeView files={filteredFiles} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} showOwner canEditOnline={canEditOnline} onPreview={setPreviewTarget} canReplace={canEdit} onReplace={setReplaceTarget} />
+        <FilesTreeView files={filteredFiles} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} showOwner canEditOnline={canEditOnline} canEditOffice={canEditOffice} onPreview={setPreviewTarget} canReplace={canEdit} onReplace={setReplaceTarget} />
       ) : (
         <>
           {/* Desktop: tabela */}
@@ -369,7 +371,7 @@ export default function RepositorioPage() {
                       {f.lastEditedAt && <PenLine size={12} style={{ marginLeft: '6px', verticalAlign: '-2px', color: 'var(--accent)' }} aria-label="Editado on-line" />}
                     </td>
                     <td style={{ padding: '10px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOnline={canEditOnline(f)} onPreview={setPreviewTarget} />
+                      <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOnline={canEditOnline(f)} canEditOffice={canEditOffice(f)} onPreview={setPreviewTarget} />
                     </td>
                   </tr>
                 ))}
@@ -390,7 +392,7 @@ export default function RepositorioPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                    <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOnline={canEditOnline(f)} onPreview={setPreviewTarget} />
+                    <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOnline={canEditOnline(f)} canEditOffice={canEditOffice(f)} onPreview={setPreviewTarget} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>

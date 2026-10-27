@@ -6,7 +6,7 @@ import FilesTreeView from '../components/FilesTreeView';
 import FileActionButtons from '../components/FileActionButtons';
 import FilePreviewModal from '../components/FilePreviewModal';
 import { useSyncOnFocus } from '../hooks/useSyncOnFocus';
-import { formatBytes, downloadZip, fetchCapabilities, type FileRecord } from '../lib/files';
+import { formatBytes, downloadZip, fetchCapabilities, SEM_CAPACIDADES, type FileCapabilities, type FileRecord } from '../lib/files';
 import { labelFor, SEGMENTOS, SERIES_BY_SEGMENTO, DISCIPLINAS, TIPOS_MATERIAL, disciplinasFor, tiposFor } from '../lib/taxonomy';
 import { useAuth } from '../context/AuthContext';
 
@@ -48,10 +48,11 @@ export default function MeusArquivosPage() {
   // ADMIN exclui qualquer arquivo; demais (GESTOR/USER) só os próprios — espelha o backend.
   const canDeleteFile = (f: FileRecord) => user?.role === 'ADMIN' || f.ownerId === user?.id;
   const [files, setFiles] = useState<FileRecord[]>([]);
-  const [capabilities, setCapabilities] = useState<{ editInDrive: boolean } | null>(null);
+  const [capabilities, setCapabilities] = useState<FileCapabilities | null>(null);
   const [previewTarget, setPreviewTarget] = useState<FileRecord | null>(null);
-  useEffect(() => { fetchCapabilities().then(setCapabilities).catch(() => setCapabilities({ editInDrive: false })); }, []);
+  useEffect(() => { fetchCapabilities().then(setCapabilities).catch(() => setCapabilities(SEM_CAPACIDADES)); }, []);
   const canEditOnline = () => !!capabilities?.editInDrive; // tudo aqui é do próprio usuário
+  const canEditOffice = () => !!capabilities?.editInOffice;
   useSyncOnFocus((f) => setFiles((prev) => prev.map((x) => (x.id === f.id ? f : x))));
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
@@ -200,7 +201,7 @@ export default function MeusArquivosPage() {
       ) : files.length === 0 ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhum arquivo encontrado.</p>
       ) : view === 'arvore' ? (
-        <FilesTreeView files={files} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} canEditOnline={canEditOnline} onPreview={setPreviewTarget} />
+        <FilesTreeView files={files} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} canEditOnline={canEditOnline} canEditOffice={canEditOffice} onPreview={setPreviewTarget} />
       ) : (
         <>
           {/* Desktop: tabela */}
@@ -236,7 +237,7 @@ export default function MeusArquivosPage() {
                       {f.lastEditedAt && <PenLine size={12} style={{ marginLeft: '6px', verticalAlign: '-2px', color: 'var(--accent)' }} aria-label="Editado on-line" />}
                     </td>
                     <td style={{ padding: '10px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canEditOnline={canEditOnline()} onPreview={setPreviewTarget} />
+                      <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canEditOnline={canEditOnline()} canEditOffice={canEditOffice()} onPreview={setPreviewTarget} />
                     </td>
                   </tr>
                 ))}
@@ -254,7 +255,7 @@ export default function MeusArquivosPage() {
                     <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '13px', wordBreak: 'break-word' }}>{f.originalName}</span>
                   </div>
                   <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                    <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canEditOnline={canEditOnline()} onPreview={setPreviewTarget} />
+                    <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canEditOnline={canEditOnline()} canEditOffice={canEditOffice()} onPreview={setPreviewTarget} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>

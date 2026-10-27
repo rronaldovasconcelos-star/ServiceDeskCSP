@@ -12,6 +12,7 @@ import {
   listFileLogs,
   fileCapabilities,
   openEditSessionHandler,
+  openOfficeSessionHandler,
   syncFileHandler,
 } from './files.controller.js';
 
@@ -28,6 +29,7 @@ router.post('/download-zip', downloadZip); // antes das rotas com :id
 router.post('/:id/replace', requireRole('ADMIN', 'GESTOR'), upload.single('file'), replaceFile);
 router.get('/:id/download', downloadFile);
 router.post('/:id/edit-session', openEditSessionHandler); // dono/ADMIN/GESTOR (regra no service)
+router.post('/:id/edit-local', openOfficeSessionHandler); // Office instalado via WebDAV (mesma regra)
 router.post('/:id/sync', syncFileHandler);
 router.delete('/:id', deleteFile);
 

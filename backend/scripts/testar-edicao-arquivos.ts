@@ -22,7 +22,14 @@ import {
 } from '../src/services/storage/types.js';
 import {
   FileErro, editorKindFor, canAccessFile, openEditSession, syncFileMetadata, storageSupportsEdit,
+  extensionForMime, renameForMime, isLegacyOffice, officeAppFor,
+  issueOfficeToken, verifyOfficeToken, openOfficeSession, fileForOffice, saveFromOffice,
 } from '../src/modules/files/files.service.js';
+import jwt from 'jsonwebtoken';
+import fsp from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { env } from '../src/config/env.js';
 
 // ---------- mocks de storage ----------
 
@@ -30,9 +37,18 @@ class DriveMock implements EditableStorageProvider {
   perms = new Map<string, Set<string>>();
   info = new Map<string, StorageFileInfo>();
   shareCalls: Array<{ key: string; email: string }> = [];
+  overwriteCalls: Array<{ key: string; bytes: number; mime?: string }> = [];
   falharCom: StorageError | null = null;
 
   async save(key: string): Promise<string> { return key; }
+  async overwrite(key: string, sourcePath: string, mime?: string): Promise<void> {
+    const bytes = (await fsp.stat(sourcePath)).size;
+    this.overwriteCalls.push({ key, bytes, mime });
+    await fsp.rm(sourcePath, { force: true });
+    // Como o Drive: o conteúdo novo muda tamanho e modifiedTime.
+    const i = this.info.get(key);
+    if (i) this.info.set(key, { ...i, sizeBytes: bytes, modifiedTime: new Date(Date.now() + 1000) });
+  }
   createReadStream(): Readable { return Readable.from([]); }
   async delete(): Promise<void> { /* nada */ }
   async exists(key: string): Promise<boolean> { return this.info.has(key); }
@@ -52,8 +68,13 @@ class DriveMock implements EditableStorageProvider {
   }
 }
 
+const localOverwrites: Array<{ key: string; bytes: number }> = [];
 const localMock: StorageProvider = {
   async save(key) { return key; },
+  async overwrite(key, sourcePath) {
+    localOverwrites.push({ key, bytes: (await fsp.stat(sourcePath)).size });
+    await fsp.rm(sourcePath, { force: true });
+  },
   createReadStream() { return Readable.from([]); },
   async delete() { /* nada */ },
   async exists() { return true; },
@@ -293,6 +314,181 @@ async function main() {
     assert.equal(mods[mods.length - 1].actorName, 'Alguém no Drive');
     const f = await prisma.file.findUniqueOrThrow({ where: { id: docx.id } });
     assert.equal(f.sizeBytes, 2100);
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  console.log('\nAjuste 1 — o Google converteu .doc → .docx: a extensão acompanha');
+  await teste('extensionForMime / renameForMime: só troca quando o mime tem extensão conhecida e diferente', () => {
+    assert.equal(extensionForMime(DOCX), '.docx');
+    assert.equal(extensionForMime('application/msword'), '.doc');
+    assert.equal(extensionForMime('application/octet-stream'), null);
+    assert.equal(renameForMime('prova.doc', DOCX), 'prova.docx');
+    assert.equal(renameForMime('prova.DOC', DOCX), 'prova.docx');
+    assert.equal(renameForMime('prova.docx', DOCX), 'prova.docx');
+    assert.equal(renameForMime('planilha.xls', XLSX), 'planilha.xlsx');
+    assert.equal(renameForMime('nome.com.pontos.ppt', PPTX), 'nome.com.pontos.pptx');
+    assert.equal(renameForMime('sem-extensao', DOCX), 'sem-extensao.docx');
+    assert.equal(renameForMime('prova.doc', 'application/octet-stream'), 'prova.doc', 'mime desconhecido não mexe');
+    assert.equal(renameForMime('foto.jpg', 'image/jpeg'), 'foto.jpg');
+  });
+
+  await teste('sync detecta mime novo no Drive e renomeia originalName e storedName (.doc → .docx), com log MODIFIED', async () => {
+    const doc = await criarArquivo(dono.sub, 'atividade.doc', 'application/msword', 'drive-teste-edicao-doc', 586240);
+    await prisma.file.update({ where: { id: doc.id }, data: { storedName: 'uuid-1234.doc' } });
+    drive.info.set('drive-teste-edicao-doc', infoBase({ mimeType: 'application/msword', sizeBytes: 586240 }));
+    await openEditSession(doc.id, dono, deps); // grava a baseline
+    // O Google abriu, converteu e salvou: mime e tamanho novos, data mais nova.
+    drive.info.set('drive-teste-edicao-doc', infoBase({ mimeType: DOCX, sizeBytes: 1004247, modifiedTime: new Date(t0.getTime() + 5000) }));
+    const r = await syncFileMetadata(doc.id, deps);
+    assert.equal(r.changed, true);
+    assert.equal(r.file.originalName, `${PREFIXO_NOME} atividade.docx`);
+    assert.equal(r.file.storedName, 'uuid-1234.docx');
+    assert.equal(r.file.mimeType, DOCX);
+    const mods = await logsDe(doc.id, 'MODIFIED');
+    assert.equal(mods.length, 1);
+    assert.equal(mods[0].oldMime, 'application/msword');
+    assert.equal(mods[0].newMime, DOCX);
+    assert.equal(mods[0].fileName, `${PREFIXO_NOME} atividade.docx`);
+  });
+
+  await teste('sync sem mudança de mime não mexe no nome', async () => {
+    const t9 = new Date(t0.getTime() + 900_000);
+    drive.info.set('drive-teste-edicao-1', infoBase({ sizeBytes: 2200, modifiedTime: t9 }));
+    const r = await syncFileMetadata(docx.id, deps);
+    assert.equal(r.file.originalName, `${PREFIXO_NOME} relatorio.docx`);
+  });
+
+  console.log('\nAjuste 2 — formato antigo: o portal avisa que o Google converte');
+  await teste('isLegacyOffice: doc/xls/ppt sim; docx/xlsx/pptx/pdf não', () => {
+    assert.equal(isLegacyOffice('application/msword'), true);
+    assert.equal(isLegacyOffice('application/vnd.ms-excel'), true);
+    assert.equal(isLegacyOffice('application/vnd.ms-powerpoint'), true);
+    assert.equal(isLegacyOffice(DOCX), false);
+    assert.equal(isLegacyOffice(XLSX), false);
+    assert.equal(isLegacyOffice(PPTX), false);
+    assert.equal(isLegacyOffice('application/pdf'), false);
+  });
+
+  await teste('edit-session devolve converts=true para .doc e false para .docx', async () => {
+    const doc = await criarArquivo(dono.sub, 'antigo.doc', 'application/msword', 'drive-teste-edicao-doc2');
+    drive.info.set('drive-teste-edicao-doc2', infoBase({ mimeType: 'application/msword' }));
+    assert.equal((await openEditSession(doc.id, dono, deps)).converts, true);
+    assert.equal((await openEditSession(docx.id, dono, deps)).converts, false);
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  console.log('\nOffice instalado (Word/Excel/PowerPoint) pelo WebDAV');
+  await teste('officeAppFor: docx/doc → word, xlsx/xls → excel, pptx/ppt → powerpoint, demais → null', () => {
+    assert.equal(officeAppFor(DOCX), 'word');
+    assert.equal(officeAppFor('application/msword'), 'word');
+    assert.equal(officeAppFor(XLSX), 'excel');
+    assert.equal(officeAppFor(PPTX), 'powerpoint');
+    assert.equal(officeAppFor('application/pdf'), null);
+    assert.equal(officeAppFor('image/png'), null);
+  });
+
+  await teste('token: escopo dav preso ao arquivo e ao usuário; o JWT de login é recusado (403); expirado é recusado', () => {
+    const tk = issueOfficeToken(docx.id, dono);
+    const p = verifyOfficeToken(tk);
+    assert.equal(p.scope, 'dav');
+    assert.equal(p.fid, docx.id);
+    assert.equal(p.sub, dono.sub);
+    assert.equal(p.email, dono.email);
+    const login = jwt.sign({ sub: dono.sub, email: dono.email, role: dono.role, name: dono.name }, env.jwtSecret, { expiresIn: '1h' });
+    assert.throws(() => verifyOfficeToken(login), (e: unknown) => e instanceof FileErro && e.status === 403);
+    const vencido = jwt.sign({ scope: 'dav', fid: docx.id, sub: dono.sub }, env.jwtSecret, { expiresIn: -10 });
+    assert.throws(() => verifyOfficeToken(vencido), (e: unknown) => e instanceof FileErro && e.status === 403 && e.message.includes('expirado'));
+    assert.throws(() => verifyOfficeToken('lixo'), (e: unknown) => e instanceof FileErro && e.status === 403);
+    const outroSegredo = jwt.sign({ scope: 'dav', fid: docx.id, sub: dono.sub }, 'outro-segredo');
+    assert.throws(() => verifyOfficeToken(outroSegredo), (e: unknown) => e instanceof FileErro && e.status === 403);
+  });
+
+  await teste('dono abre no Word: link ms-word:ofe|u|<api>/api/dav/<token>/<nome>, log EDIT_OFFICE; funciona com disco E Drive', async () => {
+    const r = await openOfficeSession(docx.id, dono, 'https://api.exemplo.com/', { storage: localMock });
+    assert.equal(r.app, 'word');
+    assert.ok(r.url.startsWith('ms-word:ofe|u|https://api.exemplo.com/api/dav/'), r.url);
+    assert.ok(r.url.endsWith(`/${encodeURIComponent(`${PREFIXO_NOME} relatorio.docx`)}`), r.url);
+    assert.ok(!r.url.includes('com//api'), 'barra final da base não duplica');
+    const token = r.davUrl.split('/api/dav/')[1].split('/')[0];
+    assert.equal(verifyOfficeToken(token).fid, docx.id);
+    const logs = await logsDe(docx.id, 'EDIT_OFFICE');
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0].actorId, dono.sub);
+    const r2 = await openOfficeSession(docx.id, gestor, 'https://api.exemplo.com', deps);
+    assert.equal(r2.app, 'word');
+    assert.equal((await logsDe(docx.id, 'EDIT_OFFICE')).length, 2);
+  });
+
+  await teste('Excel e PowerPoint usam o esquema certo; PDF → 415; USER alheio → 403; inexistente → 404', async () => {
+    const xlsx = await criarArquivo(dono.sub, 'notas2.xlsx', XLSX, 'drive-teste-edicao-xlsx');
+    const pptx = await criarArquivo(dono.sub, 'aula.pptx', PPTX, 'drive-teste-edicao-pptx');
+    assert.ok((await openOfficeSession(xlsx.id, dono, 'http://x', { storage: localMock })).url.startsWith('ms-excel:ofe|u|'));
+    assert.ok((await openOfficeSession(pptx.id, dono, 'http://x', { storage: localMock })).url.startsWith('ms-powerpoint:ofe|u|'));
+    await esperaErro(() => openOfficeSession(pdf.id, dono, 'http://x', { storage: localMock }), 415, 'Office');
+    await esperaErro(() => openOfficeSession(docx.id, outro, 'http://x', { storage: localMock }), 403, 'Acesso negado');
+    await esperaErro(() => openOfficeSession('nao-existe', dono, 'http://x', { storage: localMock }), 404, 'não encontrado');
+    assert.equal((await logsDe(pdf.id, 'EDIT_OFFICE')).length, 0);
+  });
+
+  await teste('fileForOffice confere o acesso de novo: token de USER alheio → 403 mesmo com token válido', async () => {
+    const tk = verifyOfficeToken(issueOfficeToken(docx.id, outro));
+    await esperaErro(() => fileForOffice(tk, { storage: localMock }), 403, 'Acesso negado');
+    const ok = await fileForOffice(verifyOfficeToken(issueOfficeToken(docx.id, dono)), { storage: localMock });
+    assert.equal(ok.id, docx.id);
+  });
+
+  async function tmpCom(bytes: number): Promise<string> {
+    const p = path.join(os.tmpdir(), `teste-edicao-${Date.now()}-${Math.random()}`);
+    await fsp.writeFile(p, Buffer.alloc(bytes, 7));
+    return p;
+  }
+
+  await teste('PUT do Word (disco): overwrite na MESMA chave, tamanho e lastEditedBy atualizados, log SAVED_OFFICE', async () => {
+    const antes = await prisma.file.findUniqueOrThrow({ where: { id: docx.id } });
+    const tmp = await tmpCom(4321);
+    const payload = verifyOfficeToken(issueOfficeToken(docx.id, gestor));
+    const salvo = await saveFromOffice(payload, tmp, 4321, { storage: localMock });
+    assert.equal(localOverwrites.length, 1);
+    assert.equal(localOverwrites[0].key, antes.storageKey);
+    assert.equal(localOverwrites[0].bytes, 4321);
+    assert.equal(salvo.storageKey, antes.storageKey, 'a chave não muda (não é REPLACE)');
+    assert.equal(salvo.sizeBytes, 4321);
+    assert.equal(salvo.lastEditedByName, gestor.name);
+    assert.ok(salvo.lastEditedAt && salvo.lastEditedAt.getTime() > Date.now() - 10_000);
+    const logs = await logsDe(docx.id, 'SAVED_OFFICE');
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0].actorId, gestor.sub);
+    assert.equal(logs[0].oldSize, antes.sizeBytes);
+    assert.equal(logs[0].newSize, 4321);
+    assert.equal(await fsp.access(tmp).then(() => true, () => false), false, 'temporário removido');
+  });
+
+  await teste('PUT do Word (Drive): regrava a baseline, e a sincronização seguinte NÃO conta como MODIFIED', async () => {
+    drive.info.set('drive-teste-edicao-1', infoBase({ sizeBytes: 4321, modifiedTime: new Date(t0.getTime() + 1_000_000) }));
+    await syncFileMetadata(docx.id, deps); // alinha a baseline do Drive mock
+    const modsAntes = (await logsDe(docx.id, 'MODIFIED')).length;
+    const tmp = await tmpCom(5000);
+    const payload = verifyOfficeToken(issueOfficeToken(docx.id, dono));
+    const salvo = await saveFromOffice(payload, tmp, 5000, deps);
+    assert.equal(drive.overwriteCalls.length, 1);
+    assert.equal(drive.overwriteCalls[0].key, 'drive-teste-edicao-1');
+    assert.equal(drive.overwriteCalls[0].mime, DOCX);
+    assert.equal(salvo.sizeBytes, 5000);
+    const info = drive.info.get('drive-teste-edicao-1')!;
+    assert.equal(salvo.driveModifiedTime?.getTime(), info.modifiedTime?.getTime(), 'baseline = modifiedTime após o PUT');
+    const r = await syncFileMetadata(docx.id, deps);
+    assert.equal(r.changed, false);
+    assert.equal((await logsDe(docx.id, 'MODIFIED')).length, modsAntes, 'a gravação do Word não vira MODIFIED do Google');
+  });
+
+  await teste('PUT vazio → 400; PUT de USER alheio → 403 e nada gravado', async () => {
+    const n = localOverwrites.length;
+    const tmp = await tmpCom(0);
+    await esperaErro(() => saveFromOffice(verifyOfficeToken(issueOfficeToken(docx.id, dono)), tmp, 0, { storage: localMock }), 400, 'vazio');
+    const tmp2 = await tmpCom(10);
+    await esperaErro(() => saveFromOffice(verifyOfficeToken(issueOfficeToken(docx.id, outro)), tmp2, 10, { storage: localMock }), 403, 'Acesso negado');
+    assert.equal(localOverwrites.length, n);
+    await fsp.rm(tmp, { force: true }); await fsp.rm(tmp2, { force: true });
   });
 }
 
