@@ -23,7 +23,7 @@ hospedagem Hostinger.
 Provado: `/api/health` 200; `edit-local` 401 sem token; `OPTIONS /api/dav/...` devolve
 `DAV: 1,2` e `MS-Author-Via: DAV`; token inválido → 403 sem `WWW-Authenticate`; site serve
 `index-DjFRqlcA.js` com "Abrir no", "salva direto no portal", o aviso do formato antigo,
-a URL da API e o Client ID. Falta a prova dele com o Word (abaixo).
+a URL da API e o Client ID. **Provado pelo Ronaldo em 27/10 ~18h com o Word real em produção: "funcionou".**
 
 **O que o Ronaldo viu:** editou um `.doc` pelo "Editar no Google" e o arquivo
 baixado veio desconfigurado (WordArt do cabeçalho sumiu, linha atravessando as
@@ -55,11 +55,11 @@ fazer os dois ajustes do portal **e** seguir com o Word direto.
   `Open` provado acima. Para sumir com a barra na escola: API nos Sites
   Confiáveis do Windows.
 
-**Falta (ele faz, em produção):** num `.docx` real, clicar "Abrir no Word" →
+**Prova feita por ele em 27/10 (~18h): funcionou.** Roteiro que ele seguiu: num `.docx` real, clicar "Abrir no Word" →
 "Habilitar Edição" → digitar → Ctrl+S → voltar ao portal: linha mostra a caneta
 e o tamanho novo; Baixar traz a edição; Histórico mostra "Aberto no Word…" e
 "Salvo pelo Word…". Repetir num `.doc` (abre no Word em formato antigo, sem
-conversão). Depois disso, decidir se o "Editar no Google" continua visível.
+conversão). **Pendente: decidir se o "Editar no Google" continua visível** (hoje fica, com o aviso no formato antigo).
 
 ## Estado anterior (27/10/2026, tarde) — editar arquivos no próprio portal
 
