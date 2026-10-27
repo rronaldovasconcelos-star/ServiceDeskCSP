@@ -26,7 +26,14 @@ da escola; todos os logins são contas Google); quem edita = dono + ADMIN/GESTOR
 PDF e imagem ganham **"Abrir"** (visualizador na tela, sem baixar); OnlyOffice
 descartado (2–4 GB de RAM no VPS do PDI).
 
-**Como ficou (código pronto, build ok, FALTA DEPLOY):**
+**EM PRODUÇÃO desde 27/10 ~17h** (deploy do franc: backend `update.py` com o Python
+3.12 — o `python` do PATH virou 3.14 sem paramiko; frontend `deploy_hostinger.py` após
+trocar o `HOSTINGER_API_TOKEN` do `.deploy.env`, que tinha expirado). Provas: `/api/health`
+200; `POST /api/files/x/edit-session` → 401 sem token; site serve `index-Fi1EWJ1O.js`
+(= build) com "Editar no Google", URL da API e Client ID. **Falta a prova com o Drive
+real pelo Ronaldo** (passos no fim desta seção).
+
+**Como ficou:**
 - Backend: `files.service.ts` novo (`openEditSession`, `syncFileMetadata`,
   `editorKindFor`, `canAccessFile`, `FileErro`); `GoogleDriveProvider` implementa
   `EditableStorageProvider` (`shareForEdit` = `permissions.list` + `permissions.create`
@@ -57,10 +64,10 @@ descartado (2–4 GB de RAM no VPS do PDI).
   produção com a conta do Ronaldo (GESTOR) num .docx: editar, voltar, ver o tamanho
   mudar, baixar o arquivo editado, conferir o Histórico.
 
-**Deploy (do franc, com `!`):** `python update.py` (backend; migration no boot) e
-`python deploy_hostinger.py` (frontend). Provas: `/api/health` 200;
-`POST /api/files/x/edit-session` sem token → 401; bundle novo no HTML de produção com
-o texto "Editar no Google".
+**Prova com o Drive real (ele faz):** como GESTOR, caneta num .docx de professor → abre
+o Google Documentos; digita, espera "Salvo", volta à aba do portal → tamanho muda e
+aparece a caneta na data; Baixar traz a edição; Histórico mostra EDIT e MODIFIED.
+Deploy de qualquer PC: usar o Python que tem paramiko (no franc, o 3.12).
 
 ## Estado anterior (23/09/2026, fim da tarde)
 
