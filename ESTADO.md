@@ -17,7 +17,39 @@ hospedagem Hostinger.
 - PC franc: `Desktop\ServiceDeskCSP` (clone de 22/09/2026; `.deploy.env` criado em
   23/09 com o token da Hostinger).
 
-## Onde parou (27/10/2026, noite) — "Abrir no Word" + ajustes do Google
+## Onde parou (27/10/2026, noite) — REDESENHO VISUAL "Telehap" (EM ANDAMENTO, NÃO PUBLICADO)
+
+Pedido do Ronaldo: trocar a cara do portal pelo estilo do kit **Telehap – Call Center &
+Customer Support** (TemplateMonster 568094). Plano aprovado e salvo em
+`C:\Users\franc\.claude\plans\https-demo-templatemonster-com-pt-br-dem-cozy-bee.md`
+(direção "moldura Telehap, miolo claro": sidebar/topo/login/faixa de cabeçalho em
+azul-marinho com forma orgânica azul-elétrica e botões-pílula; áreas de dados claras;
+fonte Poppins; tokens em `frontend/src/index.css`). O visual novo está SÓ no git; o site
+em produção continua com o visual antigo até o próximo `deploy_hostinger.py`.
+
+**Feito (commits `294cfbc` + este):**
+- Fase 1 — tokens novos no `index.css` (nomes antigos viraram aliases), Poppins no
+  `index.html`, tema persistido no `localStorage` (`ThemeContext`), `App.css` morto apagado.
+- Fase 2 — `Layout.tsx` (sidebar navy 232 px com tiles de ícone, item ativo em pílula),
+  `components/PageHeader.tsx` (faixa navy + `public/blob.svg`), `components/ui/`
+  (`Button`, `Card`, `IconTile`, `Modal`, `Table`), `StatusBadge` por classes `.pill-*`.
+- Fase 3 — `components/AuthShell.tsx` (casca dividida) + Login/Register/Reset;
+  Dashboard com tiles e paleta nos gráficos. Conferido no Chrome local nos dois temas.
+- Fase 4 (parcial) — migradas para `PageHeader`/`Card`/`Table`/`Button`/`Modal` e sem
+  hex: Tickets (lista, detalhe, novo), Suprimentos (lista, novo, detalhe, catálogo),
+  Meus Arquivos, Meus Holerites, Backups.
+
+**Falta (Fase 4):** RepositorioPage, UsersPage, ManutencoesPage, LembretesPage,
+ReportsPage, HoleritesRhPage, WhatsAppPage, AgentePage; e os hex em `KanbanBoard`,
+`FileUploader`, `FilePreviewModal`, `FileActionButtons`, `MapaBairros`, `DevCredit`.
+As páginas não migradas renderizam bem com os tokens (aliases), só sem a faixa navy.
+Receita por página: trocar o cabeçalho inline por `<PageHeader>` + `<div className="page-body">`,
+tabela por `<Table>`, modais escritos à mão por `<Modal>`, botões por `<Button>`, cores
+hex por `var(--electric|--teal|--amber|--coral|--violet|--text-secondary)`. Conferir com
+`npx tsc --noEmit -p tsconfig.app.json`, `npx eslint src` (baseline 37) e `npx vite build`.
+Para ver local: backend `PORT=3199` + `VITE_API_URL=http://localhost:3199/api npx vite --port 5199`
+(admin local `admin@santapaula.com.br` / `Admin@123`; 5 chamados de teste no dev.db).
+## Estado anterior (27/10/2026, noite) — "Abrir no Word" + ajustes do Google
 
 **EM PRODUÇÃO desde 27/10 ~17h50** (deploy do franc pelos dois scripts com `!`, Python 3.12).
 Provado: `/api/health` 200; `edit-local` 401 sem token; `OPTIONS /api/dav/...` devolve

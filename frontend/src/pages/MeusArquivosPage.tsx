@@ -1,35 +1,16 @@
 import { useEffect, useState } from 'react';
-import { List, FolderTree, FileArchive, PenLine } from 'lucide-react';
+import { List, FolderTree, FileArchive, PenLine, Search } from 'lucide-react';
 import api from '../lib/api';
 import FileUploader from '../components/FileUploader';
 import FilesTreeView from '../components/FilesTreeView';
 import FileActionButtons from '../components/FileActionButtons';
 import FilePreviewModal from '../components/FilePreviewModal';
+import PageHeader from '../components/PageHeader';
+import { Button, Card, Table } from '../components/ui';
 import { useSyncOnFocus } from '../hooks/useSyncOnFocus';
 import { formatBytes, downloadZip, fetchCapabilities, SEM_CAPACIDADES, type FileCapabilities, type FileRecord } from '../lib/files';
 import { labelFor, SEGMENTOS, SERIES_BY_SEGMENTO, DISCIPLINAS, TIPOS_MATERIAL, disciplinasFor, tiposFor } from '../lib/taxonomy';
 import { useAuth } from '../context/AuthContext';
-
-const selectStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '6px 12px',
-  fontSize: '13px',
-  background: 'var(--bg-card)',
-  color: 'var(--text-primary)',
-  outline: 'none',
-};
-
-const thStyle: React.CSSProperties = {
-  padding: '10px 16px',
-  textAlign: 'left',
-  fontSize: '11px',
-  fontWeight: 600,
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
-  color: 'var(--text-secondary)',
-  whiteSpace: 'nowrap',
-};
 
 /** Tipo curto a partir do mimetype para exibição. */
 function shortType(mime: string): string {
@@ -114,8 +95,6 @@ export default function MeusArquivosPage() {
     setTipoMaterial('');
   }
   const serieOptions = segmento ? SERIES_BY_SEGMENTO[segmento] ?? [] : [];
-  // Com segmento escolhido, os filtros seguem a COLUNA daquele segmento (def.
-  // Sistema_Ronaldo); sem segmento, oferecem o vocabulário completo.
   const disciplinaOptions = segmento ? disciplinasFor(segmento) : DISCIPLINAS;
   const tipoOptions = segmento ? tiposFor(segmento) : TIPOS_MATERIAL;
 
@@ -125,151 +104,141 @@ export default function MeusArquivosPage() {
     load();
   }
 
+  const totalBytes = files.reduce((s, f) => s + f.sizeBytes, 0);
+
   return (
-    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-      <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 16px' }}>
-        Meus Arquivos
-      </h2>
+    <>
+      <PageHeader
+        title="Meus arquivos"
+        subtitle={loading ? 'Carregando…' : `${files.length} arquivo${files.length === 1 ? '' : 's'} · ${formatBytes(totalBytes)}`}
+        actions={(
+          <div className="search-bar" role="search" style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.18)' }}>
+            <Search size={14} style={{ color: 'var(--on-navy-muted)', flexShrink: 0 }} aria-hidden="true" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome..." aria-label="Buscar arquivos" style={{ color: 'var(--on-navy)' }} />
+          </div>
+        )}
+      />
 
-      <FileUploader onUploaded={load} />
+      <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <FileUploader onUploaded={load} />
 
-      {/* Filtros */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px', alignItems: 'center' }}>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar por nome..."
-          style={{ ...selectStyle, minWidth: '180px' }}
-        />
-        <select value={segmento} onChange={(e) => handleSegmento(e.target.value)} style={selectStyle}>
-          <option value="">Todos os segmentos</option>
-          {SEGMENTOS.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
-        </select>
-        <select value={serie} onChange={(e) => setSerie(e.target.value)} disabled={!segmento} style={selectStyle}>
-          <option value="">Todas as séries</option>
-          {serieOptions.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
-        </select>
-        <select value={disciplina} onChange={(e) => setDisciplina(e.target.value)} style={selectStyle}>
-          <option value="">Todas as disciplinas</option>
-          {disciplinaOptions.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
-        </select>
-        <select value={tipoMaterial} onChange={(e) => setTipoMaterial(e.target.value)} style={selectStyle}>
-          <option value="">Todos os tipos</option>
-          {tipoOptions.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
-        </select>
+        {/* Filtros */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <select value={segmento} onChange={(e) => handleSegmento(e.target.value)} className="field" style={{ width: 'auto' }}>
+            <option value="">Todos os segmentos</option>
+            {SEGMENTOS.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+          </select>
+          <select value={serie} onChange={(e) => setSerie(e.target.value)} disabled={!segmento} className="field" style={{ width: 'auto' }}>
+            <option value="">Todas as séries</option>
+            {serieOptions.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+          </select>
+          <select value={disciplina} onChange={(e) => setDisciplina(e.target.value)} className="field" style={{ width: 'auto' }}>
+            <option value="">Todas as disciplinas</option>
+            {disciplinaOptions.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
+          </select>
+          <select value={tipoMaterial} onChange={(e) => setTipoMaterial(e.target.value)} className="field" style={{ width: 'auto' }}>
+            <option value="">Todos os tipos</option>
+            {tipoOptions.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
+          </select>
 
-        {/* Toggle lista / árvore */}
-        <div style={{ display: 'flex', marginLeft: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
-          {([['lista', List, 'Lista'], ['arvore', FolderTree, 'Árvore']] as const).map(([key, Icon, label]) => (
-            <button
-              key={key}
-              onClick={() => setView(key)}
-              title={label}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 10px',
-                border: 'none', cursor: 'pointer', fontSize: '12px',
-                background: view === key ? 'var(--bg-active)' : 'var(--bg-card)',
-                color: view === key ? 'var(--accent)' : 'var(--text-secondary)',
-              }}
-            >
-              <Icon size={14} /> {label}
+          <div className="kanban-filters" style={{ marginLeft: 'auto', marginBottom: 0 }} role="group" aria-label="Modo de exibição">
+            {([['lista', List, 'Lista'], ['arvore', FolderTree, 'Árvore']] as const).map(([key, Icon, label]) => (
+              <button key={key} onClick={() => setView(key)} className={`filter-btn${view === key ? ' active' : ''}`} aria-pressed={view === key} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <Icon size={14} /> {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Barra de ação em lote (visão lista) */}
+        {view === 'lista' && selected.size > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', background: 'var(--electric-soft)', borderRadius: 'var(--radius-tile)', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>{selected.size} selecionado(s)</span>
+            <Button size="sm" icon={<FileArchive size={14} />} onClick={() => handleZip([...selected])} disabled={zipping}>
+              {zipping ? 'Gerando .zip...' : 'Baixar selecionados (.zip)'}
+            </Button>
+            <button onClick={() => setSelected(new Set())} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-secondary)', textDecoration: 'underline', fontFamily: 'inherit' }}>
+              Limpar seleção
             </button>
-          ))}
-        </div>
-      </div>
+          </div>
+        )}
 
-      {/* Barra de ação em lote (visão lista) */}
-      {view === 'lista' && selected.size > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', padding: '8px 12px', background: 'var(--bg-active)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
-          <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 600 }}>{selected.size} selecionado(s)</span>
-          <button
-            onClick={() => handleZip([...selected])}
-            disabled={zipping}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', border: 'none', borderRadius: 'var(--radius-sm)', background: 'var(--accent)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: zipping ? 'default' : 'pointer', opacity: zipping ? 0.7 : 1 }}
-          >
-            <FileArchive size={15} /> {zipping ? 'Gerando .zip...' : 'Baixar selecionados (.zip)'}
-          </button>
-          <button onClick={() => setSelected(new Set())} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-secondary)', textDecoration: 'underline' }}>
-            Limpar seleção
-          </button>
-        </div>
-      )}
-
-      {loading ? (
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Carregando...</p>
-      ) : files.length === 0 ? (
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhum arquivo encontrado.</p>
-      ) : view === 'arvore' ? (
-        <FilesTreeView files={files} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} canEditOffice={canEditOffice} onPreview={setPreviewTarget} />
-      ) : (
-        <>
-          {/* Desktop: tabela */}
-          <div className="hidden md:block" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-              <thead>
-                <tr style={{ background: 'var(--bg-card-hover)', borderBottom: '1px solid var(--border)' }}>
-                  <th style={{ ...thStyle, width: '36px' }}>
-                    <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Selecionar todos" style={{ cursor: 'pointer' }} />
-                  </th>
-                  <th style={thStyle}>Nome</th>
-                  <th style={thStyle}>Série</th>
-                  <th style={thStyle}>Disciplina</th>
-                  <th style={thStyle}>Tipo</th>
-                  <th style={thStyle}>Tamanho</th>
-                  <th style={thStyle}>Data</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {files.map((f, i) => (
-                  <tr key={f.id} className="table-row" style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined }}>
-                    <td style={{ padding: '10px 16px' }}>
+        {loading ? (
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando...</p>
+        ) : view === 'arvore' ? (
+          files.length === 0
+            ? <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Nenhum arquivo com esses filtros.</p>
+            : <FilesTreeView files={files} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} canEditOffice={canEditOffice} onPreview={setPreviewTarget} />
+        ) : (
+          <>
+            <div className="hidden md:block">
+              <Table
+                isEmpty={files.length === 0}
+                empty="Nenhum arquivo com esses filtros. Envie o primeiro acima."
+                head={(
+                  <tr>
+                    <th style={{ width: 36 }}>
+                      <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Selecionar todos" style={{ cursor: 'pointer' }} />
+                    </th>
+                    <th>Nome</th>
+                    <th>Série</th>
+                    <th>Disciplina</th>
+                    <th>Tipo</th>
+                    <th>Tamanho</th>
+                    <th>Data</th>
+                    <th style={{ textAlign: 'right' }}>Ações</th>
+                  </tr>
+                )}
+              >
+                {files.map((f) => (
+                  <tr key={f.id} className="table-row">
+                    <td>
                       <input type="checkbox" checked={selected.has(f.id)} onChange={() => toggleOne(f.id)} aria-label="Selecionar arquivo" style={{ cursor: 'pointer' }} />
                     </td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-primary)', fontWeight: 500 }}>{f.originalName}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{labelFor('serie', f.serie)}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{labelFor('disciplina', f.disciplina)}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{labelFor('tipoMaterial', f.tipoMaterial)}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{formatBytes(f.sizeBytes)}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }} title={f.lastEditedAt ? `Editado por ${f.lastEditedByName ?? '—'} em ${new Date(f.lastEditedAt).toLocaleString('pt-BR')}` : undefined}>
+                    <td style={{ fontWeight: 500 }}>{f.originalName}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{labelFor('serie', f.serie)}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{labelFor('disciplina', f.disciplina)}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{labelFor('tipoMaterial', f.tipoMaterial)}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{formatBytes(f.sizeBytes)}</td>
+                    <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }} title={f.lastEditedAt ? `Editado por ${f.lastEditedByName ?? '—'} em ${new Date(f.lastEditedAt).toLocaleString('pt-BR')}` : undefined}>
                       {new Date(f.uploadedAt).toLocaleDateString('pt-BR')}
-                      {f.lastEditedAt && <PenLine size={12} style={{ marginLeft: '6px', verticalAlign: '-2px', color: 'var(--accent)' }} aria-label="Editado on-line" />}
+                      {f.lastEditedAt && <PenLine size={12} style={{ marginLeft: 6, verticalAlign: -2, color: 'var(--electric)' }} aria-label="Editado" />}
                     </td>
-                    <td style={{ padding: '10px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canEditOffice={canEditOffice()} onPreview={setPreviewTarget} />
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </Table>
+            </div>
 
-          {/* Mobile: cards */}
-          <div className="md:hidden space-y-3">
-            {files.map((f) => (
-              <div key={f.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', minWidth: 0 }}>
-                    <input type="checkbox" checked={selected.has(f.id)} onChange={() => toggleOne(f.id)} aria-label="Selecionar arquivo" style={{ cursor: 'pointer', marginTop: '2px' }} />
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '13px', wordBreak: 'break-word' }}>{f.originalName}</span>
+            <div className="md:hidden space-y-3">
+              {files.length === 0 && <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Nenhum arquivo com esses filtros.</p>}
+              {files.map((f) => (
+                <Card key={f.id} style={{ padding: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
+                      <input type="checkbox" checked={selected.has(f.id)} onChange={() => toggleOne(f.id)} aria-label="Selecionar arquivo" style={{ cursor: 'pointer', marginTop: 2 }} />
+                      <span style={{ fontWeight: 600, fontSize: 13, wordBreak: 'break-word' }}>{f.originalName}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                      <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canEditOffice={canEditOffice()} onPreview={setPreviewTarget} />
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                    <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canEditOffice={canEditOffice()} onPreview={setPreviewTarget} />
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, fontSize: 11, color: 'var(--text-secondary)', alignItems: 'center' }}>
+                    {f.serie && <span className="pill pill-muted">{labelFor('serie', f.serie)}</span>}
+                    {f.disciplina && <span className="pill pill-muted">{labelFor('disciplina', f.disciplina)}</span>}
+                    {f.tipoMaterial && <span className="pill pill-muted">{labelFor('tipoMaterial', f.tipoMaterial)}</span>}
+                    <span className="pill pill-muted">{shortType(f.mimeType)}</span>
+                    <span style={{ marginLeft: 'auto' }}>{new Date(f.uploadedAt).toLocaleDateString('pt-BR')}</span>
                   </div>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                  {f.serie && <span style={{ background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>{labelFor('serie', f.serie)}</span>}
-                  {f.disciplina && <span style={{ background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>{labelFor('disciplina', f.disciplina)}</span>}
-                  {f.tipoMaterial && <span style={{ background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>{labelFor('tipoMaterial', f.tipoMaterial)}</span>}
-                  <span style={{ background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>{shortType(f.mimeType)}</span>
-                  <span style={{ marginLeft: 'auto' }}>{new Date(f.uploadedAt).toLocaleDateString('pt-BR')}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-      {previewTarget && <FilePreviewModal file={previewTarget} onClose={() => setPreviewTarget(null)} />}
-    </div>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
+        {previewTarget && <FilePreviewModal file={previewTarget} onClose={() => setPreviewTarget(null)} />}
+      </div>
+    </>
   );
 }

@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { StatusBadge, UrgencyBadge } from '../components/StatusBadge';
+import PageHeader from '../components/PageHeader';
+import { Button, Card } from '../components/ui';
 
 const categoryLabel: Record<string, string> = {
   TI: 'TI',
@@ -49,26 +52,17 @@ const TRANSITIONS: Record<string, string[]> = {
 };
 
 const statusLabel: Record<string, string> = {
-  APROVADO: 'Aprovar', REJEITADO: 'Rejeitar', EM_ANDAMENTO: 'Iniciar Atendimento',
+  APROVADO: 'Aprovar', REJEITADO: 'Rejeitar', EM_ANDAMENTO: 'Iniciar atendimento',
   CONCLUIDO: 'Concluir', CANCELADO: 'Cancelar',
 };
 
-const statusButtonColors: Record<string, { bg: string; color: string }> = {
-  APROVADO:    { bg: '#0d9488', color: '#fff' },
-  REJEITADO:   { bg: '#ef4444', color: '#fff' },
-  EM_ANDAMENTO:{ bg: 'var(--accent)', color: '#fff' },
-  CONCLUIDO:   { bg: '#16a34a', color: '#fff' },
-  CANCELADO:   { bg: 'var(--bg-card-hover)', color: 'var(--text-secondary)' },
-};
-
-const selectStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '6px 12px',
-  fontSize: '13px',
-  background: 'var(--bg-card)',
-  color: 'var(--text-primary)',
-  outline: 'none',
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
+const statusButtonVariant: Record<string, Variant> = {
+  APROVADO: 'secondary',
+  REJEITADO: 'danger',
+  EM_ANDAMENTO: 'primary',
+  CONCLUIDO: 'secondary',
+  CANCELADO: 'ghost',
 };
 
 export default function TicketDetailPage() {
@@ -121,145 +115,124 @@ export default function TicketDetailPage() {
     navigate('/tickets');
   };
 
-  if (loading) return <div style={{ padding: '24px', color: 'var(--text-secondary)' }}>Carregando...</div>;
-  if (!ticket) return <div style={{ padding: '24px', color: '#ef4444' }}>Chamado não encontrado.</div>;
+  if (loading) return <div className="page-body" style={{ color: 'var(--text-secondary)' }}>Carregando...</div>;
+  if (!ticket) return <div className="page-body" style={{ color: 'var(--coral)' }}>Chamado não encontrado.</div>;
 
   const nextStatuses = TRANSITIONS[ticket.status] ?? [];
   const isApprovalStep = ticket.status === 'AGUARDANDO_APROVACAO';
 
+  const seletorResponsavel = (
+    <select value={ticket.assignee?.id ?? ''} onChange={(e) => assignTicket(e.target.value || null)} className="field" style={{ width: 'auto' }} aria-label="Responsável">
+      <option value="">Sem responsável</option>
+      {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+    </select>
+  );
+
   return (
-    <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <button
-        onClick={() => navigate('/tickets')}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '13px', padding: 0, textAlign: 'left', width: 'fit-content' }}
-      >
-        ← Voltar para Chamados
-      </button>
-
-      {/* Card principal */}
-      <div className="detail-card">
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
-          <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 4px' }}>{ticket.title}</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>{categoryLabel[ticket.category] ?? ticket.category}</p>
-          </div>
-          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-            <UrgencyBadge urgency={ticket.urgency} />
-            <StatusBadge status={ticket.status} />
-          </div>
-        </div>
-
-        <p style={{ marginTop: '16px', color: 'var(--text-primary)', fontSize: '13px', lineHeight: 1.6 }}>{ticket.description}</p>
-
-        <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-          <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Solicitante:</span> {ticket.requester.name}</div>
-          <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Responsável:</span> {ticket.assignee?.name ?? '—'}</div>
-          <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Aberto em:</span> {new Date(ticket.createdAt).toLocaleString('pt-BR')}</div>
-          {ticket.resolvedAt && (
-            <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Concluído em:</span> {new Date(ticket.resolvedAt).toLocaleString('pt-BR')}</div>
-          )}
-        </div>
-
-        {/* Banner de aprovação pendente para ADMIN/GESTOR */}
-        {isApprovalStep && canApprove && (
-          <div style={{ marginTop: '20px', padding: '14px', background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: 'var(--radius-sm)' }}>
-            <p style={{ fontSize: '13px', fontWeight: 500, color: '#f97316', marginBottom: '10px' }}>
-              Este chamado de compra está aguardando sua aprovação.
-            </p>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button onClick={() => changeStatus('APROVADO')} style={{ padding: '7px 16px', background: '#0d9488', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
-                ✓ Aprovar
-              </button>
-              <button onClick={() => changeStatus('REJEITADO')} style={{ padding: '7px 16px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
-                ✕ Rejeitar
-              </button>
-            </div>
-          </div>
+    <>
+      <PageHeader
+        title={ticket.title}
+        subtitle={`${categoryLabel[ticket.category] ?? ticket.category} · aberto por ${ticket.requester.name} em ${new Date(ticket.createdAt).toLocaleDateString('pt-BR')}`}
+        actions={(
+          <>
+            <span style={{ display: 'inline-flex', gap: 8 }}>
+              <UrgencyBadge urgency={ticket.urgency} />
+              <StatusBadge status={ticket.status} />
+            </span>
+            <Button variant="onNavy" icon={<ArrowLeft size={15} />} onClick={() => navigate('/tickets')}>Chamados</Button>
+          </>
         )}
+      />
 
-        {/* Banner informativo para solicitante quando aguardando aprovação */}
-        {isApprovalStep && !canApprove && (
-          <div style={{ marginTop: '20px', padding: '14px', background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: 'var(--radius-sm)' }}>
-            <p style={{ fontSize: '13px', color: '#f97316', margin: 0 }}>
-              Seu chamado está aguardando aprovação de um gestor ou administrador.
-            </p>
+      <div className="page-body" style={{ maxWidth: 900, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <Card>
+          <p style={{ margin: 0, color: 'var(--text-primary)', fontSize: 14, lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{ticket.description}</p>
+
+          <div style={{ marginTop: 18, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10, fontSize: 13, color: 'var(--text-secondary)' }}>
+            <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Solicitante:</span> {ticket.requester.name}</div>
+            <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Responsável:</span> {ticket.assignee?.name ?? '—'}</div>
+            <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Aberto em:</span> {new Date(ticket.createdAt).toLocaleString('pt-BR')}</div>
+            {ticket.resolvedAt && (
+              <div><span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Concluído em:</span> {new Date(ticket.resolvedAt).toLocaleString('pt-BR')}</div>
+            )}
           </div>
-        )}
 
-        {/* Ações de status */}
-        {isPrivileged && !isApprovalStep && nextStatuses.length > 0 && (
-          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
-            {nextStatuses.map((s) => {
-              const c = statusButtonColors[s] ?? { bg: 'var(--accent)', color: '#fff' };
-              return (
-                <button key={s} onClick={() => changeStatus(s)} style={{ padding: '7px 16px', background: c.bg, color: c.color, border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
-                  {statusLabel[s] ?? s}
-                </button>
-              );
-            })}
-            <select value={ticket.assignee?.id ?? ''} onChange={(e) => assignTicket(e.target.value || null)} style={selectStyle}>
-              <option value="">Sem responsável</option>
-              {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
-          </div>
-        )}
-
-        {/* Atribuição disponível mesmo quando aguardando aprovação */}
-        {isPrivileged && isApprovalStep && (
-          <div style={{ marginTop: '14px' }}>
-            <select value={ticket.assignee?.id ?? ''} onChange={(e) => assignTicket(e.target.value || null)} style={selectStyle}>
-              <option value="">Sem responsável</option>
-              {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
-          </div>
-        )}
-
-        {/* Exclusão — restrito ao ADMIN */}
-        {isAdmin && (
-          <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
-            <button
-              onClick={deleteTicket}
-              style={{ padding: '7px 16px', background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
-            >
-              Excluir chamado
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Histórico */}
-      <div className="detail-card">
-        <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Histórico</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {ticket.history.map((entry) => (
-            <div key={entry.id} style={{ display: 'flex', gap: '12px' }}>
-              <div style={{ width: '4px', borderRadius: '2px', background: 'var(--border)', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: '0 0 2px' }}>{entry.message}</p>
-                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0 }}>
-                  {entry.author.name} · {new Date(entry.createdAt).toLocaleString('pt-BR')}
-                </p>
+          {/* Aprovação pendente (ADMIN/GESTOR) */}
+          {isApprovalStep && canApprove && (
+            <div style={{ marginTop: 20, padding: 14, background: 'var(--amber-soft)', borderRadius: 'var(--radius-tile)' }}>
+              <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)', margin: '0 0 10px' }}>
+                Este chamado de compra está aguardando sua aprovação.
+              </p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <Button variant="secondary" onClick={() => changeStatus('APROVADO')}>Aprovar</Button>
+                <Button variant="danger" onClick={() => changeStatus('REJEITADO')}>Rejeitar</Button>
               </div>
             </div>
-          ))}
-        </div>
+          )}
 
-        <form onSubmit={addComment} style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            rows={3}
-            placeholder="Adicionar comentário..."
-            style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '8px 12px', fontSize: '13px', resize: 'none', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box' }}
-          />
-          <button
-            type="submit"
-            style={{ marginTop: '8px', padding: '7px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
-          >
-            Comentar
-          </button>
-        </form>
+          {/* Aviso ao solicitante */}
+          {isApprovalStep && !canApprove && (
+            <div style={{ marginTop: 20, padding: 14, background: 'var(--amber-soft)', borderRadius: 'var(--radius-tile)' }}>
+              <p style={{ fontSize: 13, color: 'var(--text-primary)', margin: 0 }}>
+                Seu chamado está aguardando aprovação de um gestor ou administrador.
+              </p>
+            </div>
+          )}
+
+          {/* Ações de status */}
+          {isPrivileged && !isApprovalStep && nextStatuses.length > 0 && (
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center' }}>
+              {nextStatuses.map((s) => (
+                <Button key={s} variant={statusButtonVariant[s] ?? 'primary'} onClick={() => changeStatus(s)}>
+                  {statusLabel[s] ?? s}
+                </Button>
+              ))}
+              {seletorResponsavel}
+            </div>
+          )}
+
+          {isPrivileged && isApprovalStep && (
+            <div style={{ marginTop: 14 }}>{seletorResponsavel}</div>
+          )}
+
+          {isAdmin && (
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+              <Button variant="ghost" onClick={deleteTicket} style={{ color: 'var(--coral)', borderColor: 'var(--coral)' }}>Excluir chamado</Button>
+            </div>
+          )}
+        </Card>
+
+        {/* Histórico */}
+        <Card title="Histórico">
+          <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {ticket.history.map((entry) => (
+              <li key={entry.id} style={{ display: 'flex', gap: 12 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--electric)', flexShrink: 0, marginTop: 6 }} aria-hidden="true" />
+                <div>
+                  <p style={{ fontSize: 13, color: 'var(--text-primary)', margin: '0 0 2px' }}>{entry.message}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: 0 }}>
+                    {entry.author.name} · {new Date(entry.createdAt).toLocaleString('pt-BR')}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+
+          <form onSubmit={addComment} style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              rows={3}
+              placeholder="Escreva um comentário…"
+              className="field"
+              style={{ resize: 'vertical' }}
+            />
+            <div style={{ marginTop: 10 }}>
+              <Button type="submit" disabled={!comment.trim()}>Comentar</Button>
+            </div>
+          </form>
+        </Card>
       </div>
-    </div>
+    </>
   );
 }

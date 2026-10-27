@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
+import PageHeader from '../components/PageHeader';
+import { Button, Card } from '../components/ui';
 
 interface SupplyItem {
   id: string;
@@ -8,6 +10,10 @@ interface SupplyItem {
   unit: string;
   category: string;
 }
+
+const categoryLabel: Record<string, string> = {
+  PAPEL: 'Papel', TONER: 'Toner', LIMPEZA: 'Limpeza', INFORMATICA: 'Informática', OUTROS: 'Outros',
+};
 
 export default function SuprimentosFormPage() {
   const navigate = useNavigate();
@@ -49,111 +55,63 @@ export default function SuprimentosFormPage() {
     return acc;
   }, {});
 
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    fontSize: '13px',
-    fontWeight: 500,
-    color: 'var(--text-secondary)',
-    marginBottom: '6px',
-  };
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius-sm)',
-    padding: '8px 12px',
-    fontSize: '13px',
-    background: 'var(--bg-primary)',
-    color: 'var(--text-primary)',
-    outline: 'none',
-    boxSizing: 'border-box',
-  };
-
   return (
-    <div style={{ minHeight: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 16px' }}>
-      <div style={{ width: '100%', maxWidth: '520px' }}>
-        <h2 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '20px', textAlign: 'center' }}>
-          Novo Pedido de Suprimento
-        </h2>
+    <>
+      <PageHeader title="Novo pedido de suprimento" subtitle="Escolha o item do catálogo e a quantidade." />
 
+      <div className="page-body" style={{ maxWidth: 640 }}>
         {error && (
-          <div style={{ marginBottom: '16px', padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-sm)', color: '#ef4444', fontSize: '13px' }}>
+          <div role="alert" style={{ marginBottom: 16, padding: '10px 14px', background: 'var(--coral-soft)', borderRadius: 'var(--radius-tile)', color: 'var(--coral)', fontSize: 13 }}>
             {error}
           </div>
         )}
 
-        <form
-          onSubmit={handleSubmit}
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '24px', boxShadow: 'var(--shadow)', display: 'flex', flexDirection: 'column', gap: '16px' }}
-        >
-          <div>
-            <label style={labelStyle}>Item *</label>
-            <select value={itemId} onChange={(e) => setItemId(e.target.value)} required style={inputStyle}>
-              {Object.entries(groupedItems).map(([cat, catItems]) => (
-                <optgroup key={cat} label={cat}>
-                  {catItems.map((item) => (
-                    <option key={item.id} value={item.id}>{item.name}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            {selectedItem && (
-              <p style={{ marginTop: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>Unidade: {selectedItem.unit}</p>
-            )}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <Card raised>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
-              <label style={labelStyle}>Quantidade *</label>
-              <input
-                type="number"
-                min={1}
-                value={quantity}
-                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                required
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>Urgência *</label>
-              <select value={urgency} onChange={(e) => setUrgency(e.target.value)} style={inputStyle}>
-                <option value="BAIXA">Baixa</option>
-                <option value="MEDIA">Média</option>
-                <option value="ALTA">Alta</option>
-                <option value="URGENTE">Urgente</option>
+              <label className="field-label">Item</label>
+              <select value={itemId} onChange={(e) => setItemId(e.target.value)} required className="field">
+                {Object.entries(groupedItems).map(([cat, catItems]) => (
+                  <optgroup key={cat} label={categoryLabel[cat] ?? cat}>
+                    {catItems.map((item) => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
               </select>
+              {selectedItem && (
+                <p style={{ marginTop: 6, fontSize: 12, color: 'var(--text-secondary)' }}>Unidade: {selectedItem.unit}</p>
+              )}
             </div>
-          </div>
 
-          <div>
-            <label style={labelStyle}>Observações</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              style={{ ...inputStyle, resize: 'none' }}
-              placeholder="Informações adicionais (opcional)"
-            />
-          </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div>
+                <label className="field-label">Quantidade</label>
+                <input type="number" min={1} value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} required className="field" />
+              </div>
+              <div>
+                <label className="field-label">Urgência</label>
+                <select value={urgency} onChange={(e) => setUrgency(e.target.value)} className="field">
+                  <option value="BAIXA">Baixa</option>
+                  <option value="MEDIA">Média</option>
+                  <option value="ALTA">Alta</option>
+                  <option value="URGENTE">Urgente</option>
+                </select>
+              </div>
+            </div>
 
-          <div style={{ display: 'flex', gap: '10px', paddingTop: '4px' }}>
-            <button
-              type="submit"
-              disabled={loading || !itemId}
-              style={{ padding: '8px 20px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: loading || !itemId ? 'not-allowed' : 'pointer', opacity: loading || !itemId ? 0.6 : 1, transition: 'filter 0.15s' }}
-            >
-              {loading ? 'Enviando...' : 'Enviar Pedido'}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/suprimentos')}
-              style={{ padding: '8px 20px', background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
+            <div>
+              <label className="field-label">Observações</label>
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="field" style={{ resize: 'vertical' }} placeholder="Informações adicionais (opcional)" />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
+              <Button type="submit" disabled={loading || !itemId}>{loading ? 'Enviando...' : 'Enviar pedido'}</Button>
+              <Button type="button" variant="ghost" onClick={() => navigate('/suprimentos')}>Cancelar</Button>
+            </div>
+          </form>
+        </Card>
       </div>
-    </div>
+    </>
   );
 }
