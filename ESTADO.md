@@ -1,6 +1,6 @@
 # ESTADO — Portal de Chamados (Service Desk CSP)
 
-Handoff entre PCs. Atualizado em 23/09/2026 (fim da tarde).
+Handoff entre PCs. Atualizado em 27/10/2026.
 
 ## O que é
 
@@ -17,7 +17,52 @@ hospedagem Hostinger.
 - PC franc: `Desktop\ServiceDeskCSP` (clone de 22/09/2026; `.deploy.env` criado em
   23/09 com o token da Hostinger).
 
-## Onde parou (23/09/2026, fim da tarde)
+## Onde parou (27/10/2026) — editar arquivos no próprio portal
+
+**Pedido do Ronaldo (print de 27/10):** no Repositório de Arquivos, parar de "baixar,
+editar fora e subir de novo". Decisões dele: editor = **Google Docs/Planilhas/
+Apresentações no próprio Drive** (os arquivos de produção já moram no Drive da conta
+da escola; todos os logins são contas Google); quem edita = dono + ADMIN/GESTOR;
+PDF e imagem ganham **"Abrir"** (visualizador na tela, sem baixar); OnlyOffice
+descartado (2–4 GB de RAM no VPS do PDI).
+
+**Como ficou (código pronto, build ok, FALTA DEPLOY):**
+- Backend: `files.service.ts` novo (`openEditSession`, `syncFileMetadata`,
+  `editorKindFor`, `canAccessFile`, `FileErro`); `GoogleDriveProvider` implementa
+  `EditableStorageProvider` (`shareForEdit` = `permissions.list` + `permissions.create`
+  writer sem e-mail de notificação + `webViewLink`; `getInfo` = size/mime/modifiedTime/
+  lastModifyingUser). Rotas: `GET /files/capabilities` → `{editInDrive}`,
+  `POST /files/:id/edit-session` → `{url, editor}`, `POST /files/:id/sync` →
+  `{changed, file}`. Recusas: 403 (USER alheio), 415 (pdf/zip/mp4/imagem), 409 (storage
+  em disco), 422 (e-mail sem conta Google), 410/502 (Drive).
+- Sincronização: baseline `File.driveModifiedTime`; ao voltar o foco da aba o front
+  chama `/sync` para cada arquivo aberto; o **download também sincroniza antes dos
+  headers** (senão o `Content-Length` velho truncaria o arquivo editado). Log
+  `FileChangeLog` ganhou `EDIT` (abriu o editor) e `MODIFIED` (mudança detectada, ator =
+  `lastModifyingUser` do Drive ou quem abriu por último). `replace` zera a baseline.
+- Migration `20261027170000_add_file_edit_tracking` (3 colunas em `File`); o
+  `start.sh` aplica no deploy.
+- Frontend: `FileActionButtons` (Abrir · Editar no Google X · Baixar · Substituir ·
+  Excluir) nas duas páginas e na árvore; `FilePreviewModal` (PDF em iframe por blob,
+  imagem em img); `useSyncOnFocus`; coluna Data mostra ícone de caneta com "Editado por X
+  em Y"; Histórico de alterações rotula EDIT/MODIFIED. O botão Editar abre a aba
+  **síncrona no clique** (bloqueador de pop-up) e some quando `editInDrive` é false.
+- Provas: `npx tsx scripts/testar-edicao-arquivos.ts` → **13 verdes** com Drive mock
+  (guardas 403 e 415 provadas vermelhas por mutação); `tsc` nos dois lados; lint sem
+  problema novo (37 antes e depois, todos antigos); `vite build`; local com storage em
+  disco: rotas 401 sem token, `capabilities` false, edit-session 409/415, sync false,
+  visualizador de PDF aberto no Chrome sem erro de console.
+- **NÃO provado ainda:** o caminho real do Drive (`permissions.create` + Google abrindo
+  o .docx em modo Office) — as credenciais do Drive só existem no VPS. Provar em
+  produção com a conta do Ronaldo (GESTOR) num .docx: editar, voltar, ver o tamanho
+  mudar, baixar o arquivo editado, conferir o Histórico.
+
+**Deploy (do franc, com `!`):** `python update.py` (backend; migration no boot) e
+`python deploy_hostinger.py` (frontend). Provas: `/api/health` 200;
+`POST /api/files/x/edit-session` sem token → 401; bundle novo no HTML de produção com
+o texto "Editar no Google".
+
+## Estado anterior (23/09/2026, fim da tarde)
 
 **EM PRODUÇÃO desde 23/09 ~16h (deploy do franc, os dois scripts com `!`):
 campo "Observações" no PDF + aba "Mensagens" em RH · Holerites.** Provado:

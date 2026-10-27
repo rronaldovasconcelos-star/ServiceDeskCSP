@@ -73,6 +73,9 @@ model File {
   tipoMaterial String?  // ex "PROVA_AVALIATIVA"
   ownerId      String
   uploadedAt   DateTime @default(now())
+  driveModifiedTime DateTime? // modifiedTime do Drive na última sincronização (baseline p/ detectar edição on-line)
+  lastEditedAt      DateTime? // quando a última modificação on-line foi detectada
+  lastEditedByName  String?   // snapshot de quem modificou (lastModifyingUser do Drive, ou quem abriu o editor)
 
   owner User @relation("OwnerFiles", fields: [ownerId], references: [id], onDelete: Cascade)
 
@@ -86,7 +89,7 @@ model FileChangeLog {
   id         String   @id @default(cuid())
   fileId     String? // referência solta — o arquivo pode ser excluído depois
   fileName   String // snapshot do originalName no momento da troca
-  action     String   @default("REPLACE") // REPLACE (extensível: RENAME, etc.)
+  action     String   @default("REPLACE") // REPLACE | EDIT (abriu o editor on-line) | MODIFIED (modificação detectada no Drive)
   actorId    String
   actorName  String // snapshot
   actorEmail String // snapshot

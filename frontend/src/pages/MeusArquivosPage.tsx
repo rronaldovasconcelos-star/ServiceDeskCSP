@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Download, Trash2, List, FolderTree, FileArchive } from 'lucide-react';
+import { List, FolderTree, FileArchive, PenLine } from 'lucide-react';
 import api from '../lib/api';
 import FileUploader from '../components/FileUploader';
 import FilesTreeView from '../components/FilesTreeView';
-import { formatBytes, downloadFile, downloadZip, type FileRecord } from '../lib/files';
+import FileActionButtons from '../components/FileActionButtons';
+import FilePreviewModal from '../components/FilePreviewModal';
+import { useSyncOnFocus } from '../hooks/useSyncOnFocus';
+import { formatBytes, downloadZip, fetchCapabilities, type FileRecord } from '../lib/files';
 import { labelFor, SEGMENTOS, SERIES_BY_SEGMENTO, DISCIPLINAS, TIPOS_MATERIAL, disciplinasFor, tiposFor } from '../lib/taxonomy';
 import { useAuth } from '../context/AuthContext';
 
@@ -28,16 +31,6 @@ const thStyle: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-const iconBtnStyle: React.CSSProperties = {
-  background: 'transparent',
-  border: 'none',
-  cursor: 'pointer',
-  padding: '4px',
-  color: 'var(--text-secondary)',
-  display: 'inline-flex',
-  alignItems: 'center',
-};
-
 /** Tipo curto a partir do mimetype para exibição. */
 function shortType(mime: string): string {
   if (mime === 'application/pdf') return 'PDF';
@@ -55,6 +48,11 @@ export default function MeusArquivosPage() {
   // ADMIN exclui qualquer arquivo; demais (GESTOR/USER) só os próprios — espelha o backend.
   const canDeleteFile = (f: FileRecord) => user?.role === 'ADMIN' || f.ownerId === user?.id;
   const [files, setFiles] = useState<FileRecord[]>([]);
+  const [capabilities, setCapabilities] = useState<{ editInDrive: boolean } | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<FileRecord | null>(null);
+  useEffect(() => { fetchCapabilities().then(setCapabilities).catch(() => setCapabilities({ editInDrive: false })); }, []);
+  const canEditOnline = () => !!capabilities?.editInDrive; // tudo aqui é do próprio usuário
+  useSyncOnFocus((f) => setFiles((prev) => prev.map((x) => (x.id === f.id ? f : x))));
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [segmento, setSegmento] = useState('');
@@ -202,7 +200,7 @@ export default function MeusArquivosPage() {
       ) : files.length === 0 ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhum arquivo encontrado.</p>
       ) : view === 'arvore' ? (
-        <FilesTreeView files={files} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} />
+        <FilesTreeView files={files} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} canEditOnline={canEditOnline} onPreview={setPreviewTarget} />
       ) : (
         <>
           {/* Desktop: tabela */}
@@ -233,10 +231,12 @@ export default function MeusArquivosPage() {
                     <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{labelFor('disciplina', f.disciplina)}</td>
                     <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{labelFor('tipoMaterial', f.tipoMaterial)}</td>
                     <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{formatBytes(f.sizeBytes)}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{new Date(f.uploadedAt).toLocaleDateString('pt-BR')}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }} title={f.lastEditedAt ? `Editado por ${f.lastEditedByName ?? '—'} em ${new Date(f.lastEditedAt).toLocaleString('pt-BR')}` : undefined}>
+                      {new Date(f.uploadedAt).toLocaleDateString('pt-BR')}
+                      {f.lastEditedAt && <PenLine size={12} style={{ marginLeft: '6px', verticalAlign: '-2px', color: 'var(--accent)' }} aria-label="Editado on-line" />}
+                    </td>
                     <td style={{ padding: '10px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <button onClick={() => downloadFile(f.id, f.originalName)} style={iconBtnStyle} title="Baixar" aria-label="Baixar"><Download size={16} /></button>
-                      {canDeleteFile(f) && <button onClick={() => handleDelete(f)} style={{ ...iconBtnStyle, color: '#ef4444' }} title="Excluir" aria-label="Excluir"><Trash2 size={16} /></button>}
+                      <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canEditOnline={canEditOnline()} onPreview={setPreviewTarget} />
                     </td>
                   </tr>
                 ))}
@@ -254,8 +254,7 @@ export default function MeusArquivosPage() {
                     <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '13px', wordBreak: 'break-word' }}>{f.originalName}</span>
                   </div>
                   <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                    <button onClick={() => downloadFile(f.id, f.originalName)} style={iconBtnStyle} title="Baixar" aria-label="Baixar"><Download size={16} /></button>
-                    {canDeleteFile(f) && <button onClick={() => handleDelete(f)} style={{ ...iconBtnStyle, color: '#ef4444' }} title="Excluir" aria-label="Excluir"><Trash2 size={16} /></button>}
+                    <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canEditOnline={canEditOnline()} onPreview={setPreviewTarget} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
@@ -270,6 +269,7 @@ export default function MeusArquivosPage() {
           </div>
         </>
       )}
+      {previewTarget && <FilePreviewModal file={previewTarget} onClose={() => setPreviewTarget(null)} />}
     </div>
   );
 }

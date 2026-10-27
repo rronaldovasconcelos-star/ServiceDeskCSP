@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Download, Trash2, FileStack, HardDrive, List, FolderTree, FileArchive, Replace, History, X } from 'lucide-react';
+import { FileStack, HardDrive, List, FolderTree, FileArchive, History, X, PenLine } from 'lucide-react';
 import api from '../lib/api';
 import FilesTreeView from '../components/FilesTreeView';
+import FileActionButtons from '../components/FileActionButtons';
+import FilePreviewModal from '../components/FilePreviewModal';
+import { useSyncOnFocus } from '../hooks/useSyncOnFocus';
 import {
-  formatBytes, downloadFile, downloadZip, replaceFile, fetchFileLogs,
+  formatBytes, downloadZip, replaceFile, fetchFileLogs, fetchCapabilities, actionLabel,
   type FileRecord, type FileChangeLogRecord,
 } from '../lib/files';
 import { labelFor, SEGMENTOS, SERIES_BY_SEGMENTO, DISCIPLINAS, TIPOS_MATERIAL } from '../lib/taxonomy';
@@ -56,6 +59,11 @@ export default function RepositorioPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [files, setFiles] = useState<FileRecord[]>([]);
+  const [capabilities, setCapabilities] = useState<{ editInDrive: boolean } | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<FileRecord | null>(null);
+  useEffect(() => { fetchCapabilities().then(setCapabilities).catch(() => setCapabilities({ editInDrive: false })); }, []);
+  const canEditOnline = (f: FileRecord) => !!capabilities?.editInDrive && (user?.role === 'ADMIN' || user?.role === 'GESTOR' || f.ownerId === user?.id);
+  useSyncOnFocus((f) => { setFiles((prev) => prev.map((x) => (x.id === f.id ? f : x))); loadMetrics(); });
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [ownerId, setOwnerId] = useState('');
@@ -323,7 +331,7 @@ export default function RepositorioPage() {
       ) : filteredFiles.length === 0 ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhum arquivo encontrado.</p>
       ) : view === 'arvore' ? (
-        <FilesTreeView files={filteredFiles} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} showOwner />
+        <FilesTreeView files={filteredFiles} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} showOwner canEditOnline={canEditOnline} onPreview={setPreviewTarget} canReplace={canEdit} onReplace={setReplaceTarget} />
       ) : (
         <>
           {/* Desktop: tabela */}
@@ -356,11 +364,12 @@ export default function RepositorioPage() {
                     <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{labelFor('disciplina', f.disciplina)}</td>
                     <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{labelFor('tipoMaterial', f.tipoMaterial)}</td>
                     <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{formatBytes(f.sizeBytes)}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{new Date(f.uploadedAt).toLocaleDateString('pt-BR')}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }} title={f.lastEditedAt ? `Editado por ${f.lastEditedByName ?? '—'} em ${new Date(f.lastEditedAt).toLocaleString('pt-BR')}` : undefined}>
+                      {new Date(f.uploadedAt).toLocaleDateString('pt-BR')}
+                      {f.lastEditedAt && <PenLine size={12} style={{ marginLeft: '6px', verticalAlign: '-2px', color: 'var(--accent)' }} aria-label="Editado on-line" />}
+                    </td>
                     <td style={{ padding: '10px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <button onClick={() => downloadFile(f.id, f.originalName)} style={iconBtnStyle} title="Baixar" aria-label="Baixar"><Download size={16} /></button>
-                      {canEdit && <button onClick={() => setReplaceTarget(f)} style={iconBtnStyle} title="Substituir arquivo" aria-label="Substituir"><Replace size={16} /></button>}
-                      {canDeleteFile(f) && <button onClick={() => handleDelete(f)} style={{ ...iconBtnStyle, color: '#ef4444' }} title="Excluir" aria-label="Excluir"><Trash2 size={16} /></button>}
+                      <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOnline={canEditOnline(f)} onPreview={setPreviewTarget} />
                     </td>
                   </tr>
                 ))}
@@ -381,9 +390,7 @@ export default function RepositorioPage() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                    <button onClick={() => downloadFile(f.id, f.originalName)} style={iconBtnStyle} title="Baixar" aria-label="Baixar"><Download size={16} /></button>
-                    {canEdit && <button onClick={() => setReplaceTarget(f)} style={iconBtnStyle} title="Substituir arquivo" aria-label="Substituir"><Replace size={16} /></button>}
-                    {canDeleteFile(f) && <button onClick={() => handleDelete(f)} style={{ ...iconBtnStyle, color: '#ef4444' }} title="Excluir" aria-label="Excluir"><Trash2 size={16} /></button>}
+                    <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOnline={canEditOnline(f)} onPreview={setPreviewTarget} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
@@ -407,6 +414,7 @@ export default function RepositorioPage() {
         />
       )}
 
+      {previewTarget && <FilePreviewModal file={previewTarget} onClose={() => setPreviewTarget(null)} />}
       {historyOpen && <HistoryModal onClose={() => setHistoryOpen(false)} />}
     </div>
   );
@@ -527,7 +535,7 @@ function HistoryModal({ onClose }: { onClose: () => void }) {
               <div key={l.id} style={{ padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
                 <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 600, wordBreak: 'break-word' }}>{l.fileName}</div>
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                  Substituído por <strong>{l.actorName}</strong> ({l.actorEmail})
+                  {actionLabel(l)} <strong>{l.actorName}</strong>{l.actorEmail ? ` (${l.actorEmail})` : ''}
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                   <span>{new Date(l.createdAt).toLocaleString('pt-BR')}</span>

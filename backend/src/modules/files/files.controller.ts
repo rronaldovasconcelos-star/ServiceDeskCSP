@@ -12,8 +12,24 @@ import {
   isValidDisciplina,
   isValidTipo,
 } from './taxonomy.js';
+import { isEditableStorage } from '../../services/storage/types.js';
+import {
+  FileErro,
+  canAccessFile,
+  openEditSession,
+  storageSupportsEdit,
+  syncFileMetadata,
+} from './files.service.js';
 
 const MAX_ZIP_FILES = 300;
+
+function handleFileErro(err: unknown, res: Response, next: NextFunction): void {
+  if (err instanceof FileErro) {
+    res.status(err.status).json({ error: err.message });
+    return;
+  }
+  next(err);
+}
 
 // ─── Select helper ────────────────────────────────────────────────────────────
 
@@ -31,6 +47,8 @@ const fileSelect = {
   disciplina: true,
   tipoMaterial: true,
   uploadedAt: true,
+  lastEditedAt: true,
+  lastEditedByName: true,
   ownerId: true,
   owner: { select: { id: true, name: true, email: true } },
 };
@@ -141,13 +159,12 @@ export async function uploadFiles(req: Request, res: Response, next: NextFunctio
 
 export async function downloadFile(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const file = await (prisma as any).file.findUnique({ where: { id: req.params.id as string } });
+    let file = await (prisma as any).file.findUnique({ where: { id: req.params.id as string } });
     if (!file) {
       res.status(404).json({ error: 'Arquivo não encontrado' });
       return;
     }
-    const canDownload = req.user!.role === 'ADMIN' || req.user!.role === 'GESTOR' || file.ownerId === req.user!.sub;
-    if (!canDownload) {
+    if (!canAccessFile(file, req.user!)) {
       res.status(403).json({ error: 'Acesso negado' });
       return;
     }
@@ -156,8 +173,20 @@ export async function downloadFile(req: Request, res: Response, next: NextFuncti
       return;
     }
 
+    // O arquivo pode ter sido editado on-line (Google Docs): o tamanho/mime do
+    // banco ficariam velhos e o Content-Length errado truncaria o download.
+    let tamanhoConfiavel = true;
+    if (isEditableStorage(storage)) {
+      try {
+        file = (await syncFileMetadata(file.id)).file;
+      } catch (e) {
+        console.error('[files] sincronização antes do download falhou:', e);
+        tamanhoConfiavel = false;
+      }
+    }
+
     res.setHeader('Content-Type', file.mimeType);
-    res.setHeader('Content-Length', String(file.sizeBytes));
+    if (tamanhoConfiavel) res.setHeader('Content-Length', String(file.sizeBytes));
     res.setHeader(
       'Content-Disposition',
       `attachment; filename*=UTF-8''${encodeURIComponent(file.originalName)}`,
@@ -280,6 +309,10 @@ export async function replaceFile(req: Request, res: Response, next: NextFunctio
         mimeType: f.mimetype,
         sizeBytes: f.size,
         storageKey: newStorageKey,
+        // Arquivo novo no Drive = permissões e baseline de edição on-line novas.
+        driveModifiedTime: null,
+        lastEditedAt: null,
+        lastEditedByName: null,
         // originalName, ownerId, classificação e uploadedAt permanecem.
       },
       select: fileSelect,
@@ -312,6 +345,43 @@ export async function replaceFile(req: Request, res: Response, next: NextFunctio
     res.json(updated);
   } catch (err) {
     next(err);
+  }
+}
+
+// ─── Edição on-line (Google Docs/Planilhas/Apresentações no Drive) ──────────────
+
+export async function fileCapabilities(_req: Request, res: Response): Promise<void> {
+  res.json({ editInDrive: storageSupportsEdit() });
+}
+
+// Compartilha o arquivo do Drive com o e-mail do usuário e devolve o link do editor.
+// Regra de acesso (dono/ADMIN/GESTOR) e demais recusas ficam no service.
+export async function openEditSessionHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    res.json(await openEditSession(req.params.id as string, req.user!));
+  } catch (err) {
+    handleFileErro(err, res, next);
+  }
+}
+
+// Confere no Drive se o arquivo mudou e atualiza tamanho/mime/quem editou.
+export async function syncFileHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const id = req.params.id as string;
+    const file = await (prisma as any).file.findUnique({ where: { id }, select: { ownerId: true } });
+    if (!file) {
+      res.status(404).json({ error: 'Arquivo não encontrado' });
+      return;
+    }
+    if (!canAccessFile(file, req.user!)) {
+      res.status(403).json({ error: 'Acesso negado' });
+      return;
+    }
+    const { changed } = await syncFileMetadata(id);
+    const atualizado = await (prisma as any).file.findUnique({ where: { id }, select: fileSelect });
+    res.json({ changed, file: atualizado });
+  } catch (err) {
+    handleFileErro(err, res, next);
   }
 }
 

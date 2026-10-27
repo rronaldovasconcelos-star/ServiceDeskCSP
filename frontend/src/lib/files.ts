@@ -58,9 +58,66 @@ export interface FileRecord {
   disciplina: string | null;
   tipoMaterial: string | null;
   uploadedAt: string;
+  lastEditedAt: string | null;
+  lastEditedByName: string | null;
   ownerId: string;
   owner: { id: string; name: string; email: string };
 }
+
+// ─── Edição on-line (Google Docs/Planilhas/Apresentações no Drive) ──────────────
+
+export type EditorKind = 'docs' | 'sheets' | 'slides';
+
+/** Mime → produto Google (mesma tabela do backend). null = não editável on-line. */
+export function editorKindFor(mime: string): EditorKind | null {
+  const m = (mime ?? '').toLowerCase();
+  if (m === 'application/msword' || m.includes('wordprocessingml')) return 'docs';
+  if (m === 'application/vnd.ms-excel' || m.includes('spreadsheetml')) return 'sheets';
+  if (m === 'application/vnd.ms-powerpoint' || m.includes('presentationml')) return 'slides';
+  return null;
+}
+
+export function editorLabel(kind: EditorKind): string {
+  return kind === 'docs' ? 'Google Documentos' : kind === 'sheets' ? 'Google Planilhas' : 'Google Apresentações';
+}
+
+/** PDF e imagens abrem num visualizador dentro do portal. */
+export function isPreviewable(mime: string): boolean {
+  const m = (mime ?? '').toLowerCase();
+  return m === 'application/pdf' || m.startsWith('image/');
+}
+
+export async function fetchCapabilities(): Promise<{ editInDrive: boolean }> {
+  const res = await api.get('/files/capabilities');
+  return res.data as { editInDrive: boolean };
+}
+
+/** Libera a edição para o usuário logado e devolve o link do editor do Google. */
+export async function openEditSession(id: string): Promise<{ url: string; editor: EditorKind }> {
+  const res = await api.post(`/files/${id}/edit-session`);
+  return res.data as { url: string; editor: EditorKind };
+}
+
+/** Confere no Drive se o arquivo mudou; devolve o registro atualizado. */
+export async function syncFile(id: string): Promise<{ changed: boolean; file: FileRecord }> {
+  const res = await api.post(`/files/${id}/sync`);
+  return res.data as { changed: boolean; file: FileRecord };
+}
+
+/**
+ * Baixa o arquivo e devolve um object URL para visualização (iframe/img).
+ * O tipo é forçado no Blob: sem ele o iframe de PDF não renderiza em alguns navegadores.
+ * Quem chama deve revogar a URL com URL.revokeObjectURL.
+ */
+export async function fetchFileBlobUrl(id: string, mime: string): Promise<string> {
+  const res = await api.get(`/files/${id}/download`, { responseType: 'blob' });
+  return URL.createObjectURL(new Blob([res.data], { type: mime }));
+}
+
+// Arquivos abertos para edição nesta sessão da página: ao voltar o foco, sincroniza.
+const abertosParaEdicao = new Set<string>();
+export function markOpenedForEdit(id: string): void { abertosParaEdicao.add(id); }
+export function openedForEdit(): string[] { return [...abertosParaEdicao]; }
 
 /**
  * Substitui o conteúdo de um arquivo já existente (ADMIN/GESTOR). Mantém a
@@ -95,4 +152,17 @@ export interface FileChangeLogRecord {
 export async function fetchFileLogs(params?: { fileId?: string; limit?: number }): Promise<FileChangeLogRecord[]> {
   const res = await api.get('/files/logs', { params });
   return res.data as FileChangeLogRecord[];
+}
+
+/** Texto da ação do log, em português. */
+export function actionLabel(l: FileChangeLogRecord): string {
+  if (l.action === 'EDIT') return 'Aberto para edição no Google por';
+  if (l.action === 'MODIFIED') return 'Modificado no Google Drive por';
+  return 'Substituído por';
+}
+
+/** Mensagem de erro vinda da API (campo `error`), ou o texto padrão. */
+export function apiErrorMessage(e: unknown, padrao: string): string {
+  const msg = (e as { response?: { data?: { error?: unknown } } })?.response?.data?.error;
+  return typeof msg === 'string' && msg ? msg : padrao;
 }

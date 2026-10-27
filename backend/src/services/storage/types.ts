@@ -19,3 +19,37 @@ export interface StorageProvider {
   /** Indica se a chave existe no armazenamento. */
   exists(key: string): Promise<boolean>;
 }
+
+/** Metadados atuais de um arquivo no storage (usado pela edição on-line). */
+export interface StorageFileInfo {
+  sizeBytes: number;
+  mimeType: string;
+  modifiedTime: Date | null;
+  webViewLink: string | null;
+  lastModifiedByName: string | null;
+  lastModifiedByEmail: string | null;
+}
+
+/**
+ * Providers que permitem abrir o arquivo num editor on-line (hoje só o Google
+ * Drive). O LocalDiskProvider NÃO implementa — o serviço responde 409.
+ */
+export interface EditableStorageProvider extends StorageProvider {
+  /** Garante permissão de escrita para `email` (idempotente) e devolve o link do editor. */
+  shareForEdit(key: string, email: string): Promise<{ webViewLink: string }>;
+  /** Metadados atuais no storage (tamanho, mime, modifiedTime, quem modificou). */
+  getInfo(key: string): Promise<StorageFileInfo>;
+}
+
+export function isEditableStorage(p: StorageProvider): p is EditableStorageProvider {
+  const c = p as Partial<EditableStorageProvider>;
+  return typeof c.shareForEdit === 'function' && typeof c.getInfo === 'function';
+}
+
+/** Erro de storage com status HTTP já resolvido (o service repassa como FileErro). */
+export class StorageError extends Error {
+  constructor(message: string, public readonly status = 502) {
+    super(message);
+    this.name = 'StorageError';
+  }
+}

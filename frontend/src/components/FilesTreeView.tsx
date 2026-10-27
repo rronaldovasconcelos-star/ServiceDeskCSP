@@ -1,5 +1,6 @@
-import { Download, Trash2, ChevronRight, FileText, FolderDown } from 'lucide-react';
-import { formatBytes, downloadFile, type FileRecord } from '../lib/files';
+import { ChevronRight, FileText, FolderDown } from 'lucide-react';
+import { formatBytes, type FileRecord } from '../lib/files';
+import FileActionButtons from './FileActionButtons';
 import { labelFor } from '../lib/taxonomy';
 
 // Ordem dos níveis que espelha a rede interna:
@@ -32,12 +33,19 @@ function buildTree(files: FileRecord[]): Node {
   return root;
 }
 
-interface Props {
-  files: FileRecord[];
+interface RowActions {
   canDelete: (f: FileRecord) => boolean;
   onDelete: (f: FileRecord) => void;
-  onDownloadFolder?: (ids: string[]) => void;
+  canEditOnline: (f: FileRecord) => boolean;
+  onPreview: (f: FileRecord) => void;
+  canReplace?: boolean;
+  onReplace?: (f: FileRecord) => void;
   showOwner?: boolean;
+}
+
+interface Props extends RowActions {
+  files: FileRecord[];
+  onDownloadFolder?: (ids: string[]) => void;
 }
 
 // Coleta recursivamente todos os ids de arquivos sob um nó.
@@ -47,11 +55,11 @@ function collectIds(node: Node): string[] {
   return ids;
 }
 
-export default function FilesTreeView({ files, canDelete, onDelete, onDownloadFolder, showOwner }: Props) {
+export default function FilesTreeView({ files, onDownloadFolder, ...actions }: Props) {
   const tree = buildTree(files);
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: '6px 4px' }}>
-      {renderChildren(tree, 0, LEVELS, canDelete, onDelete, onDownloadFolder, showOwner)}
+      {renderChildren(tree, 0, LEVELS, actions, onDownloadFolder)}
     </div>
   );
 }
@@ -60,10 +68,8 @@ function renderChildren(
   node: Node,
   depth: number,
   levels: readonly Level[],
-  canDelete: (f: FileRecord) => boolean,
-  onDelete: (f: FileRecord) => void,
+  actions: RowActions,
   onDownloadFolder?: (ids: string[]) => void,
-  showOwner?: boolean,
 ) {
   const level = levels[depth];
   // Ordena as chaves alfabeticamente pelos rótulos exibidos.
@@ -107,9 +113,9 @@ function renderChildren(
         <div style={{ borderLeft: '1px solid var(--border)', marginLeft: '7px' }}>
           {isLeaf
             ? child.files.map((f) => (
-                <FileRow key={f.id} f={f} canDelete={canDelete} onDelete={onDelete} showOwner={showOwner} />
+                <FileRow key={f.id} f={f} actions={actions} />
               ))
-            : renderChildren(child, depth + 1, levels, canDelete, onDelete, onDownloadFolder, showOwner)}
+            : renderChildren(child, depth + 1, levels, actions, onDownloadFolder)}
         </div>
       </details>
     );
@@ -122,11 +128,7 @@ function countFiles(node: Node): number {
   return n;
 }
 
-function FileRow({ f, canDelete, onDelete, showOwner }: { f: FileRecord; canDelete: (f: FileRecord) => boolean; onDelete: (f: FileRecord) => void; showOwner?: boolean }) {
-  const iconBtnStyle: React.CSSProperties = {
-    background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px',
-    color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center',
-  };
+function FileRow({ f, actions }: { f: FileRecord; actions: RowActions }) {
   return (
     <div
       className="table-row"
@@ -134,12 +136,20 @@ function FileRow({ f, canDelete, onDelete, showOwner }: { f: FileRecord; canDele
     >
       <FileText size={14} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
       <span style={{ color: 'var(--text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>{f.originalName}</span>
-      {showOwner && <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>· {f.owner.name}</span>}
+      {actions.showOwner && <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>· {f.owner.name}</span>}
       <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
         {formatBytes(f.sizeBytes)} · {new Date(f.uploadedAt).toLocaleDateString('pt-BR')}
       </span>
-      <button onClick={() => downloadFile(f.id, f.originalName)} style={iconBtnStyle} title="Baixar" aria-label="Baixar"><Download size={15} /></button>
-      {canDelete(f) && <button onClick={() => onDelete(f)} style={{ ...iconBtnStyle, color: '#ef4444' }} title="Excluir" aria-label="Excluir"><Trash2 size={15} /></button>}
+      <FileActionButtons
+        f={f}
+        size={15}
+        canDelete={actions.canDelete(f)}
+        onDelete={actions.onDelete}
+        canReplace={actions.canReplace}
+        onReplace={actions.onReplace}
+        canEditOnline={actions.canEditOnline(f)}
+        onPreview={actions.onPreview}
+      />
     </div>
   );
 }

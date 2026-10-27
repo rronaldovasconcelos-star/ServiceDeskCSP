@@ -3,9 +3,12 @@ import fsp from 'node:fs/promises';
 import { PassThrough, Readable } from 'node:stream';
 import { google, drive_v3 } from 'googleapis';
 import { env } from '../../config/env.js';
-import { StorageProvider } from './types.js';
+import { EditableStorageProvider, StorageError, StorageFileInfo } from './types.js';
 
-export class GoogleDriveProvider implements StorageProvider {
+// Papéis do Drive que já permitem editar o arquivo.
+const EDIT_ROLES = new Set(['owner', 'writer', 'organizer', 'fileOrganizer']);
+
+export class GoogleDriveProvider implements EditableStorageProvider {
   private drive: drive_v3.Drive;
   // Cache em memória de caminho cumulativo ("Seg1/Seg2/...") → folderId no Drive.
   private folderCache = new Map<string, string>();
@@ -133,4 +136,74 @@ export class GoogleDriveProvider implements StorageProvider {
       return false;
     }
   }
+
+  // ─── Edição on-line ─────────────────────────────────────────────────────────
+
+  /**
+   * Garante que `email` pode editar o arquivo (permissão `writer`, sem e-mail de
+   * notificação) e devolve o link do editor do Google. Idempotente: se o e-mail
+   * já é editor (ou dono — a própria conta da escola), não cria permissão nova.
+   */
+  async shareForEdit(key: string, email: string): Promise<{ webViewLink: string }> {
+    try {
+      const alvo = email.trim().toLowerCase();
+      const perms = await this.drive.permissions.list({
+        fileId: key,
+        fields: 'permissions(id,emailAddress,role)',
+      });
+      const jaEdita = (perms.data.permissions ?? []).some(
+        (p) => (p.emailAddress ?? '').toLowerCase() === alvo && EDIT_ROLES.has(p.role ?? ''),
+      );
+      if (!jaEdita) {
+        await this.drive.permissions.create({
+          fileId: key,
+          sendNotificationEmail: false,
+          requestBody: { type: 'user', role: 'writer', emailAddress: email },
+        });
+      }
+      const meta = await this.drive.files.get({ fileId: key, fields: 'webViewLink' });
+      if (!meta.data.webViewLink) throw new StorageError('O Google Drive não devolveu o link do editor.', 502);
+      return { webViewLink: meta.data.webViewLink };
+    } catch (err) {
+      throw toStorageError(err, email);
+    }
+  }
+
+  /** Metadados atuais do arquivo no Drive (para detectar edição e corrigir tamanho/mime). */
+  async getInfo(key: string): Promise<StorageFileInfo> {
+    try {
+      const res = await this.drive.files.get({
+        fileId: key,
+        fields: 'size,mimeType,modifiedTime,webViewLink,lastModifyingUser(displayName,emailAddress)',
+      });
+      const d = res.data;
+      return {
+        sizeBytes: Number(d.size ?? 0),
+        mimeType: d.mimeType ?? 'application/octet-stream',
+        modifiedTime: d.modifiedTime ? new Date(d.modifiedTime) : null,
+        webViewLink: d.webViewLink ?? null,
+        lastModifiedByName: d.lastModifyingUser?.displayName ?? null,
+        lastModifiedByEmail: d.lastModifyingUser?.emailAddress ?? null,
+      };
+    } catch (err) {
+      throw toStorageError(err);
+    }
+  }
+}
+
+/** Traduz erros da API do Drive em StorageError com status e mensagem em português. */
+function toStorageError(err: unknown, email?: string): StorageError {
+  if (err instanceof StorageError) return err;
+  const e = err as { status?: number; code?: number; errors?: Array<{ reason?: string }>; message?: string };
+  const status = e?.status ?? e?.code;
+  const reason = e?.errors?.[0]?.reason ?? '';
+  if (reason === 'invalidSharingRequest' || /invalidSharingRequest/.test(e?.message ?? '')) {
+    return new StorageError(
+      `O e-mail ${email ?? ''} não é uma conta Google; não foi possível liberar a edição.`.replace('  ', ' '),
+      422,
+    );
+  }
+  if (status === 404) return new StorageError('Arquivo ausente no armazenamento', 410);
+  console.error('[storage] erro do Google Drive:', e?.message ?? err);
+  return new StorageError('Falha ao comunicar com o Google Drive.', 502);
 }
