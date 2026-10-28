@@ -23,7 +23,6 @@ import BackupPage from './pages/BackupPage';
 import MeusArquivosPage from './pages/MeusArquivosPage';
 import RepositorioPage from './pages/RepositorioPage';
 import WhatsAppPage from './pages/WhatsAppPage';
-import AgentePage from './pages/AgentePage';
 import HoleritesPage from './pages/HoleritesPage';
 import HoleritesRhPage from './pages/HoleritesRhPage';
 
@@ -200,14 +199,6 @@ export default function App() {
                     purpose="recebendo mensagens e abrindo chamados"
                   />
                 </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/agente"
-            element={
-              <ProtectedRoute module="agente">
-                <Layout><AgentePage /></Layout>
               </ProtectedRoute>
             }
           />

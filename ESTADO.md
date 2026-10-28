@@ -328,6 +328,14 @@ com `?status=` e busca local, detalhe com linha do tempo e faixa pós-abertura, 
 todas as páginas em Field/Notice/EmptyState, abas com role, zero hex em src, `style={{}}` 762 → ~45.
 Guardas: tsc 0; eslint 31 (baseline 37, nenhum novo); build OK.
 
+**28/10 tarde (franc), pedidos dele ao ver o local:** crédito "Desenvolvido por Orbit Lab"; foto do
+colégio em alta no login (duas colunas ≥1024 px); paleta e fontes do site colegiosantapaula.com.br
+nos tokens (ver `docs/visual-central-suporte.md`); **"Agente IA" (painel da Liz) REMOVIDO do portal** —
+a Liz roda em outro lugar; ficam só as automações do próprio portal (WhatsApp e Bot de suporte).
+Saíram `pages/AgentePage.tsx`, `lib/lizApi.ts`, a rota `/agente`, o item do menu, o serviço da
+inicial e o módulo `agente` (front e back); o router `backend/src/modules/agent` continua montado
+mas sem tela. eslint caiu para 18 (a página levou 13 problemas antigos).
+
 Conferido no Chrome local (rrona 28/10: claro/escuro 1568 px — login, inicial USER e GESTOR, Painel
 sem módulo, lista de chamados; **franc 28/10 tarde: TODAS as telas da fase 3** — login/cadastro/
 redefinição, inicial, abrir chamado, lista, detalhe, suprimentos (lista e novo), manutenções, agente,
