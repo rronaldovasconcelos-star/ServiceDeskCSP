@@ -38,8 +38,17 @@ suporte" nem `whatsapp-suporte`; o CSS tem `#001d7e`; `login-foto{,-m}.webp/.jpg
 `visual-telehap-final`; tag deste: `visual-central-suporte-v1`. Quem vir o visual antigo:
 Ctrl+Shift+R. O token da Hostinger no `.deploy.env` do franc está VÁLIDO (o do rrona, não).
 
-**Próximos passos possíveis:** avisar os usuários do visual novo; limpar o backend do bot
-(`modules/bot`, `modules/agent`) se ele confirmar que não voltam; conferir no celular dele.
+**28/10 ~15h (franc) — bot e agente APAGADOS do backend (commit `fb7a12b`, NO GITHUB, FALTA O
+`update.py`):** saíram `modules/bot`, `modules/bot-bridge`, `modules/agent`, `services/ai/claude.ts`,
+os scripts `setup-bot-webhook.ts`/`test-bot-local.ts`, as variáveis `BOT_*`, `AGENT_ADMIN_*`, `LIZ_*`,
+`SUPPORT_EVOLUTION_INSTANCE`, `ANTHROPIC_*` (env.ts, .env.example, docker-compose) e a rede
+`agente-pessoal-net` do compose; `express.json()` voltou a ser simples (o rawBody era só para o HMAC
+da Meta). Migration `20261028150000_drop_bot_session` apaga a tabela `BotSession` (o `start.sh` roda
+`migrate deploy` ao subir). Guardas: tsc 0; testes DAV (HTTP), edição de arquivos e holerites todos
+verdes; migration aplicada no dev.db local. **O auto mode barrou o `update.py` nesta sessão** — rodar
+com `!` em sintaxe Bash e depois provar: `api/health` 200 e `/api/bot/webhook/x` 404.
+
+**Próximos passos possíveis:** avisar os usuários do visual novo; conferir no celular dele.
 
 ## Estado anterior (28/10/2026, 00h10, rrona) — REDESENHO VISUAL "Telehap" EM PRODUÇÃO
 
