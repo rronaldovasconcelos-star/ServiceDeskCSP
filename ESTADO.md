@@ -311,7 +311,9 @@ Arquivo de amostra da folha (dados reais, fora do git): existia em
 pasta `Holerites` do Drive. Deploy: `python update.py` (backend) e
 `python deploy_hostinger.py` (frontend), com `.deploy.env` preenchido.
 Prévia de um TXT sem tocar no banco: `npx tsx scripts/holerite-preview.ts arquivo.txt saida/`
-(com `--observacoes "texto"` para ver a caixa de observações preenchida).## Estado atual (28/10/2026) — REDESENHO "Central de Suporte" (Jira/Zendesk) NO GIT, NÃO PUBLICADO
+(com `--observacoes "texto"` para ver a caixa de observações preenchida).
+
+## Estado atual (28/10/2026) — REDESENHO "Central de Suporte" (Jira/Zendesk) NO GIT, NÃO PUBLICADO
 
 Branch `visual-central-suporte` (enviada; não mesclada em main). Rollback do Telehap: tag
 `visual-telehap-final` (058edd1). Produção segue com o Telehap. Doc: `docs/visual-central-suporte.md`.
@@ -326,12 +328,19 @@ com `?status=` e busca local, detalhe com linha do tempo e faixa pós-abertura, 
 todas as páginas em Field/Notice/EmptyState, abas com role, zero hex em src, `style={{}}` 762 → ~45.
 Guardas: tsc 0; eslint 31 (baseline 37, nenhum novo); build OK.
 
-Conferido no Chrome local (claro/escuro, 1568 px): login, inicial USER e GESTOR, Painel sem módulo,
-lista de chamados. **FALTA**: conferir no Chrome as telas da fase 3 (abrir chamado, detalhe, auth,
-suprimentos, manutenções, agente, holerites, repositório, relatórios) + 414/360 px por iframe +
-auditoria DOM (checklist §7 do plano); mesclar em main; publicar SÓ com autorização do Ronaldo
-(`deploy_hostinger.py` com `VITE_GOOGLE_CLIENT_ID` exportado; token Hostinger expirado → MCP
-`hosting_deployStaticWebsite`); avisar usuários (Ctrl+Shift+R).
+Conferido no Chrome local (rrona 28/10: claro/escuro 1568 px — login, inicial USER e GESTOR, Painel
+sem módulo, lista de chamados; **franc 28/10 tarde: TODAS as telas da fase 3** — login/cadastro/
+redefinição, inicial, abrir chamado, lista, detalhe, suprimentos (lista e novo), manutenções, agente,
+meus holerites, RH·Holerites, repositório, relatórios, usuários — nos dois temas, console limpo;
+**celular 414 e 360 px por iframe de mesma origem em 9 rotas + auditoria DOM**: inputs sem label 0,
+botões sem nome 0, imagens sem alt 0). **Defeito achado e corrigido (franc):** a topbar estourava a
+largura do celular (32 px em 414, 15 px em 360 → rolagem horizontal): o `.user-chip` encolhia e o
+botão Sair saía da tela. Correção: `.user-chip { flex: none }`, texto da marca só a partir de 400 px,
+rótulo "Abrir chamado" só a partir de 520 px (ícone antes). Depois da correção: overflow 0 nas 18
+molduras. Guardas após a correção: tsc 0, eslint 31 (baseline da branch), build OK.
+**FALTA**: o Ronaldo ver o visual novo (local ou prévia) e autorizar; mesclar `visual-central-suporte`
+em `main`; publicar (`deploy_hostinger.py` com `VITE_GOOGLE_CLIENT_ID` exportado; token Hostinger
+expirado → MCP `hosting_deployStaticWebsite`); avisar usuários (Ctrl+Shift+R).
 Local: backend `PORT=3199 WHATSAPP_PROVIDER=mock REMINDER_SCHEDULER_ENABLED=false STORAGE_PROVIDER=local
 npx tsx src/server.ts`, Vite 5199; contas de teste via `scripts/create-test-user.ts` (ADMIN
 teste@csp.local, USER usuario.teste@csp.local, GESTOR gestor.teste@csp.local c/ módulo dashboard).

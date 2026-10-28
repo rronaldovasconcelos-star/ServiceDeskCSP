@@ -258,12 +258,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </button>
           <Link to="/" className="topbar-brand md:hidden">
             <img src="/logo.png" alt="" />
-            <span className="truncate">Central de Suporte</span>
+            <span className="truncate hidden min-[400px]:inline">Central de Suporte</span>
           </Link>
           <div className="topbar-spacer" />
           <Link to="/tickets/new" className="btn btn-primary" aria-label="Abrir chamado">
             <Plus size={16} />
-            <span className="hidden min-[380px]:inline">Abrir chamado</span>
+            <span className="hidden min-[520px]:inline">Abrir chamado</span>
           </Link>
           <button
             type="button"

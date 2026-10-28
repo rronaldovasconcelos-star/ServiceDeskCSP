@@ -322,6 +322,7 @@ a { color: var(--primary-ink); }
 .topbar-spacer { flex: 1; }
 .user-chip {
   display: flex;
+  flex: none; /* nunca encolhe abaixo do conteúdo: no celular o Sair saía da tela */
   align-items: center;
   gap: 8px;
   padding: 4px 4px 4px 4px;
