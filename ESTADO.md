@@ -25,7 +25,23 @@ hospedagem Hostinger.
   backend (após `prisma generate`) e do frontend em 0 erros, eslint nos 37 de baseline,
   `vite build` OK. No franc: `git pull` antes de continuar.
 
-## Onde parou (28/10/2026, 00h10, rrona) — REDESENHO VISUAL "Telehap" EM PRODUÇÃO
+## Onde parou (28/10/2026, 14h40, franc) — "CENTRAL DE SUPORTE" EM PRODUÇÃO
+
+**Publicado em 28/10/2026 ~14h35 com autorização dele ("pode por em produção"), provado pelo que o
+site serve:** `index.html` referencia `index-B0HRTood.js` + `index-BuVvYvcB.css` (= build local) e
+carrega Montserrat + Open Sans; o JS tem "Orbit Lab", "Suporte para quem faz a escola acontecer",
+"Como podemos ajudar", a URL da API e o Client ID do Google, e NÃO tem "Agente IA", "Bot de
+suporte" nem `whatsapp-suporte`; o CSS tem `#001d7e`; `login-foto{,-m}.webp/.jpg` 200; `/login`
+200 (SPA); `api/health` 200. Backend atualizado pelo `update.py` (chave SSH, containers
+`csp-backend`/`csp-frontend` rebuildados) com o catálogo de módulos sem `agente` e `bot`.
+`main` = `95a2104` (merge de `visual-central-suporte`); tag de rollback do visual anterior:
+`visual-telehap-final`; tag deste: `visual-central-suporte-v1`. Quem vir o visual antigo:
+Ctrl+Shift+R. O token da Hostinger no `.deploy.env` do franc está VÁLIDO (o do rrona, não).
+
+**Próximos passos possíveis:** avisar os usuários do visual novo; limpar o backend do bot
+(`modules/bot`, `modules/agent`) se ele confirmar que não voltam; conferir no celular dele.
+
+## Estado anterior (28/10/2026, 00h10, rrona) — REDESENHO VISUAL "Telehap" EM PRODUÇÃO
 
 **Publicado em 28/10/2026 ~00h05, provado pelo que o site serve:** `index.html` referencia
 `index-DFb6NHg5.js` + `index-8bZfXKiw.css` (= build local); o CSS tem Poppins, `--navy`,
