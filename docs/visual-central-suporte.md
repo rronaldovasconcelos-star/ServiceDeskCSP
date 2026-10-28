@@ -2,7 +2,10 @@
 
 Direção adotada em 28/10/2026: portal de atendimento com a organização e o acabamento
 do Jira Service Management e do Zendesk, sem copiar interfaces. Navegação em
-azul-marinho, área de trabalho clara e plana, Inter, raios 8/12/16, sombras suaves.
+azul-marinho, área de trabalho clara e plana, raios 8/12/16, sombras suaves.
+**Cores e fontes vêm da identidade do site colegiosantapaula.com.br** (extraídas em 28/10/2026:
+azul `#001D7E`, vinho `#5F194A`, amarelo `#F7D347`, azul-claro `#DCEBF4`, texto `#253C56`;
+Montserrat 700 nos títulos, Open Sans no texto).
 Verde, âmbar e vermelho aparecem só em estados, sempre com texto ou ícone.
 
 Fonte única de verdade: `frontend/src/index.css`. **Nenhuma cor hex fora desse arquivo**
@@ -12,22 +15,25 @@ Fonte única de verdade: `frontend/src/index.css`. **Nenhuma cor hex fora desse 
 
 | Papel | Variável | Claro | Escuro |
 |---|---|---|---|
-| Navegação, títulos | `--navy` | `#14243B` | `#0F1B30` |
-| Ação principal (fundo) | `--primary` / `--primary-hover` | `#2563EB` / `#1D4ED8` | igual |
-| Texto e ícone azul | `--primary-ink` | `#2563EB` | `#60A5FA` |
-| Fundo suave azul | `--primary-soft` | `#EAF1FE` | `rgba(59,130,246,.18)` |
-| Fundo da página | `--bg` | `#F5F7FB` | `#0B1220` |
-| Superfície / superfície 2 | `--surface` / `--surface-2` | `#FFF` / `#F8FAFD` | `#121B2E` / `#182338` |
-| Texto / secundário | `--text` / `--text-2` | `#172033` / `#526176` | `#E6EBF3` / `#A3AFC2` |
-| Borda / borda forte | `--line` / `--line-strong` | `#DFE5EE` / `#C9D3E0` | `#243049` / `#334260` |
+| Navegação, títulos | `--navy` | `#001D7E` | `#05113F` |
+| Ação principal (fundo) | `--primary` / `--primary-hover` | `#001D7E` / `#00155E` | `#3A5FD9` / `#4A6FE6` |
+| Texto e ícone azul | `--primary-ink` | `#001D7E` | `#8FB0FF` |
+| Fundo suave azul | `--primary-soft` | `#DCEBF4` | `rgba(58,95,217,.22)` |
+| Fundo da página | `--bg` | `#F5F7FB` | `#0A1024` |
+| Superfície / superfície 2 | `--surface` / `--surface-2` | `#FFF` / `#F3F8FC` | `#121A33` / `#19233F` |
+| Texto / secundário | `--text` / `--text-2` | `#253C56` / `#5E6B7C` | `#E6EBF3` / `#A3AFC2` |
+| Borda / borda forte | `--line` / `--line-strong` | `#D9E4EE` / `#BFCEDD` | `#243049` / `#334260` |
+| Vinho do site (destaque, `--violet*`) | `--violet` / `--violet-ink` / `--violet-soft` | `#5F194A` / `#5F194A` / `#F4E6EE` | `#E7A9CF` / `#EFB9DA` / `rgba(126,0,81,.26)` |
+| Amarelo do site (marcadores) | `--brand-yellow` / `-ink` / `-soft` | `#F7D347` / `#6B5300` / `#FDF5CF` | igual / `#F7D347` / `rgba(247,211,71,.16)` |
 | Estados (sólido / tinta / suave) | `--success*`, `--warning*`, `--danger*`, `--info-*`, `--neutral-*`, `--violet*` | ver arquivo | ver arquivo |
 | Sobre o navy | `--on-navy`, `--on-navy-muted`, `--navy-line`, `--navy-active` | | |
 | Raios | `--radius-sm` 8 (botão, input, chip) · `--radius-md` 12 (card, tabela) · `--radius-lg` 16 (modal, hero) · `--radius-badge` 6 | | |
 | Sombras | `--shadow-sm` / `--shadow-md` / `--shadow-lg` | | |
 
-Contraste conferido (WCAG 2.2 AA, luminância relativa): texto/branco 16,3; secundário/branco
-6,3; branco sobre `#2563EB` 5,2; `#2563EB` sobre `#F5F7FB` 4,8; `#A9B6CC` sobre navy 7,6;
-tintas de estado sobre os fundos suaves entre 5,5 e 6,8; tema escuro acima de 6,8.
+Contraste conferido em 28/10 com a paleta do site (WCAG 2.2 AA): texto/branco 11,3; secundário/
+branco 5,4; branco sobre `#001D7E` 14,2; `#001D7E` sobre `#F5F7FB` 13,3; `#B3BFE3` sobre navy 7,8;
+vinho sobre o suave 10,1; navy sobre o amarelo 9,7; tema escuro: texto 14,4, links 8,8, branco
+sobre `#3A5FD9` 5,5.
 Branco sobre verde reprova (3,3): por isso não há botão verde, só badges com texto.
 
 **Aliases legados** (`--electric`, `--teal`, `--coral`, `--amber`, `--sky`, `--paper`,
