@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useId } from 'react';
 import {
   Bot, Activity, FileText, Sparkles, Cpu, Save, Loader2, RefreshCw,
   Upload, Trash2, Paperclip, Smartphone, Wifi, WifiOff, LogOut, RotateCcw, QrCode,
   Users, Mail, Phone, CalendarCheck, Database, BarChart3, Plus, KeyRound, MapPin,
+  Baby, Inbox, Check, X,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -11,7 +12,8 @@ import api, { setKey, hasKey, clearKey, rag as ragApi, report as reportApi, FORM
 import MapaBairros from '../components/MapaBairros';
 import ErrorBoundary from '../components/ErrorBoundary';
 import PageHeader from '../components/PageHeader';
-import { Button, Card, IconTile } from '../components/ui';
+import { Button, Card, EmptyState, Field, IconTile, Notice } from '../components/ui';
+import { onTabsKeyDown } from '../lib/a11y';
 
 interface RagPending { id: number; colaborador: string; categoria: string; pergunta: string; resposta: string; created_at: string }
 
@@ -101,12 +103,23 @@ const STATE_LABEL: Record<ConnState, string> = {
   unknown: 'Desconhecido',
 };
 
-const STATE_COLOR: Record<ConnState, string> = {
-  open: 'var(--teal)',
-  connecting: 'var(--electric)',
-  close: 'var(--coral)',
-  unknown: 'var(--text-secondary)',
+/** Badge e tile do estado da conexão: verde = no ar, azul = conectando, vermelho = fora, cinza = desconhecido. */
+const STATE_PILL: Record<ConnState, string> = {
+  open: 'pill-teal',
+  connecting: 'pill-electric',
+  close: 'pill-coral',
+  unknown: 'pill-muted',
 };
+const STATE_TONE: Record<ConnState, 'teal' | 'electric' | 'coral' | 'muted'> = {
+  open: 'teal',
+  connecting: 'electric',
+  close: 'coral',
+  unknown: 'muted',
+};
+
+/* Gráficos: tokens do tema (iguais ao Relatórios). */
+const TOOLTIP_STYLE = { background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)', fontSize: 12, color: 'var(--text)' } as const;
+const TICK = { fontSize: 10, fill: 'var(--text-2)' } as const;
 
 const MODELS = ['gpt-4o', 'gpt-4o-mini', 'llama-3.3-70b-versatile'];
 
@@ -134,6 +147,7 @@ function formatDate(iso: string | null): string {
 
 export default function AgentePage() {
   const [tab, setTab] = useState<Tab>('status');
+  const idBase = useId();
   const [status, setStatus] = useState<AgentStatus | null>(null);
   const [config, setConfig] = useState<AgentConfig | null>(null);
   const [files, setFiles] = useState<AgentFile[]>([]);
@@ -488,14 +502,6 @@ export default function AgentePage() {
     return () => clearInterval(id);
   }, [tab, connState, fetchConnection]);
 
-  const textareaStyle: React.CSSProperties = {
-    minHeight: 360,
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-    fontSize: 12.5,
-    lineHeight: 1.5,
-    resize: 'vertical',
-  };
-
   // Lead qualificado = tem sinal real (interesse/visita/filho/bairro). Demais = contato casual.
   const qualifiedCount = leads.filter((l) => l.qualified).length;
   const visibleLeads = showAllContacts ? leads : leads.filter((l) => l.qualified);
@@ -511,39 +517,40 @@ export default function AgentePage() {
     { key: 'arquivos', label: 'Arquivos', icon: Paperclip },
   ];
 
-  const muted: React.CSSProperties = { color: 'var(--text-secondary)', fontSize: 13 };
-  const small: React.CSSProperties = { color: 'var(--text-secondary)', fontSize: 12 };
-  const inner: React.CSSProperties = { background: 'var(--bg-primary)', borderRadius: 'var(--radius-tile)', padding: 12 };
+  const idAba = (k: Tab) => `${idBase}-aba-${k}`;
+  const idPainel = (k: Tab) => `${idBase}-painel-${k}`;
   const enterKey = () => { if (keyInput.trim()) { setKey(keyInput); setAuthed(true); window.location.reload(); } };
 
   if (!authed) {
     return (
       <>
-        <PageHeader title="Agente IA" subtitle="Liz · assistente do WhatsApp" />
+        <PageHeader title="Agente IA" description="Liz · assistente do WhatsApp" />
         <div className="page-body">
-          <Card raised style={{ maxWidth: 420, margin: '32px auto 0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+          <Card raised className="mx-auto mt-8 max-w-[420px]">
+            <div className="mb-3.5 flex items-center gap-3">
               <IconTile tone="electric"><KeyRound size={18} /></IconTile>
-              <h2 className="card-title" style={{ margin: 0 }}>Gestão da Liz</h2>
+              <h2 className="card-title m-0">Gestão da Liz</h2>
             </div>
-            <p style={{ ...muted, marginBottom: 16 }}>
+            <p className="muted mb-4 text-[13px]">
               Informe a chave de acesso do painel para gerenciar a assistente.
             </p>
-            {authMsg && (
-              <p style={{ background: 'var(--coral-soft)', color: 'var(--coral)', borderRadius: 'var(--radius-tile)', padding: '10px 12px', fontSize: 12.5, marginBottom: 12 }}>
-                {authMsg}
-              </p>
-            )}
-            <input
-              type="password"
-              value={keyInput}
-              onChange={(e) => setKeyInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') enterKey(); }}
-              placeholder="Chave de acesso"
-              className="field"
-              style={{ marginBottom: 12 }}
-            />
-            <Button onClick={enterKey} style={{ width: '100%', justifyContent: 'center' }}>Entrar</Button>
+            <form className="stack gap-3" onSubmit={(e) => { e.preventDefault(); enterKey(); }}>
+              {authMsg && <Notice kind="danger">{authMsg}</Notice>}
+              <Field label="Chave de acesso" required>
+                {(ctl) => (
+                  <input
+                    {...ctl}
+                    type="password"
+                    value={keyInput}
+                    onChange={(e) => setKeyInput(e.target.value)}
+                    placeholder="Chave de acesso"
+                    className="field"
+                    autoComplete="current-password"
+                  />
+                )}
+              </Field>
+              <Button type="submit" className="w-full">Entrar</Button>
+            </form>
           </Card>
         </div>
       </>
@@ -554,42 +561,43 @@ export default function AgentePage() {
     <>
       <PageHeader
         title="Agente IA"
-        subtitle="Liz · assistente do WhatsApp · alterações entram em vigor na hora"
-        actions={<Button variant="onNavy" icon={<RefreshCw size={15} />} onClick={fetchStatus}>Atualizar status</Button>}
+        description="Liz · assistente do WhatsApp · alterações entram em vigor na hora"
+        actions={<Button variant="secondary" icon={<RefreshCw size={15} />} onClick={fetchStatus}>Atualizar status</Button>}
       />
 
-      <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="page-body stack gap-4">
         {/* Toast */}
         {message && (
-          <div
-            role="status"
-            style={{
-              background: message.type === 'ok' ? 'var(--teal-soft)' : 'var(--coral-soft)',
-              color: message.type === 'ok' ? 'var(--teal)' : 'var(--coral)',
-              borderRadius: 'var(--radius-tile)',
-              padding: '10px 14px',
-              fontSize: 13,
-              fontWeight: 500,
-            }}
-          >
+          <Notice kind={message.type === 'ok' ? 'success' : 'danger'} onClose={() => setMessage(null)}>
             {message.text}
-          </div>
+          </Notice>
         )}
 
         {/* Abas */}
-        <div className="tabs">
+        <div className="tabs" role="tablist" aria-label="Seções do agente" onKeyDown={onTabsKeyDown}>
           {TABS.map(({ key, label, icon: Icon }) => (
-            <button key={key} type="button" className={`tab${tab === key ? ' active' : ''}`} onClick={() => setTab(key)}>
-              <Icon size={15} />
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              id={idAba(key)}
+              aria-selected={tab === key}
+              aria-controls={idPainel(key)}
+              tabIndex={tab === key ? 0 : -1}
+              className={`tab${tab === key ? ' active' : ''}`}
+              onClick={() => setTab(key)}
+            >
+              <Icon size={15} aria-hidden="true" />
               {label}
             </button>
           ))}
         </div>
 
+        <div role="tabpanel" id={idPainel(tab)} aria-labelledby={idAba(tab)} className="stack gap-4">
         {/* ── Status ── */}
         {tab === 'status' && (
           status ? (
-            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+            <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
               {([
                 { icon: Activity, label: 'Online há', value: formatUptime(status.uptimeSeconds), tone: 'teal' },
                 { icon: Bot, label: 'Conversas ativas', value: String(status.sessions), tone: 'electric' },
@@ -601,15 +609,15 @@ export default function AgentePage() {
                   <IconTile tone={tone} size={44}><Icon size={20} aria-hidden="true" /></IconTile>
                   <div className="min-w-0">
                     <p className="kpi-label">{label}</p>
-                    <p className="kpi-value" style={{ fontSize: 18, wordBreak: 'break-word' }}>{value}</p>
+                    <p className="kpi-value text-lg wrap-break-word">{value}</p>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <Card>
-              <p style={muted}>Não foi possível obter o status do agente. Verifique se o bot está online e configurado.</p>
-            </Card>
+            <Notice kind="danger" actions={<Button variant="secondary" size="sm" onClick={fetchStatus}>Tentar novamente</Button>}>
+              Não foi possível obter o status do agente. Verifique se o bot está online e configurado.
+            </Notice>
           )
         )}
 
@@ -617,38 +625,35 @@ export default function AgentePage() {
         {tab === 'leads' && (
           <>
             <Card>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-                <h2 className="card-title" style={{ margin: 0 }}>
+              <div className="section-head items-center">
+                <h2 className="card-title m-0">
                   {showAllContacts ? `Todos os contatos (${leads.length})` : `Leads qualificados (${qualifiedCount})`}
                 </h2>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div className="row">
                   <Button
                     variant="ghost" size="sm" icon={<Users size={14} />}
                     onClick={() => setShowAllContacts((v) => !v)}
+                    aria-pressed={showAllContacts}
                     title="Leads = com sinal real (interesse, visita, filho ou bairro). Contatos = todo mundo que escreveu."
                   >
                     {showAllContacts ? `Ver só leads (${qualifiedCount})` : `Ver todos os contatos (${leads.length})`}
                   </Button>
-                  <Button variant="ghost" size="sm" icon={<FileText size={14} />} onClick={exportLeadsCsv} disabled={visibleLeads.length === 0}>
+                  <Button variant="secondary" size="sm" icon={<FileText size={14} />} onClick={exportLeadsCsv} disabled={visibleLeads.length === 0}>
                     Exportar CSV
                   </Button>
-                  <Button
-                    variant="ghost" size="sm"
-                    icon={loading['leads'] ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-                    onClick={fetchLeads}
-                  >
+                  <Button variant="ghost" size="sm" icon={<RefreshCw size={14} />} onClick={fetchLeads} loading={loading['leads']}>
                     Atualizar
                   </Button>
                 </div>
               </div>
               {/* Contadores por interesse */}
-              <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+              <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(140px,1fr))]">
                 {(['imediato', 'proximo_semestre', 'proximo_ano'] as const).map((k) => {
                   const count = leads.filter((l) => l.leadInterest === k).length;
                   return (
-                    <div key={k} style={inner}>
+                    <div key={k} className="rounded-(--radius-sm) bg-(--bg) p-3">
                       <span className={`pill pill-${INTEREST_TONE[k]}`}>{INTEREST_LABEL[k]}</span>
-                      <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 24, marginTop: 8, lineHeight: 1.1 }}>{count}</p>
+                      <p className="mt-2 text-2xl leading-none font-semibold text-(--text)">{count}</p>
                     </div>
                   );
                 })}
@@ -658,23 +663,25 @@ export default function AgentePage() {
             {/* Lista de leads */}
             <Card>
               {loading['leads'] && leads.length === 0 ? (
-                <div style={{ ...muted, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Loader2 size={15} className="animate-spin" /> Carregando leads…
+                <div className="stack gap-2" aria-busy="true" aria-live="polite">
+                  <div className="skeleton h-[88px]" />
+                  <div className="skeleton h-[88px]" />
+                  <p className="sr-only">Carregando leads…</p>
                 </div>
               ) : visibleLeads.length === 0 ? (
-                <p style={muted}>
+                <EmptyState icon={<Users size={22} />} title={showAllContacts ? 'Nenhum contato ainda' : 'Nenhum lead qualificado ainda'}>
                   {showAllContacts
-                    ? 'Nenhum contato ainda. Conforme os responsáveis conversarem com a Liz, eles aparecem aqui automaticamente.'
-                    : 'Nenhum lead qualificado ainda. Use "Ver todos os contatos" para ver quem já escreveu, ou aguarde a Liz coletar interesse/bairro/visita.'}
-                </p>
+                    ? 'Conforme os responsáveis conversarem com a Liz, eles aparecem aqui automaticamente.'
+                    : 'Use "Ver todos os contatos" para ver quem já escreveu, ou aguarde a Liz coletar interesse/bairro/visita.'}
+                </EmptyState>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <ul className="stack m-0 list-none gap-2 p-0">
                   {visibleLeads.map((l) => (
-                    <div key={l.phone} style={inner}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                    <li key={l.phone} className="rounded-(--radius-sm) bg-(--bg) p-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 14 }}>
+                          <div className="row">
+                            <span className="text-sm font-semibold text-(--text)">
                               {l.name || 'Sem nome'}
                             </span>
                             {l.leadInterest && (
@@ -682,16 +689,16 @@ export default function AgentePage() {
                             )}
                             {l.gradeInterest && <span className="pill pill-muted">{l.gradeInterest}</span>}
                           </div>
-                          <div style={{ ...small, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 6 }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Phone size={12} /> {formatPhone(l.phone)}</span>
-                            {l.email && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Mail size={12} /> {l.email}</span>}
+                          <div className="row mt-1.5 gap-3 text-xs text-(--text-2)">
+                            <span className="inline-flex items-center gap-1"><Phone size={12} aria-hidden="true" /><span className="sr-only">Telefone:</span> {formatPhone(l.phone)}</span>
+                            {l.email && <span className="inline-flex items-center gap-1"><Mail size={12} aria-hidden="true" /><span className="sr-only">E-mail:</span> {l.email}</span>}
                             {l.children.length > 0 && (
-                              <span>👦 {l.children.map((c) => `${c.name}${c.age ? ` (${c.age})` : ''}`).join(', ')}</span>
+                              <span className="inline-flex items-center gap-1"><Baby size={12} aria-hidden="true" /><span className="sr-only">Filhos:</span> {l.children.map((c) => `${c.name}${c.age ? ` (${c.age})` : ''}`).join(', ')}</span>
                             )}
                           </div>
                           {l.lastVisit && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, color: 'var(--teal)', fontSize: 12 }}>
-                              <CalendarCheck size={12} /> Visita: {l.lastVisit.date} às {l.lastVisit.time}
+                            <div className="mt-1.5 flex items-center gap-1 text-xs text-(--success-ink)">
+                              <CalendarCheck size={12} aria-hidden="true" /> Visita: {l.lastVisit.date} às {l.lastVisit.time}
                             </div>
                           )}
                         </div>
@@ -699,16 +706,15 @@ export default function AgentePage() {
                           href={`https://wa.me/${l.phone.replace(/\D/g, '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="btn btn-secondary btn-sm"
-                          style={{ textDecoration: 'none', flexShrink: 0 }}
+                          className="btn btn-secondary btn-sm shrink-0 no-underline"
                         >
-                          <Smartphone size={13} /> WhatsApp
+                          <Smartphone size={13} aria-hidden="true" /> WhatsApp
                         </a>
                       </div>
-                      <p style={{ ...small, fontSize: 11, marginTop: 8 }}>Atualizado: {formatDate(l.updatedAt)}</p>
-                    </div>
+                      <p className="mt-2 text-[11px] text-(--text-2)">Atualizado: {formatDate(l.updatedAt)}</p>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </Card>
           </>
@@ -717,75 +723,75 @@ export default function AgentePage() {
         {/* ── Conexão WhatsApp ── */}
         {tab === 'conexao' && (
           <>
-            <Card style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
-                    background: STATE_COLOR[connState], boxShadow: `0 0 8px ${STATE_COLOR[connState]}`,
-                  }}
-                />
+            <Card className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <IconTile tone={STATE_TONE[connState]} size={44}>
+                  {connState === 'open' ? <Wifi size={20} /> : <WifiOff size={20} />}
+                </IconTile>
                 <div>
-                  <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{STATE_LABEL[connState]}</p>
-                  <p style={small}>{connState === 'open' ? (connPhone ?? 'Carregando…') : 'Sem número ativo'}</p>
+                  <p className="font-semibold text-(--text)">{STATE_LABEL[connState]}</p>
+                  <p className="text-xs text-(--text-2)">{connState === 'open' ? (connPhone ?? 'Carregando…') : 'Sem número ativo'}</p>
                 </div>
               </div>
-              {connState === 'open'
-                ? <Wifi size={22} style={{ color: STATE_COLOR.open }} />
-                : <WifiOff size={22} style={{ color: STATE_COLOR[connState] }} />}
+              <span className={`pill pill-strong ${STATE_PILL[connState]}`}>
+                <span className="pill-dot" aria-hidden="true" />
+                {STATE_LABEL[connState]}
+              </span>
             </Card>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-              <Button variant="ghost" icon={<RefreshCw size={15} />} onClick={fetchConnection}>Atualizar status</Button>
+            <div className="row gap-2.5">
               <Button
-                icon={loading['qr'] ? <Loader2 size={15} className="animate-spin" /> : <QrCode size={15} />}
+                icon={<QrCode size={15} />}
                 onClick={genQr}
-                disabled={loading['qr'] || connState === 'open'}
+                loading={loading['qr']}
+                disabled={connState === 'open'}
               >
                 {connState === 'open' ? 'Já conectado' : 'Gerar QR Code'}
               </Button>
+              <Button variant="secondary" icon={<RefreshCw size={15} />} onClick={fetchConnection}>Atualizar status</Button>
               <Button
-                variant="ghost"
-                icon={loading['restart'] ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
+                variant="secondary"
+                icon={<RotateCcw size={15} />}
                 onClick={restartConn}
-                disabled={loading['restart']}
+                loading={loading['restart']}
               >
                 Reiniciar conexão
               </Button>
               <Button
                 variant="danger"
-                icon={loading['disconnect'] ? <Loader2 size={15} className="animate-spin" /> : <LogOut size={15} />}
+                icon={<LogOut size={15} />}
                 onClick={disconnectConn}
-                disabled={loading['disconnect'] || connState !== 'open'}
+                loading={loading['disconnect']}
+                disabled={connState !== 'open'}
               >
                 Desconectar
               </Button>
             </div>
 
             {qrcode && (
-              <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 24 }}>
-                <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Aponte o WhatsApp para o QR Code</p>
-                <p style={{ ...muted, textAlign: 'center' }}>No celular: WhatsApp → Dispositivos conectados → Conectar dispositivo</p>
-                <div style={{ background: 'var(--on-navy)', padding: 12, borderRadius: 'var(--radius-tile)' }}>
-                  <img src={qrcode} alt="QR Code WhatsApp" style={{ width: 220, height: 220, display: 'block' }} />
+              <Card className="flex flex-col items-center gap-3.5 p-6">
+                <p className="font-semibold text-(--text)">Aponte o WhatsApp para o QR Code</p>
+                <p className="muted text-center text-[13px]">No celular: WhatsApp → Dispositivos conectados → Conectar dispositivo</p>
+                {/* Fundo branco fixo: o QR precisa de contraste alto também no tema escuro. */}
+                <div className="rounded-(--radius-sm) border border-(--line) bg-(--on-navy) p-3">
+                  <img src={qrcode} alt="QR Code WhatsApp" className="block size-[220px]" />
                 </div>
-                <p style={small}>O QR expira em ~60 segundos. Se expirar, clique em "Gerar QR Code" novamente.</p>
+                <p className="text-xs text-(--text-2)">O QR expira em ~60 segundos. Se expirar, clique em "Gerar QR Code" novamente.</p>
               </Card>
             )}
 
             {connState === 'open' && !qrcode && (
-              <div style={{ background: 'var(--teal-soft)', color: 'var(--text-primary)', borderRadius: 'var(--radius-card)', padding: 16, fontSize: 13 }}>
-                <strong style={{ color: 'var(--teal)' }}>Tudo certo!</strong> A Liz está atendendo pelo número {connPhone ?? '–'}.
+              <Notice kind="success" title="Tudo certo!">
+                A Liz está atendendo pelo número {connPhone ?? '–'}.
                 Use <strong>Reiniciar conexão</strong> se houver falha no envio sem trocar de número.
                 Use <strong>Desconectar</strong> apenas para trocar de número — será necessário escanear um novo QR Code.
-              </div>
+              </Notice>
             )}
 
             {connState !== 'open' && !qrcode && connState !== 'unknown' && (
-              <div style={{ background: 'var(--coral-soft)', color: 'var(--text-primary)', borderRadius: 'var(--radius-card)', padding: 16, fontSize: 13 }}>
-                <strong style={{ color: 'var(--coral)' }}>Liz desconectada.</strong> Clique em <strong>Gerar QR Code</strong> e escaneie com o celular do número que deve atender.
-              </div>
+              <Notice kind="danger" title="Liz desconectada.">
+                Clique em <strong>Gerar QR Code</strong> e escaneie com o celular do número que deve atender.
+              </Notice>
             )}
           </>
         )}
@@ -793,60 +799,72 @@ export default function AgentePage() {
         {/* ── Prompt ── */}
         {tab === 'prompt' && (
           <Card title="System prompt da Liz">
-            <p style={{ ...small, marginTop: -8, marginBottom: 12 }}>
-              Define a personalidade e as regras. Mantenha os marcadores{' '}
-              <code style={{ color: 'var(--electric)' }}>{'{{DATETIME}}'}</code>,{' '}
-              <code style={{ color: 'var(--electric)' }}>{'{{PHONE}}'}</code>,{' '}
-              <code style={{ color: 'var(--electric)' }}>{'{{WHATSAPP_NAME}}'}</code> e{' '}
-              <code style={{ color: 'var(--electric)' }}>{'{{MEMORY}}'}</code>.
-            </p>
-            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} className="field" style={textareaStyle} />
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Cpu size={15} style={{ color: 'var(--text-secondary)' }} />
-                <select value={model} onChange={(e) => setModel(e.target.value)} className="field" style={{ width: 'auto' }}>
-                  {[...new Set([model, ...MODELS])].filter(Boolean).map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-              <Button
-                icon={loading['prompt'] ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                onClick={savePrompt}
-                disabled={loading['prompt']}
-                style={{ marginLeft: 'auto' }}
+            <form className="stack gap-3.5" onSubmit={(e) => { e.preventDefault(); void savePrompt(); }}>
+              <Field
+                label="Prompt"
+                hint={(
+                  <>
+                    Define a personalidade e as regras. Mantenha os marcadores{' '}
+                    <code className="text-(--primary-ink)">{'{{DATETIME}}'}</code>,{' '}
+                    <code className="text-(--primary-ink)">{'{{PHONE}}'}</code>,{' '}
+                    <code className="text-(--primary-ink)">{'{{WHATSAPP_NAME}}'}</code> e{' '}
+                    <code className="text-(--primary-ink)">{'{{MEMORY}}'}</code>.
+                  </>
+                )}
               >
-                Salvar prompt
-              </Button>
-            </div>
-            {config && <p style={{ ...small, fontSize: 11, marginTop: 8 }}>Última edição: {formatDate(config.updatedAt)}</p>}
+                {(ctl) => (
+                  <textarea
+                    {...ctl}
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    className="field min-h-[360px] font-mono text-[12.5px] leading-normal"
+                  />
+                )}
+              </Field>
+
+              <div className="row gap-3">
+                <Field label={<span className="inline-flex items-center gap-1.5"><Cpu size={15} aria-hidden="true" /> Modelo</span>} inline>
+                  {(ctl) => (
+                    <select {...ctl} value={model} onChange={(e) => setModel(e.target.value)} className="field w-auto">
+                      {[...new Set([model, ...MODELS])].filter(Boolean).map((m) => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  )}
+                </Field>
+                <Button type="submit" icon={<Save size={15} />} loading={loading['prompt']} className="ml-auto">
+                  Salvar prompt
+                </Button>
+              </div>
+              {config && <p className="text-[11px] text-(--text-2)">Última edição: {formatDate(config.updatedAt)}</p>}
+            </form>
           </Card>
         )}
 
         {/* ── Contexto extra ── */}
         {tab === 'contexto' && (
           <Card title="Contexto adicional">
-            <p style={{ ...small, marginTop: -8, marginBottom: 12 }}>
-              Informações temporárias injetadas no prompt — avisos sazonais, promoções, mudanças de horário,
-              campanhas de matrícula. Deixe em branco para não adicionar nada.
-            </p>
-            <textarea
-              value={extraContext}
-              onChange={(e) => setExtraContext(e.target.value)}
-              className="field"
-              style={{ ...textareaStyle, minHeight: 220, fontFamily: 'inherit', fontSize: 13 }}
-              placeholder="Ex: Estamos em campanha de matrícula 2026 — informe que há 10% de desconto até 30/06."
-            />
-            <div style={{ marginTop: 14 }}>
-              <Button
-                icon={loading['contexto'] ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                onClick={saveContext}
-                disabled={loading['contexto']}
+            <form className="stack gap-3.5" onSubmit={(e) => { e.preventDefault(); void saveContext(); }}>
+              <Field
+                label="Contexto"
+                hint="Informações temporárias injetadas no prompt — avisos sazonais, promoções, mudanças de horário, campanhas de matrícula. Deixe em branco para não adicionar nada."
               >
-                Salvar contexto
-              </Button>
-            </div>
+                {(ctl) => (
+                  <textarea
+                    {...ctl}
+                    value={extraContext}
+                    onChange={(e) => setExtraContext(e.target.value)}
+                    className="field min-h-[220px] text-[13px]"
+                    placeholder="Ex: Estamos em campanha de matrícula 2026 — informe que há 10% de desconto até 30/06."
+                  />
+                )}
+              </Field>
+              <div className="form-actions">
+                <Button type="submit" icon={<Save size={15} />} loading={loading['contexto']}>
+                  Salvar contexto
+                </Button>
+              </div>
+            </form>
           </Card>
         )}
 
@@ -854,85 +872,83 @@ export default function AgentePage() {
         {tab === 'arquivos' && (
           <>
             <Card title="Novo arquivo">
-              <p style={{ ...small, marginTop: -8, marginBottom: 12 }}>
-                PDF, imagem ou folder que a Liz poderá enviar nas conversas. A descrição diz a ela quando usar.
-              </p>
-              {/* Input nativo escondido — acionado pela área clicável abaixo */}
-              <input
-                ref={fileInput}
-                type="file"
-                onChange={(e) => setPendingFile(e.target.files?.[0] ?? null)}
-                style={{ display: 'none' }}
-              />
-              <button
-                type="button"
-                onClick={() => fileInput.current?.click()}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  width: '100%', marginBottom: 12,
-                  background: 'var(--bg-primary)',
-                  border: `2px dashed ${pendingFile ? 'var(--electric)' : 'var(--border)'}`,
-                  borderRadius: 'var(--radius-tile)',
-                  padding: '24px 16px',
-                  cursor: 'pointer',
-                  color: 'var(--text-secondary)',
-                  font: 'inherit',
-                }}
-              >
-                <Upload size={22} style={{ color: 'var(--electric)' }} />
-                {pendingFile ? (
-                  <>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 14 }}>{pendingFile.name}</span>
-                    <span style={{ fontSize: 12 }}>{formatBytes(pendingFile.size)} · clique para trocar</span>
-                  </>
-                ) : (
-                  <>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 14 }}>Clique para escolher um arquivo</span>
-                    <span style={{ fontSize: 12 }}>PDF, imagem, vídeo ou documento</span>
-                  </>
-                )}
-              </button>
-              <input
-                type="text"
-                value={pendingDesc}
-                onChange={(e) => setPendingDesc(e.target.value)}
-                placeholder="Descrição — ex: Tabela de valores 2026, enviar quando perguntarem sobre mensalidade"
-                className="field"
-                style={{ marginBottom: 12 }}
-              />
-              <Button
-                icon={loading['upload'] ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-                onClick={uploadFile}
-                disabled={!pendingFile || loading['upload']}
-              >
-                Enviar arquivo
-              </Button>
+              <form className="stack gap-3" onSubmit={(e) => { e.preventDefault(); void uploadFile(); }}>
+                <p className="-mt-2 text-xs text-(--text-2)">
+                  PDF, imagem ou folder que a Liz poderá enviar nas conversas. A descrição diz a ela quando usar.
+                </p>
+                {/* Input nativo escondido — acionado pela área clicável abaixo */}
+                <input
+                  ref={fileInput}
+                  type="file"
+                  onChange={(e) => setPendingFile(e.target.files?.[0] ?? null)}
+                  className="hidden"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInput.current?.click()}
+                  className={`flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-(--radius-sm) border-2 border-dashed bg-(--bg) px-4 py-6 font-[inherit] text-(--text-2) transition-colors ${pendingFile ? 'border-(--primary)' : 'border-(--line-strong)'}`}
+                >
+                  <Upload size={22} className="text-(--primary-ink)" aria-hidden="true" />
+                  {pendingFile ? (
+                    <>
+                      <span className="text-sm font-semibold text-(--text)">{pendingFile.name}</span>
+                      <span className="text-xs">{formatBytes(pendingFile.size)} · clique para trocar</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-sm font-semibold text-(--text)">Clique para escolher um arquivo</span>
+                      <span className="text-xs">PDF, imagem, vídeo ou documento</span>
+                    </>
+                  )}
+                </button>
+                <Field label="Descrição" hint="Diz à Liz quando usar o arquivo.">
+                  {(ctl) => (
+                    <input
+                      {...ctl}
+                      type="text"
+                      value={pendingDesc}
+                      onChange={(e) => setPendingDesc(e.target.value)}
+                      placeholder="Descrição — ex: Tabela de valores 2026, enviar quando perguntarem sobre mensalidade"
+                      className="field"
+                    />
+                  )}
+                </Field>
+                <div className="form-actions">
+                  <Button type="submit" icon={<Upload size={15} />} loading={loading['upload']} disabled={!pendingFile}>
+                    Enviar arquivo
+                  </Button>
+                </div>
+              </form>
             </Card>
 
             <Card title={`Arquivos cadastrados (${files.length})`}>
               {files.length === 0 ? (
-                <p style={muted}>Nenhum arquivo ainda. Use a área acima para enviar o primeiro.</p>
+                <EmptyState icon={<Paperclip size={22} />} title="Nenhum arquivo ainda">
+                  Use a área acima para enviar o primeiro.
+                </EmptyState>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <ul className="stack m-0 list-none gap-2 p-0">
                   {files.map((f) => (
-                    <div key={f.id} style={{ ...inner, display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <li key={f.id} className="flex items-center gap-3 rounded-(--radius-sm) bg-(--bg) p-3">
                       <IconTile tone="electric" size={36}><FileText size={16} /></IconTile>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate" style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: 13.5 }}>{f.originalName}</p>
-                        <p className="truncate" style={small}>{f.description || 'sem descrição'} · {formatBytes(f.sizeBytes)}</p>
+                        <p className="truncate text-[13.5px] font-medium text-(--text)">{f.originalName}</p>
+                        <p className="truncate text-xs text-(--text-2)">{f.description || 'sem descrição'} · {formatBytes(f.sizeBytes)}</p>
                       </div>
                       <Button
-                        variant="ghost" size="sm"
+                        variant="ghost" size="sm" iconOnly
                         onClick={() => removeFile(f.id)}
-                        disabled={loading[`del-${f.id}`]}
-                        aria-label="Remover arquivo"
-                        style={{ color: 'var(--coral)', padding: 8 }}
-                      >
-                        {loading[`del-${f.id}`] ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                      </Button>
-                    </div>
+                        loading={loading[`del-${f.id}`]}
+                        aria-label={`Remover ${f.originalName}`}
+                        title="Remover arquivo"
+                        className="text-(--danger)"
+                        icon={<Trash2 size={14} />}
+                      />
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </Card>
           </>
@@ -942,84 +958,98 @@ export default function AgentePage() {
         {tab === 'rag' && (
           <>
             <Card>
-              <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}><Users size={16} /> Coleta de conhecimento</h2>
-              <p style={{ ...muted, marginBottom: 10 }}>Envie este link para os colaboradores preencherem as informações da escola. As respostas chegam aqui em <b>Pendentes</b> para sua aprovação.</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <input readOnly value={FORM_LINK} className="field" style={{ flex: 1, minWidth: 220, width: 'auto' }} />
-                <Button onClick={() => { navigator.clipboard.writeText(FORM_LINK); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
+              <h2 className="card-title mb-1.5 flex items-center gap-2.5"><IconTile size={32}><Users size={16} /></IconTile> Coleta de conhecimento</h2>
+              <p className="muted mb-2.5 text-[13px]">Envie este link para os colaboradores preencherem as informações da escola. As respostas chegam aqui em <b>Pendentes</b> para sua aprovação.</p>
+              <div className="row items-end">
+                <Field label="Link do formulário" className="min-w-[220px] flex-1">
+                  {(ctl) => <input {...ctl} readOnly value={FORM_LINK} className="field" onFocus={(e) => e.currentTarget.select()} />}
+                </Field>
+                <Button variant="secondary" icon={copied ? <Check size={14} /> : undefined} onClick={() => { navigator.clipboard.writeText(FORM_LINK); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
                   {copied ? 'Copiado!' : 'Copiar link'}
                 </Button>
               </div>
             </Card>
 
             {pending.length > 0 && (
-              <Card title={`📥 Pendentes de revisão (${pending.length})`}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <Card title={<span className="flex items-center gap-2.5"><IconTile tone="amber" size={32}><Inbox size={16} /></IconTile> Pendentes de revisão ({pending.length})</span>}>
+                <ul className="stack m-0 list-none gap-2 p-0">
                   {pending.map((p) => (
-                    <div key={p.id} style={inner}>
-                      <div style={{ ...small, marginBottom: 4 }}>{p.colaborador} · {p.categoria}</div>
-                      <div style={{ color: 'var(--text-primary)', fontSize: 13 }}><b>{p.pergunta}</b></div>
-                      <div style={{ color: 'var(--text-primary)', fontSize: 13, marginTop: 2 }}>{p.resposta}</div>
-                      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                        <Button variant="secondary" size="sm" onClick={() => approvePending(p.id)} disabled={loading[`pa-${p.id}`]}>
-                          {loading[`pa-${p.id}`] ? '...' : '✓ Aprovar'}
+                    <li key={p.id} className="rounded-(--radius-sm) bg-(--bg) p-3">
+                      <div className="mb-1 text-xs text-(--text-2)">{p.colaborador} · {p.categoria}</div>
+                      <div className="text-[13px] text-(--text)"><b>{p.pergunta}</b></div>
+                      <div className="mt-0.5 text-[13px] text-(--text)">{p.resposta}</div>
+                      <div className="row mt-2.5">
+                        <Button variant="secondary" size="sm" icon={<Check size={14} />} onClick={() => approvePending(p.id)} loading={loading[`pa-${p.id}`]}>
+                          Aprovar
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => rejectPending(p.id)} disabled={loading[`pr-${p.id}`]} style={{ color: 'var(--coral)' }}>
-                          {loading[`pr-${p.id}`] ? '...' : '✕ Rejeitar'}
+                        <Button variant="ghost" size="sm" icon={<X size={14} />} onClick={() => rejectPending(p.id)} loading={loading[`pr-${p.id}`]} className="text-(--danger)">
+                          Rejeitar
                         </Button>
                       </div>
-                    </div>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </Card>
             )}
 
             <Card>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <h2 className="card-title" style={{ margin: 0 }}>Base de conhecimento (RAG)</h2>
-                <Button variant="ghost" size="sm" icon={<RefreshCw size={14} />} onClick={fetchRag}>Atualizar</Button>
+              <div className="section-head items-center">
+                <h2 className="card-title m-0">Base de conhecimento (RAG)</h2>
+                <Button variant="ghost" size="sm" icon={<RefreshCw size={14} />} onClick={fetchRag} loading={loading.rag}>Atualizar</Button>
               </div>
 
-              <div style={{ marginBottom: 16 }}>
-                <textarea
-                  value={ragText} onChange={(e) => setRagText(e.target.value)} rows={3}
-                  placeholder="Escreva um novo conhecimento/FAQ que a Liz deve saber…"
-                  className="field" style={{ marginBottom: 8, resize: 'vertical' }}
-                />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <input value={ragCat} onChange={(e) => setRagCat(e.target.value)} placeholder="categoria" className="field" style={{ width: 140 }} />
-                  <Button
-                    icon={loading.ragAdd ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                    onClick={addRag} disabled={loading.ragAdd || !ragText.trim()}
-                  >
+              <form className="stack mb-4 gap-2" onSubmit={(e) => { e.preventDefault(); void addRag(); }}>
+                <Field label="Novo conhecimento">
+                  {(ctl) => (
+                    <textarea
+                      {...ctl}
+                      value={ragText} onChange={(e) => setRagText(e.target.value)} rows={3}
+                      placeholder="Escreva um novo conhecimento/FAQ que a Liz deve saber…"
+                      className="field min-h-20"
+                    />
+                  )}
+                </Field>
+                <div className="row items-end">
+                  <Field label="Categoria" className="w-[160px]">
+                    {(ctl) => <input {...ctl} value={ragCat} onChange={(e) => setRagCat(e.target.value)} placeholder="categoria" className="field" />}
+                  </Field>
+                  <Button type="submit" icon={<Plus size={14} />} loading={loading.ragAdd} disabled={!ragText.trim()}>
                     Adicionar
                   </Button>
-                  <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
-                    {loading.ragPdf ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Upload PDF
-                    <input type="file" accept="application/pdf" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPdfRag(f); e.target.value = ''; }} />
+                  <label className="btn btn-secondary cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-(--primary)">
+                    {loading.ragPdf ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <Upload size={14} aria-hidden="true" />} Upload PDF
+                    <input type="file" accept="application/pdf" className="sr-only" disabled={loading.ragPdf} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPdfRag(f); e.target.value = ''; }} />
                   </label>
                 </div>
-              </div>
+              </form>
 
               {loading.rag ? (
-                <div style={{ ...muted, display: 'flex', alignItems: 'center', gap: 8 }}><Loader2 size={16} className="animate-spin" /> Carregando…</div>
+                <div className="stack gap-2" aria-busy="true" aria-live="polite">
+                  <div className="skeleton h-16" />
+                  <div className="skeleton h-16" />
+                  <p className="sr-only">Carregando…</p>
+                </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <p style={small}>{ragChunks.length} trechos indexados</p>
+                <div className="stack gap-2">
+                  <p className="text-xs text-(--text-2)">{ragChunks.length} trechos indexados</p>
+                  {ragChunks.length === 0 && (
+                    <EmptyState icon={<Database size={22} />} title="Nenhum trecho indexado ainda">
+                      Adicione um conhecimento acima ou envie um PDF.
+                    </EmptyState>
+                  )}
                   {ragChunks.map((c) => (
-                    <div key={c.id} style={{ ...inner, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                      <div style={{ minWidth: 0 }}>
+                    <div key={c.id} className="flex items-start justify-between gap-3 rounded-(--radius-sm) bg-(--bg) p-3">
+                      <div className="min-w-0">
                         <span className="pill pill-violet">{c.categoria}</span>
-                        <span style={{ ...small, marginLeft: 8 }}>{c.fonte}</span>
-                        <p style={{ color: 'var(--text-primary)', fontSize: 13, marginTop: 4 }}>{c.texto}</p>
+                        <span className="ml-2 text-xs text-(--text-2)">{c.fonte}</span>
+                        <p className="mt-1 text-[13px] text-(--text)">{c.texto}</p>
                       </div>
                       <Button
-                        variant="ghost" size="sm" title="Remover" aria-label="Remover"
-                        onClick={() => removeRag(c.id)} disabled={loading[`ragDel-${c.id}`]}
-                        style={{ color: 'var(--coral)', padding: 6, flexShrink: 0 }}
-                      >
-                        {loading[`ragDel-${c.id}`] ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                      </Button>
+                        variant="ghost" size="sm" iconOnly title="Remover" aria-label="Remover trecho"
+                        onClick={() => removeRag(c.id)} loading={loading[`ragDel-${c.id}`]}
+                        className="shrink-0 text-(--danger)"
+                        icon={<Trash2 size={16} />}
+                      />
                     </div>
                   ))}
                 </div>
@@ -1031,16 +1061,24 @@ export default function AgentePage() {
         {/* ── Relatório ── */}
         {tab === 'relatorio' && (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p className="section-label" style={{ margin: 0 }}>Relatório comercial</p>
-              <Button variant="ghost" size="sm" icon={<RefreshCw size={14} />} onClick={fetchReport}>Atualizar</Button>
+            <div className="section-head items-center">
+              <p className="section-label m-0">Relatório comercial</p>
+              <Button variant="ghost" size="sm" icon={<RefreshCw size={14} />} onClick={fetchReport} loading={loading.relatorio}>Atualizar</Button>
             </div>
 
-            {loading.relatorio && <div style={{ ...muted, display: 'flex', alignItems: 'center', gap: 8 }}><Loader2 size={16} className="animate-spin" /> Carregando…</div>}
+            {loading.relatorio && !reportData && (
+              <div className="stack gap-3" aria-busy="true" aria-live="polite">
+                <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
+                  <div className="skeleton h-[88px]" /><div className="skeleton h-[88px]" /><div className="skeleton h-[88px]" />
+                </div>
+                <div className="skeleton h-[200px]" />
+                <p className="sr-only">Carregando…</p>
+              </div>
+            )}
 
             {reportData && (
               <>
-                <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(180px,1fr))]">
                   {([
                     { l: 'Leads', v: reportData.totais.leads, icon: Users, tone: 'electric' },
                     { l: 'Visitas agendadas', v: reportData.totais.visitasAgendadas, icon: CalendarCheck, tone: 'teal' },
@@ -1062,13 +1100,14 @@ export default function AgentePage() {
                     let max = 1;
                     reportData.heatmap.forEach((h) => { grid[`${h.dow}-${h.hour}`] = h.count; if (h.count > max) max = h.count; });
                     return (
-                      <div style={{ overflowX: 'auto' }}>
-                        <table style={{ borderCollapse: 'separate', borderSpacing: 2 }}>
-                          <thead><tr><th></th>{Array.from({ length: 24 }, (_, h) => <th key={h} style={{ fontSize: 8, color: 'var(--text-secondary)', padding: '0 1px', fontWeight: 400 }}>{h}</th>)}</tr></thead>
+                      <div className="overflow-x-auto">
+                        <table className="border-separate border-spacing-0.5">
+                          <caption className="sr-only">Mensagens recebidas por dia da semana e hora</caption>
+                          <thead><tr><th><span className="sr-only">Dia</span></th>{Array.from({ length: 24 }, (_, h) => <th key={h} scope="col" className="px-px text-[8px] font-normal text-(--text-2)">{h}</th>)}</tr></thead>
                           <tbody>
                             {DOW_LABEL.map((d, di) => (
                               <tr key={di}>
-                                <td style={{ fontSize: 10, color: 'var(--text-secondary)', paddingRight: 6 }}>{d}</td>
+                                <th scope="row" className="pr-1.5 text-left text-[10px] font-normal text-(--text-2)">{d}</th>
                                 {Array.from({ length: 24 }, (_, h) => {
                                   const c = grid[`${di}-${h}`] || 0;
                                   const op = c ? 0.15 + 0.85 * (c / max) : 0;
@@ -1076,8 +1115,11 @@ export default function AgentePage() {
                                     <td
                                       key={h}
                                       title={`${d} ${h}h: ${c}`}
-                                      style={{ width: 15, height: 15, borderRadius: 3, background: c ? 'var(--electric)' : 'var(--border)', opacity: c ? op : 0.6 }}
-                                    />
+                                      className={`size-[15px] rounded-[3px] ${c ? 'bg-(--primary)' : 'bg-(--line) opacity-60'}`}
+                                      style={c ? { opacity: op } : undefined}
+                                    >
+                                      <span className="sr-only">{c}</span>
+                                    </td>
                                   );
                                 })}
                               </tr>
@@ -1089,15 +1131,15 @@ export default function AgentePage() {
                   })()}
                 </Card>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <Card title="Leads por interesse">
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={reportData.interesse}>
-                        <XAxis dataKey="interesse" tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} />
-                        <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} />
-                        <Tooltip cursor={{ fill: 'var(--bg-card-hover)' }} />
+                        <XAxis dataKey="interesse" tick={TICK} />
+                        <YAxis allowDecimals={false} tick={TICK} />
+                        <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'var(--primary-soft)' }} />
                         <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                          {reportData.interesse.map((_, i) => <Cell key={i} fill="var(--electric)" />)}
+                          {reportData.interesse.map((_, i) => <Cell key={i} fill="var(--primary)" />)}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
@@ -1105,9 +1147,9 @@ export default function AgentePage() {
                   <Card title="Leads por etapa de ensino">
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={reportData.etapas}>
-                        <XAxis dataKey="etapa" tick={{ fontSize: 9, fill: 'var(--text-secondary)' }} interval={0} />
-                        <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} />
-                        <Tooltip cursor={{ fill: 'var(--bg-card-hover)' }} />
+                        <XAxis dataKey="etapa" tick={{ ...TICK, fontSize: 9 }} interval={0} />
+                        <YAxis allowDecimals={false} tick={TICK} />
+                        <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'var(--primary-soft)' }} />
                         <Bar dataKey="count" radius={[6, 6, 0, 0]} fill="var(--violet)" />
                       </BarChart>
                     </ResponsiveContainer>
@@ -1115,15 +1157,17 @@ export default function AgentePage() {
                 </div>
 
                 <Card>
-                  <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><MapPin size={16} /> Mapa de calor — leads por bairro/região</h2>
+                  <h2 className="card-title flex items-center gap-2.5"><IconTile size={32}><MapPin size={16} /></IconTile> Mapa de calor — leads por bairro/região</h2>
                   {reportData.bairros.filter((b) => b.bairro && !b.bairro.startsWith('(')).length === 0 ? (
-                    <p style={muted}>Sem dados de bairro ainda — a Liz passou a coletar nas conversas.</p>
+                    <EmptyState icon={<MapPin size={22} />} title="Sem dados de bairro ainda">
+                      A Liz passou a coletar nas conversas.
+                    </EmptyState>
                   ) : (
                     <ErrorBoundary fallback={
-                      <p style={muted}>
+                      <Notice kind="warning">
                         Não foi possível carregar o mapa de bairros. Veja a lista abaixo:
                         <br />{reportData.bairros.filter((b) => b.bairro && !b.bairro.startsWith('(')).map((b) => `${b.bairro} (${b.count})`).join(' · ')}
-                      </p>
+                      </Notice>
                     }>
                       <MapaBairros bairros={reportData.bairros} />
                     </ErrorBoundary>
@@ -1133,6 +1177,7 @@ export default function AgentePage() {
             )}
           </>
         )}
+        </div>
       </div>
     </>
   );

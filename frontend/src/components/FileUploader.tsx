@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { UploadCloud } from 'lucide-react';
 import api from '../lib/api';
+import { Field, Notice } from './ui';
 import {
   ANOS_LETIVOS,
   SEGMENTOS,
@@ -9,25 +10,6 @@ import {
   disciplinasFor,
   tiposFor,
 } from '../lib/taxonomy';
-
-const fieldLabelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: '13px',
-  fontWeight: 500,
-  color: 'var(--text-secondary)',
-  marginBottom: '6px',
-};
-
-const baseSelectStyle: React.CSSProperties = {
-  width: '100%',
-  border: '1px solid var(--border)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '8px 12px',
-  fontSize: '13px',
-  background: 'var(--bg-primary)',
-  outline: 'none',
-  boxSizing: 'border-box',
-};
 
 export default function FileUploader({ onUploaded }: { onUploaded: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -95,52 +77,82 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
 
   const uploading = progress !== null;
 
-  function selectStyle(filled: boolean): React.CSSProperties {
-    return { ...baseSelectStyle, color: filled ? 'var(--text-primary)' : 'var(--text-secondary)' };
-  }
+  /** Select da taxonomia: texto apagado enquanto ainda não foi escolhido. */
+  const selectClass = (filled: boolean) => `field ${filled ? '' : 'text-(--text-2)'}`.trim();
+
+  const abrirSeletor = () => { if (!uploading) inputRef.current?.click(); };
 
   return (
-    <div className="card" style={{ padding: '16px' }}>
+    <div className="card">
       {/* Classificação — 6 eixos obrigatórios */}
-      <div style={{ marginBottom: '12px' }}>
-        <label style={fieldLabelStyle}>
-          Classificação <span style={{ color: 'var(--coral)' }}>*</span>
-        </label>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px' }}>
-          <select value={anoLetivo} onChange={(e) => setAnoLetivo(e.target.value)} disabled={uploading} style={selectStyle(!!anoLetivo)}>
-            {ANOS_LETIVOS.map((a) => <option key={a} value={a}>{a}</option>)}
-          </select>
+      <fieldset className="form-group mb-4">
+        <legend>
+          Classificação <span className="field-req" aria-hidden="true">*</span>
+        </legend>
+        <div className="grid gap-2 grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
+          <Field label="Ano letivo" required>
+            {(ctl) => (
+              <select {...ctl} value={anoLetivo} onChange={(e) => setAnoLetivo(e.target.value)} disabled={uploading} className={selectClass(!!anoLetivo)}>
+                {ANOS_LETIVOS.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            )}
+          </Field>
 
-          <select value={segmento} onChange={(e) => handleSegmento(e.target.value)} disabled={uploading} style={selectStyle(!!segmento)}>
-            <option value="">Segmento...</option>
-            {SEGMENTOS.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
-          </select>
+          <Field label="Segmento" required>
+            {(ctl) => (
+              <select {...ctl} value={segmento} onChange={(e) => handleSegmento(e.target.value)} disabled={uploading} className={selectClass(!!segmento)}>
+                <option value="">Segmento...</option>
+                {SEGMENTOS.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+              </select>
+            )}
+          </Field>
 
-          <select value={serie} onChange={(e) => setSerie(e.target.value)} disabled={uploading || !segmento} style={selectStyle(!!serie)}>
-            <option value="">{segmento ? 'Série...' : 'Escolha o segmento'}</option>
-            {serieOptions.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
-          </select>
+          <Field label="Série" required>
+            {(ctl) => (
+              <select {...ctl} value={serie} onChange={(e) => setSerie(e.target.value)} disabled={uploading || !segmento} className={selectClass(!!serie)}>
+                <option value="">{segmento ? 'Série...' : 'Escolha o segmento'}</option>
+                {serieOptions.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+              </select>
+            )}
+          </Field>
 
-          <select value={etapa} onChange={(e) => setEtapa(e.target.value)} disabled={uploading} style={selectStyle(!!etapa)}>
-            <option value="">Etapa...</option>
-            {ETAPAS.map((e) => <option key={e.code} value={e.code}>{e.label}</option>)}
-          </select>
+          <Field label="Etapa" required>
+            {(ctl) => (
+              <select {...ctl} value={etapa} onChange={(e) => setEtapa(e.target.value)} disabled={uploading} className={selectClass(!!etapa)}>
+                <option value="">Etapa...</option>
+                {ETAPAS.map((e) => <option key={e.code} value={e.code}>{e.label}</option>)}
+              </select>
+            )}
+          </Field>
 
-          <select value={disciplina} onChange={(e) => setDisciplina(e.target.value)} disabled={uploading || !segmento} style={selectStyle(!!disciplina)}>
-            <option value="">{segmento ? 'Disciplina...' : 'Escolha o segmento'}</option>
-            {disciplinaOptions.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
-          </select>
+          <Field label="Disciplina" required>
+            {(ctl) => (
+              <select {...ctl} value={disciplina} onChange={(e) => setDisciplina(e.target.value)} disabled={uploading || !segmento} className={selectClass(!!disciplina)}>
+                <option value="">{segmento ? 'Disciplina...' : 'Escolha o segmento'}</option>
+                {disciplinaOptions.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
+              </select>
+            )}
+          </Field>
 
-          <select value={tipoMaterial} onChange={(e) => setTipoMaterial(e.target.value)} disabled={uploading || !segmento} style={selectStyle(!!tipoMaterial)}>
-            <option value="">{segmento ? 'Tipo de material...' : 'Escolha o segmento'}</option>
-            {tipoOptions.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
-          </select>
+          <Field label="Tipo de material" required>
+            {(ctl) => (
+              <select {...ctl} value={tipoMaterial} onChange={(e) => setTipoMaterial(e.target.value)} disabled={uploading || !segmento} className={selectClass(!!tipoMaterial)}>
+                <option value="">{segmento ? 'Tipo de material...' : 'Escolha o segmento'}</option>
+                {tipoOptions.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
+              </select>
+            )}
+          </Field>
         </div>
-      </div>
+      </fieldset>
 
-      {/* Área drag-and-drop */}
+      {/* Área drag-and-drop (também acessível por teclado: Enter/Espaço abre o seletor) */}
       <div
-        onClick={() => !uploading && inputRef.current?.click()}
+        role="button"
+        tabIndex={uploading ? -1 : 0}
+        aria-disabled={uploading || undefined}
+        aria-label="Arraste arquivos aqui ou clique para selecionar"
+        onClick={abrirSeletor}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); abrirSeletor(); } }}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e) => {
@@ -148,65 +160,54 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
           setDragging(false);
           if (!uploading && e.dataTransfer.files.length) send(e.dataTransfer.files);
         }}
-        style={{
-          border: `2px dashed ${dragging ? 'var(--electric)' : 'var(--border)'}`,
-          borderRadius: 'var(--radius-card)',
-          padding: '28px 16px',
-          textAlign: 'center',
-          cursor: uploading ? 'default' : 'pointer',
-          background: dragging ? 'var(--bg-active)' : 'transparent',
-          transition: 'background 0.15s, border-color 0.15s',
-          opacity: classificacaoCompleta ? 1 : 0.6,
-        }}
+        className={[
+          'rounded-(--radius-md) border-2 border-dashed px-4 py-7 text-center transition-colors',
+          dragging ? 'border-(--primary) bg-(--primary-soft)' : 'border-(--line-strong) bg-transparent',
+          uploading ? 'cursor-default' : 'cursor-pointer',
+          classificacaoCompleta ? '' : 'opacity-60',
+        ].join(' ')}
       >
-        <UploadCloud size={28} color="var(--electric)" style={{ marginBottom: '8px' }} />
-        <p style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, margin: '0 0 2px' }}>
+        <UploadCloud size={28} className="mx-auto mb-2 text-(--primary-ink)" aria-hidden="true" />
+        <p className="text-[13px] font-medium text-(--text)">
           Arraste arquivos aqui ou clique para selecionar
         </p>
-        <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0 }}>
+        <p className="text-[11px] text-(--text-2)">
           PDF, Word, Excel, PowerPoint, MP4, ZIP, imagens — até 100MB cada
         </p>
         <input
           ref={inputRef}
           type="file"
           multiple
-          style={{ display: 'none' }}
+          className="hidden"
+          tabIndex={-1}
+          aria-hidden="true"
           onChange={(e) => e.target.files && send(e.target.files)}
         />
       </div>
 
       {/* Barra de progresso */}
       {uploading && (
-        <div style={{ marginTop: '12px' }}>
-          <div style={{ height: '8px', background: 'var(--bg-card-hover)', borderRadius: '20px', overflow: 'hidden' }}>
-            <div
-              style={{
-                width: `${progress}%`,
-                height: '100%',
-                background: 'var(--electric)',
-                transition: 'width 0.2s',
-              }}
-            />
+        <div className="mt-3" role="status" aria-live="polite">
+          <div
+            className="h-2 overflow-hidden rounded-(--radius-pill) bg-(--surface-2)"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress ?? 0}
+            aria-label="Progresso do envio"
+          >
+            <div className="h-full bg-(--primary) transition-[width] duration-200" style={{ width: `${progress}%` }} />
           </div>
-          <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
+          <p className="mt-1 text-[11px] text-(--text-2)">
             Enviando... {progress}%
           </p>
         </div>
       )}
 
       {error && (
-        <div
-          style={{
-            marginTop: '12px',
-            padding: '8px 12px',
-            background: 'var(--coral-soft)',
-            color: 'var(--coral)',
-            fontSize: '12px',
-            borderRadius: 'var(--radius-tile)',
-          }}
-        >
+        <Notice kind="danger" className="mt-3" onClose={() => setError('')}>
           {error}
-        </div>
+        </Notice>
       )}
     </div>
   );

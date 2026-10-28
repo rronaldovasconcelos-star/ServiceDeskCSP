@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Search, Ticket as TicketIcon, Trash2 } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { StatusBadge, UrgencyBadge } from '../components/StatusBadge';
 import PageHeader from '../components/PageHeader';
-import { Button, Card, Table } from '../components/ui';
+import { Button, EmptyState, Field, Notice, Table } from '../components/ui';
+import { formatDateTime, formatRelative } from '../lib/dates';
 
 interface Ticket {
   id: string;
@@ -14,6 +15,7 @@ interface Ticket {
   urgency: string;
   status: string;
   createdAt: string;
+  updatedAt: string;
   requester: { name: string };
   assignee?: { name: string } | null;
 }
@@ -39,14 +41,24 @@ const categoryLabel: Record<string, string> = {
   OUTROS: 'Outros',
 };
 
+const idCurto = (id: string) => `#${id.slice(-6).toUpperCase()}`;
+
 export default function TicketsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isAdmin = user?.role === 'ADMIN';
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState('');
-  const [category, setCategory] = useState('');
+  const [busca, setBusca] = useState('');
+
+  // Filtros vivem na URL (?status=&category=) para a página ser linkável.
+  const status = searchParams.get('status') ?? '';
+  const category = searchParams.get('category') ?? '';
+  const setFiltro = (chave: 'status' | 'category', valor: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (valor) next.set(chave, valor);
+    else next.delete(chave);
+    setSearchParams(next, { replace: true });
+  };
 
   // Exclusão em massa (admin)
   const [bulkFrom, setBulkFrom] = useState('');
@@ -54,7 +66,22 @@ export default function TicketsPage() {
   const [bulkCategory, setBulkCategory] = useState('');
   const [bulkCount, setBulkCount] = useState<number | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
+
+  // Resultado da última carga, marcado pela chave de filtros que o produziu:
+  // enquanto a chave atual for outra, a página está carregando.
+  const chave = `${status}|${category}|${reloadKey}`;
+  const [dados, setDados] = useState<{ chave: string; tickets: Ticket[]; erro: boolean } | null>(null);
+  const loading = dados?.chave !== chave;
+  const error = !loading && Boolean(dados?.erro);
+  const tickets = dados?.chave === chave && !dados.erro ? dados.tickets : [];
+
+  // Mudar qualquer filtro da exclusão em massa invalida a pré-visualização.
+  const mudarBulk = (setter: (v: string) => void) => (v: string) => {
+    setter(v);
+    setBulkCount(null);
+  };
 
   const bulkParams = () => {
     const params: Record<string, string> = {};
@@ -67,9 +94,12 @@ export default function TicketsPage() {
 
   const previewBulk = async () => {
     setBulkBusy(true);
+    setBulkError('');
     try {
       const r = await api.get('/tickets/admin/bulk-preview', { params: bulkParams() });
       setBulkCount(r.data.count);
+    } catch {
+      setBulkError('Não foi possível pré-visualizar a exclusão.');
     } finally {
       setBulkBusy(false);
     }
@@ -79,6 +109,7 @@ export default function TicketsPage() {
     if (bulkCount === null) return;
     if (!window.confirm(`Excluir permanentemente ${bulkCount} chamado(s)? Esta ação não pode ser desfeita.`)) return;
     setBulkBusy(true);
+    setBulkError('');
     try {
       await api.delete('/tickets/admin/bulk', { params: bulkParams() });
       setBulkCount(null);
@@ -86,6 +117,8 @@ export default function TicketsPage() {
       setBulkTo('');
       setBulkCategory('');
       setReloadKey((k) => k + 1);
+    } catch {
+      setBulkError('Não foi possível excluir os chamados.');
     } finally {
       setBulkBusy(false);
     }
@@ -93,117 +126,157 @@ export default function TicketsPage() {
 
   const deleteOne = async (id: string, title: string) => {
     if (!window.confirm(`Excluir o chamado "${title}" permanentemente? Esta ação não pode ser desfeita.`)) return;
-    await api.delete(`/tickets/${id}`);
-    setReloadKey((k) => k + 1);
+    try {
+      await api.delete(`/tickets/${id}`);
+      setReloadKey((k) => k + 1);
+    } catch {
+      window.alert('Não foi possível excluir o chamado.');
+    }
   };
 
-  useEffect(() => {
-    setBulkCount(null);
-  }, [bulkFrom, bulkTo, bulkCategory]);
+  const reload = () => setReloadKey((k) => k + 1);
 
   useEffect(() => {
-    setLoading(true);
+    let cancelado = false;
     const params: Record<string, string> = {};
     if (status) params.status = status;
     if (category) params.category = category;
     api.get('/tickets', { params })
-      .then((r) => setTickets(r.data))
-      .finally(() => setLoading(false));
-  }, [status, category, reloadKey]);
+      .then((r) => { if (!cancelado) setDados({ chave, tickets: r.data, erro: false }); })
+      .catch(() => { if (!cancelado) setDados({ chave, tickets: [], erro: true }); });
+    return () => { cancelado = true; };
+  }, [status, category, reloadKey, chave]);
 
   const abertos = tickets.filter((t) => t.status === 'ABERTO').length;
+
+  const termo = busca.trim().toLocaleLowerCase('pt-BR');
+  const visiveis = termo
+    ? tickets.filter((t) =>
+        t.title.toLocaleLowerCase('pt-BR').includes(termo)
+        || t.requester.name.toLocaleLowerCase('pt-BR').includes(termo))
+    : tickets;
+  const temFiltro = Boolean(status || category || termo);
+
+  const cabecalho = (
+    <tr>
+      <th>Chamado</th>
+      <th>Categoria</th>
+      <th>Urgência</th>
+      <th>Status</th>
+      <th>Solicitante</th>
+      <th>Atualizado</th>
+      {isAdmin && <th><span className="sr-only">Ações</span></th>}
+    </tr>
+  );
+
+  const vazio = (
+    <EmptyState
+      icon={<TicketIcon size={22} />}
+      title={temFiltro ? 'Nenhum chamado com esses filtros' : 'Nenhum chamado ainda'}
+      action={<Link className="btn btn-primary" to="/tickets/new">Abrir chamado</Link>}
+    >
+      {temFiltro
+        ? 'Tente limpar a busca ou escolher outro status e categoria.'
+        : 'Quando alguém abrir um chamado, ele aparece aqui.'}
+    </EmptyState>
+  );
 
   return (
     <>
       <PageHeader
         title="Chamados"
-        subtitle={loading ? 'Carregando…' : `${tickets.length} chamado${tickets.length === 1 ? '' : 's'} na lista, ${abertos} em aberto`}
-        actions={<Button variant="secondary" icon={<Plus size={16} />} onClick={() => navigate('/tickets/new')}>Novo chamado</Button>}
+        description={loading ? 'Carregando…' : `${tickets.length} chamado${tickets.length === 1 ? '' : 's'} na lista, ${abertos} em aberto`}
       />
 
-      <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="field" style={{ width: 'auto' }}>
-            {statuses.map((s) => <option key={s} value={s}>{statusFilterLabel[s]}</option>)}
-          </select>
-          <select value={category} onChange={(e) => setCategory(e.target.value)} className="field" style={{ width: 'auto' }}>
-            {categories.map((c) => <option key={c} value={c}>{categoryLabel[c]}</option>)}
-          </select>
-        </div>
-
-        {/* Exclusão em massa — restrito ao ADMIN */}
-        {isAdmin && (
-          <Card title="Excluir em massa" style={{ padding: '16px 20px' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                De{' '}
-                <input type="date" value={bulkFrom} onChange={(e) => setBulkFrom(e.target.value)} className="field" style={{ width: 'auto' }} />
-              </label>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                Até{' '}
-                <input type="date" value={bulkTo} onChange={(e) => setBulkTo(e.target.value)} className="field" style={{ width: 'auto' }} />
-              </label>
-              <select value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} className="field" style={{ width: 'auto' }}>
+      <main className="page-body">
+        <div className="toolbar">
+          <Field
+            label="Buscar nesta lista"
+            className="toolbar-grow"
+            hint="Filtra por título ou solicitante os chamados já carregados; não consulta o servidor."
+          >
+            {(ctl) => (
+              <div className="search-bar">
+                <Search size={16} aria-hidden="true" />
+                <input
+                  {...ctl}
+                  type="search"
+                  placeholder="Título ou solicitante"
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                />
+              </div>
+            )}
+          </Field>
+          <Field label="Status">
+            {(ctl) => (
+              <select {...ctl} value={status} onChange={(e) => setFiltro('status', e.target.value)} className="field">
+                {statuses.map((s) => <option key={s} value={s}>{statusFilterLabel[s]}</option>)}
+              </select>
+            )}
+          </Field>
+          <Field label="Categoria">
+            {(ctl) => (
+              <select {...ctl} value={category} onChange={(e) => setFiltro('category', e.target.value)} className="field">
                 {categories.map((c) => <option key={c} value={c}>{categoryLabel[c]}</option>)}
               </select>
-              <Button variant="ghost" onClick={previewBulk} disabled={!hasBulkFilter || bulkBusy}>Pré-visualizar</Button>
-              {bulkCount !== null && (
-                <Button variant="danger" onClick={runBulkDelete} disabled={bulkCount === 0 || bulkBusy}>Excluir {bulkCount}</Button>
-              )}
-            </div>
-            {bulkCount !== null && (
-              <p style={{ fontSize: 12, color: bulkCount > 0 ? 'var(--coral)' : 'var(--text-secondary)', margin: '10px 0 0' }}>
-                {bulkCount > 0
-                  ? `${bulkCount} chamado(s) serão excluídos com os filtros selecionados.`
-                  : 'Nenhum chamado corresponde aos filtros selecionados.'}
-              </p>
             )}
-            {!hasBulkFilter && (
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '10px 0 0' }}>
-                Informe ao menos um filtro (período ou tipo) para excluir em massa.
-              </p>
-            )}
-          </Card>
-        )}
+          </Field>
+        </div>
 
-        {loading ? (
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando...</p>
+        {error ? (
+          <Notice
+            kind="danger"
+            actions={<Button size="sm" variant="secondary" onClick={reload}>Tentar novamente</Button>}
+          >
+            Não foi possível carregar os chamados.
+          </Notice>
+        ) : loading ? (
+          <>
+            <div className="hidden md:block">
+              <Table loading rows={6} cols={isAdmin ? 7 : 6} head={cabecalho} />
+            </div>
+            <div className="md:hidden stack" aria-busy="true">
+              <div className="skeleton h-[72px]" />
+              <div className="skeleton h-[72px]" />
+              <div className="skeleton h-[72px]" />
+            </div>
+          </>
         ) : (
           <>
             {/* Desktop: tabela */}
             <div className="hidden md:block">
-              <Table
-                isEmpty={tickets.length === 0}
-                empty="Nenhum chamado com esses filtros."
-                head={(
-                  <tr>
-                    <th>Título</th>
-                    <th>Categoria</th>
-                    <th>Urgência</th>
-                    <th>Status</th>
-                    <th>Solicitante</th>
-                    <th>Aberto em</th>
-                    {isAdmin && <th>Ações</th>}
-                  </tr>
-                )}
-              >
-                {tickets.map((t) => (
-                  <tr key={t.id} className="table-row">
+              <Table isEmpty={visiveis.length === 0} empty={vazio} head={cabecalho}>
+                {visiveis.map((t) => (
+                  <tr key={t.id} className="table-row" onClick={() => navigate(`/tickets/${t.id}`)}>
                     <td>
-                      <Link to={`/tickets/${t.id}`} style={{ fontWeight: 500, color: 'var(--electric)', textDecoration: 'none' }}>
-                        {t.title}
-                      </Link>
+                      <div className="row">
+                        <Link
+                          to={`/tickets/${t.id}`}
+                          className="font-medium no-underline hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {t.title}
+                        </Link>
+                        <code className="ticket-id" title={t.id}>{idCurto(t.id)}</code>
+                      </div>
                     </td>
                     <td>{categoryLabel[t.category] ?? t.category}</td>
                     <td><UrgencyBadge urgency={t.urgency} /></td>
                     <td><StatusBadge status={t.status} /></td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{t.requester.name}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{new Date(t.createdAt).toLocaleDateString('pt-BR')}</td>
+                    <td className="muted">{t.requester.name}</td>
+                    <td className="muted whitespace-nowrap" title={formatDateTime(t.updatedAt)}>{formatRelative(t.updatedAt)}</td>
                     {isAdmin && (
-                      <td>
-                        <button onClick={() => deleteOne(t.id, t.title)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--coral)', fontSize: 12, padding: 0, fontWeight: 500, fontFamily: 'inherit' }}>
-                          Excluir
-                        </button>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          iconOnly
+                          aria-label="Excluir chamado"
+                          title="Excluir chamado"
+                          icon={<Trash2 size={16} />}
+                          onClick={() => deleteOne(t.id, t.title)}
+                        />
                       </td>
                     )}
                   </tr>
@@ -212,35 +285,91 @@ export default function TicketsPage() {
             </div>
 
             {/* Mobile: cards */}
-            <div className="md:hidden space-y-3">
-              {tickets.length === 0 && <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Nenhum chamado com esses filtros.</p>}
-              {tickets.map((t) => (
-                <Card key={t.id} style={{ padding: 14 }}>
-                  <Link to={`/tickets/${t.id}`} style={{ display: 'block', textDecoration: 'none' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
-                      <span style={{ fontWeight: 600, color: 'var(--electric)', fontSize: 13, lineHeight: 1.4 }}>{t.title}</span>
+            <div className="md:hidden stack">
+              {visiveis.length === 0 && <div className="card">{vazio}</div>}
+              {visiveis.map((t) => (
+                <div key={t.id}>
+                  <Link to={`/tickets/${t.id}`} className="ticket-card">
+                    <p className="ticket-card-title">{t.title}</p>
+                    <div className="ticket-card-meta">
                       <StatusBadge status={t.status} />
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
                       <UrgencyBadge urgency={t.urgency} />
                       <span className="pill pill-muted">{categoryLabel[t.category] ?? t.category}</span>
+                      <code className="ticket-id" title={t.id}>{idCurto(t.id)}</code>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-                      <span>{t.requester.name}</span>
-                      <span>{new Date(t.createdAt).toLocaleDateString('pt-BR')}</span>
-                    </div>
+                    <p className="ticket-card-sub">
+                      {t.requester.name} · atualizado <span title={formatDateTime(t.updatedAt)}>{formatRelative(t.updatedAt)}</span>
+                    </p>
                   </Link>
                   {isAdmin && (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                      <Button variant="ghost" size="sm" onClick={() => deleteOne(t.id, t.title)} style={{ color: 'var(--coral)' }}>Excluir</Button>
+                    <div className="flex justify-end mt-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<Trash2 size={14} />}
+                        onClick={() => deleteOne(t.id, t.title)}
+                      >
+                        Excluir
+                      </Button>
                     </div>
                   )}
-                </Card>
+                </div>
               ))}
             </div>
           </>
         )}
-      </div>
+
+        {/* Ferramentas de administrador — exclusão em massa, restrita ao ADMIN */}
+        {isAdmin && (
+          <details className="card mt-6">
+            <summary className="cursor-pointer font-semibold">Ferramentas de administrador</summary>
+            <div className="mt-4 stack">
+              <h3>Excluir em massa</h3>
+              <p className="muted text-sm-2">
+                Remove permanentemente os chamados que correspondem ao período e à categoria escolhidos.
+                Pré-visualize antes de confirmar.
+              </p>
+              <div className="toolbar">
+                <Field label="De">
+                  {(ctl) => <input {...ctl} type="date" value={bulkFrom} onChange={(e) => mudarBulk(setBulkFrom)(e.target.value)} className="field" />}
+                </Field>
+                <Field label="Até">
+                  {(ctl) => <input {...ctl} type="date" value={bulkTo} onChange={(e) => mudarBulk(setBulkTo)(e.target.value)} className="field" />}
+                </Field>
+                <Field label="Categoria">
+                  {(ctl) => (
+                    <select {...ctl} value={bulkCategory} onChange={(e) => mudarBulk(setBulkCategory)(e.target.value)} className="field">
+                      {categories.map((c) => <option key={c} value={c}>{categoryLabel[c]}</option>)}
+                    </select>
+                  )}
+                </Field>
+                <div className="row">
+                  <Button variant="secondary" onClick={previewBulk} disabled={!hasBulkFilter} loading={bulkBusy && bulkCount === null}>
+                    Pré-visualizar
+                  </Button>
+                  {bulkCount !== null && (
+                    <Button variant="danger" onClick={runBulkDelete} disabled={bulkCount === 0} loading={bulkBusy && bulkCount !== null}>
+                      Excluir {bulkCount}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {bulkError && <Notice kind="danger">{bulkError}</Notice>}
+              {bulkCount !== null && bulkCount > 0 && (
+                <Notice kind="warning">
+                  {bulkCount} chamado(s) serão excluídos com os filtros selecionados. Esta ação não pode ser desfeita.
+                </Notice>
+              )}
+              {bulkCount === 0 && (
+                <p className="muted text-sm-2">Nenhum chamado corresponde aos filtros selecionados.</p>
+              )}
+              {!hasBulkFilter && (
+                <p className="muted text-sm-2">Informe ao menos um filtro (período ou categoria) para excluir em massa.</p>
+              )}
+            </div>
+          </details>
+        )}
+      </main>
     </>
   );
 }

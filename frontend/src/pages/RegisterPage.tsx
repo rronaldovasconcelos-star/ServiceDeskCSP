@@ -4,9 +4,9 @@ import axios from 'axios';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
-import AuthShell, { AuthAlert, AuthField, authInputClass } from '../components/AuthShell';
+import AuthShell, { AuthAlert, AuthField, AuthHeading, authInputClass } from '../components/AuthShell';
 import { Button, IconTile } from '../components/ui';
-import { User, Mail, Lock, Phone, ArrowLeft, Loader2, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Lock, Phone, ArrowLeft, ShieldCheck, CheckCircle2 } from 'lucide-react';
 
 type Step = 'form' | 'google-phone' | 'otp' | 'done';
 
@@ -24,7 +24,11 @@ function formatPhone(digits: string): string {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
-const linkStyle = { color: 'var(--electric)', fontWeight: 500, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 } as const;
+// Espelha o backend (auth.controller.ts: registerSchema password.min(6); lib/phone.ts: DDD + 8 ou 9 dígitos).
+const SENHA_MIN = 6;
+const MSG_TELEFONE = 'Informe um telefone válido com DDD (ex: (31) 98436-7833).';
+const MSG_SENHA_MIN = `A senha deve ter no mínimo ${SENHA_MIN} caracteres.`;
+const MSG_SENHAS_DIFERENTES = 'As senhas não conferem.';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -54,10 +58,23 @@ export default function RegisterPage() {
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Erros de validação local, por campo (a API continua no aviso do topo).
+  const [phoneError, setPhoneError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmError, setConfirmError] = useState('');
+
   const phoneDigits = phone.replace(/\D/g, '');
 
   const apiError = (err: unknown, fallback: string) =>
     (axios.isAxiosError(err) ? err.response?.data?.error : undefined) ?? fallback;
+
+  const limparErros = () => {
+    setError('');
+    setInfo('');
+    setPhoneError('');
+    setPasswordError('');
+    setConfirmError('');
+  };
 
   const startCooldown = () => {
     setCooldown(60);
@@ -69,23 +86,26 @@ export default function RegisterPage() {
     }, 1000);
   };
 
+  const telefoneValido = () => phoneDigits.length >= 10 && phoneDigits.length <= 11;
+
   const handleRegister = async (e: { preventDefault(): void }) => {
     e.preventDefault();
-    setError('');
-    setInfo('');
+    limparErros();
 
-    if (phoneDigits.length < 10 || phoneDigits.length > 11) {
-      setError('Informe um telefone válido com DDD (ex: (31) 98436-7833).');
-      return;
+    let invalido = false;
+    if (!telefoneValido()) {
+      setPhoneError(MSG_TELEFONE);
+      invalido = true;
+    }
+    if (password.length < SENHA_MIN) {
+      setPasswordError(MSG_SENHA_MIN);
+      invalido = true;
     }
     if (password !== confirm) {
-      setError('As senhas não conferem.');
-      return;
+      setConfirmError(MSG_SENHAS_DIFERENTES);
+      invalido = true;
     }
-    if (password.length < 6) {
-      setError('A senha deve ter no mínimo 6 caracteres.');
-      return;
-    }
+    if (invalido) return;
 
     setLoading(true);
     try {
@@ -109,8 +129,7 @@ export default function RegisterPage() {
 
   const handleVerify = async (e: { preventDefault(): void }) => {
     e.preventDefault();
-    setError('');
-    setInfo('');
+    limparErros();
     setLoading(true);
     try {
       await api.post('/auth/verify-otp', { userId, code });
@@ -147,11 +166,10 @@ export default function RegisterPage() {
 
   const handleGooglePhone = async (e: { preventDefault(): void }) => {
     e.preventDefault();
-    setError('');
-    setInfo('');
+    limparErros();
 
-    if (phoneDigits.length < 10 || phoneDigits.length > 11) {
-      setError('Informe um telefone válido com DDD (ex: (31) 98436-7833).');
+    if (!telefoneValido()) {
+      setPhoneError(MSG_TELEFONE);
       return;
     }
 
@@ -181,100 +199,191 @@ export default function RegisterPage() {
     }
   };
 
+  const voltarDoOtp = () => {
+    setStep(fromGoogle ? 'google-phone' : 'form');
+    limparErros();
+  };
+
   const campoTelefone = (autoFocus?: boolean) => (
-    <AuthField label="WhatsApp" icon={<Phone size={16} />} hint="Você receberá um código de verificação neste número.">
-      <span className="absolute left-9 top-1/2 -translate-y-1/2 pointer-events-none" style={{ fontSize: 13, color: 'var(--text-secondary)' }}>+55</span>
-      <input
-        type="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} required autoFocus={autoFocus}
-        className="field with-prefix" placeholder="(31) 98436-7833" autoComplete="tel-national"
-      />
+    <AuthField
+      label="WhatsApp"
+      icon={<Phone size={16} />}
+      hint="Com DDD, ex.: (31) 98436-7833. Você receberá um código de verificação neste número."
+      error={phoneError || undefined}
+    >
+      {(ctl) => (
+        <>
+          <span className="absolute left-9 top-1/2 -translate-y-1/2 pointer-events-none text-sm-2" aria-hidden="true">+55</span>
+          <input
+            {...ctl}
+            type="tel"
+            inputMode="tel"
+            value={phone}
+            onChange={(e) => setPhone(formatPhone(e.target.value))}
+            required
+            autoFocus={autoFocus}
+            className="field with-prefix"
+            placeholder="(31) 98436-7833"
+            autoComplete="tel-national"
+          />
+        </>
+      )}
     </AuthField>
   );
 
   const botaoEnviar = (texto: string, desabilitado = false) => (
-    <Button type="submit" disabled={loading || desabilitado} className="w-full" style={{ marginTop: 6, padding: '11px 18px' }}>
-      {loading ? <Loader2 size={16} className="animate-spin" /> : texto}
+    <Button type="submit" loading={loading} disabled={desabilitado} className="w-full mt-2">
+      {texto}
     </Button>
   );
 
   return (
     <AuthShell>
-      {error && <AuthAlert kind="error">{error}</AuthAlert>}
-      {info && step !== 'done' && <AuthAlert kind="info">{info}</AuthAlert>}
-
       {/* ----------------------------- PASSO 1 ----------------------------- */}
       {step === 'form' && (
         <>
-          <h2 style={{ fontSize: 22, margin: 0 }}>Criar conta</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: '4px 0 22px' }}>Preencha seus dados. Um administrador aprova o acesso.</p>
+          <AuthHeading title="Criar conta" subtitle="Seu acesso é liberado por um administrador depois do cadastro" />
+
+          {error && <AuthAlert kind="error">{error}</AuthAlert>}
+          {info && <AuthAlert kind="info">{info}</AuthAlert>}
 
           <form onSubmit={handleRegister} className="space-y-4">
             <AuthField label="Nome completo" icon={<User size={16} />}>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} required minLength={2} className={authInputClass} placeholder="Seu nome" autoComplete="name" />
+              {(ctl) => (
+                <input
+                  {...ctl}
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  minLength={2}
+                  className={authInputClass}
+                  placeholder="Seu nome"
+                  autoComplete="name"
+                />
+              )}
             </AuthField>
-            <AuthField label="Email" icon={<Mail size={16} />}>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className={authInputClass} placeholder="seu@email.com" autoComplete="email" />
+            <AuthField label="E-mail" icon={<Mail size={16} />}>
+              {(ctl) => (
+                <input
+                  {...ctl}
+                  type="email"
+                  inputMode="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className={authInputClass}
+                  placeholder="seu@email.com"
+                  autoComplete="email"
+                />
+              )}
             </AuthField>
             {campoTelefone()}
-            <AuthField label="Senha" icon={<Lock size={16} />}>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className={authInputClass} placeholder="Mínimo 6 caracteres" autoComplete="new-password" />
+            <AuthField label="Senha" icon={<Lock size={16} />} hint={`${SENHA_MIN} caracteres ou mais`} error={passwordError || undefined}>
+              {(ctl) => (
+                <input
+                  {...ctl}
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={SENHA_MIN}
+                  className={authInputClass}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                />
+              )}
             </AuthField>
-            <AuthField label="Confirmar senha" icon={<Lock size={16} />}>
-              <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required className={authInputClass} placeholder="••••••••" autoComplete="new-password" />
+            <AuthField label="Confirmar senha" icon={<Lock size={16} />} error={confirmError || undefined}>
+              {(ctl) => (
+                <input
+                  {...ctl}
+                  type="password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  required
+                  className={authInputClass}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                />
+              )}
             </AuthField>
             {botaoEnviar('Continuar')}
           </form>
 
-          <div className="flex items-center gap-3 my-5">
-            <div className="flex-1" style={{ height: 1, background: 'var(--border)' }} />
-            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>ou</span>
-            <div className="flex-1" style={{ height: 1, background: 'var(--border)' }} />
-          </div>
+          <div className="auth-divider">ou</div>
           <GoogleSignInButton onCredential={handleGoogle} text="signup_with" />
+
+          <div className="auth-links">
+            <span>
+              Já tem uma conta?{' '}
+              <Link to="/login">Entrar</Link>
+            </span>
+          </div>
         </>
       )}
 
       {/* --------------------- COLETA DE TELEFONE (GOOGLE) --------------------- */}
       {step === 'google-phone' && (
         <>
-          <div className="flex justify-center mb-3"><IconTile size={52}><Phone size={24} /></IconTile></div>
-          <h2 className="text-center" style={{ fontSize: 22, margin: 0 }}>Informe seu WhatsApp</h2>
-          <p className="text-center" style={{ color: 'var(--text-secondary)', fontSize: 13, margin: '4px 0 22px' }}>
-            Precisamos do seu número para enviar as notificações dos seus chamados.
-          </p>
+          <AuthHeading title="Informe seu WhatsApp" subtitle="Precisamos do seu número para enviar as notificações dos seus chamados" />
+
+          {error && <AuthAlert kind="error">{error}</AuthAlert>}
+          {info && <AuthAlert kind="info">{info}</AuthAlert>}
+
           <form onSubmit={handleGooglePhone} className="space-y-4">
             {campoTelefone(true)}
             {botaoEnviar('Enviar código')}
           </form>
+
+          <div className="auth-links">
+            <Link to="/login">Voltar ao login</Link>
+          </div>
         </>
       )}
 
       {/* ----------------------------- PASSO 2 ----------------------------- */}
       {step === 'otp' && (
         <>
-          <div className="flex justify-center mb-3"><IconTile size={52}><ShieldCheck size={24} /></IconTile></div>
-          <h2 className="text-center" style={{ fontSize: 22, margin: 0 }}>Verifique seu WhatsApp</h2>
-          <p className="text-center" style={{ color: 'var(--text-secondary)', fontSize: 13, margin: '4px 0 22px' }}>Digite o código de 6 dígitos que enviamos.</p>
+          <AuthHeading title="Verifique seu WhatsApp" subtitle="Enviamos um código pelo WhatsApp cadastrado" />
+
+          {error && <AuthAlert kind="error">{error}</AuthAlert>}
+          {info && <AuthAlert kind="info">{info}</AuthAlert>}
+
+          <div className="flex justify-center mb-4"><IconTile size={52}><ShieldCheck size={24} /></IconTile></div>
+          <p className="text-sm-2 text-center mb-4">
+            Passo 2 de 2: digite o código de 6 dígitos que chegou no seu WhatsApp para confirmar o número.
+          </p>
 
           <form onSubmit={handleVerify} className="space-y-4">
-            <input
-              type="text" inputMode="numeric" value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              required maxLength={6}
-              className="field text-center tracking-[0.5em]"
-              style={{ fontSize: 24, fontWeight: 600, padding: '12px 16px' }}
-              placeholder="000000" autoFocus
-            />
+            <AuthField label="Código de verificação" hint="6 dígitos">
+              {(ctl) => (
+                <input
+                  {...ctl}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="one-time-code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  required
+                  maxLength={6}
+                  className="field text-center text-2xl font-semibold tracking-[0.5em]"
+                  placeholder="000000"
+                  autoFocus
+                />
+              )}
+            </AuthField>
             {botaoEnviar('Verificar', code.length < 6)}
           </form>
 
-          <div className="flex items-center justify-between mt-5">
-            <button type="button" onClick={() => { setStep(fromGoogle ? 'google-phone' : 'form'); setError(''); setInfo(''); }} className="inline-flex items-center gap-1" style={{ ...linkStyle, color: 'var(--text-secondary)' }}>
-              <ArrowLeft size={14} /> Voltar
-            </button>
-            <button type="button" onClick={handleResend} disabled={cooldown > 0} style={{ ...linkStyle, opacity: cooldown > 0 ? 0.6 : 1, cursor: cooldown > 0 ? 'default' : 'pointer' }}>
+          <div className="flex items-center justify-between gap-2 mt-4">
+            <Button type="button" variant="ghost" size="sm" icon={<ArrowLeft size={14} />} onClick={voltarDoOtp}>
+              Voltar
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={handleResend} disabled={cooldown > 0}>
               {cooldown > 0 ? `Reenviar em ${cooldown}s` : 'Reenviar código'}
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -283,19 +392,12 @@ export default function RegisterPage() {
       {step === 'done' && (
         <div className="text-center py-2">
           <div className="flex justify-center mb-4"><IconTile tone="teal" size={56}><CheckCircle2 size={28} /></IconTile></div>
-          <h2 style={{ fontSize: 22, margin: '0 0 8px' }}>Cadastro enviado</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13, margin: '0 0 22px' }}>
+          <h1 className="auth-card-title mb-2">Cadastro enviado</h1>
+          <p className="text-sm-2 mb-5">
             Sua conta está <strong>aguardando a aprovação</strong> de um administrador. Você poderá entrar assim que for aprovada.
           </p>
-          <Button onClick={() => navigate('/login')} className="w-full" style={{ padding: '11px 18px' }}>Voltar para o login</Button>
+          <Button onClick={() => navigate('/login')} className="w-full">Voltar para o login</Button>
         </div>
-      )}
-
-      {step === 'form' && (
-        <p className="text-center" style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '22px 0 0' }}>
-          Já tem uma conta?{' '}
-          <Link to="/login" style={{ color: 'var(--electric)', fontWeight: 600 }}>Entrar</Link>
-        </p>
       )}
     </AuthShell>
   );

@@ -50,14 +50,15 @@ export default function MapaBairros({ bairros }: { bairros: Bairro[] }) {
 
   const max = Math.max(1, ...pontos.map((p) => p.count));
   // Leaflet pinta SVG por valor, não por classe: lê o token do tema no momento da renderização.
+  // Cor de ação (--primary): o roxo deixou de ser cor de marca no redesenho de 28/10/2026.
   const cor = (typeof window !== 'undefined'
-    ? getComputedStyle(document.documentElement).getPropertyValue('--violet').trim()
-    : '') || 'var(--violet)';
+    ? getComputedStyle(document.documentElement).getPropertyValue('--primary').trim()
+    : '') || 'var(--primary)';
 
   return (
     <div>
-      <div style={{ height: 320, borderRadius: 'var(--radius-card)', overflow: 'hidden', border: '1px solid var(--border)' }}>
-        <MapContainer center={CENTER} zoom={12} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
+      <div className="h-80 overflow-hidden rounded-(--radius-md) border border-(--line)">
+        <MapContainer center={CENTER} zoom={12} className="h-full w-full" scrollWheelZoom={false}>
           <TileLayer
             attribution='&copy; OpenStreetMap'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -74,9 +75,9 @@ export default function MapaBairros({ bairros }: { bairros: Bairro[] }) {
           ))}
         </MapContainer>
       </div>
-      {loading && <p style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>Localizando bairros no mapa…</p>}
+      {loading && <p role="status" className="mt-1.5 text-xs text-(--text-2)">Localizando bairros no mapa…</p>}
       {!loading && naoLocalizados.length > 0 && (
-        <p style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>
+        <p className="mt-1.5 text-xs text-(--text-2)">
           Não localizados no mapa: {naoLocalizados.join(', ')}
         </p>
       )}

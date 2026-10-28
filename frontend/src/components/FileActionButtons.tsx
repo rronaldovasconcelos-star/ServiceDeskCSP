@@ -4,6 +4,7 @@ import {
   apiErrorMessage, downloadFile, isPreviewable, markOpenedForEdit,
   officeAppFor, officeLabel, openOfficeSession, type FileRecord,
 } from '../lib/files';
+import { Button } from './ui';
 
 interface Props {
   f: FileRecord;
@@ -16,11 +17,6 @@ interface Props {
   onPreview: (f: FileRecord) => void;
   size?: number;
 }
-
-const iconBtnStyle: React.CSSProperties = {
-  background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px',
-  color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center',
-};
 
 /**
  * Ações de uma linha de arquivo: Abrir (PDF/imagem) · Abrir no Word/Excel/PowerPoint
@@ -63,37 +59,39 @@ export default function FileActionButtons({ f, canDelete, onDelete, canReplace, 
   const tituloOffice = office ? (busy ? 'Abrindo...' : `Abrir no ${officeLabel(office)} (salva direto no portal)`) : '';
 
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+    <span className="inline-flex items-center gap-0.5">
       {erro && (
-        <span role="alert" aria-live="polite" style={{ fontSize: '12px', color: 'var(--coral)', marginRight: '6px', whiteSpace: 'normal', maxWidth: '260px', textAlign: 'left' }}>
+        <span role="alert" aria-live="polite" className="mr-1.5 max-w-[260px] text-left text-xs whitespace-normal text-(--danger-ink)">
           {erro}
         </span>
       )}
       {aviso && !erro && (
-        <span role="status" aria-live="polite" style={{ fontSize: '12px', color: 'var(--text-secondary)', marginRight: '6px', whiteSpace: 'normal', maxWidth: '260px', textAlign: 'left' }}>
+        <span role="status" aria-live="polite" className="mr-1.5 max-w-[260px] text-left text-xs whitespace-normal text-(--text-2)">
           {aviso}
         </span>
       )}
       {isPreviewable(f.mimeType) && (
-        <button onClick={() => onPreview(f)} style={iconBtnStyle} title="Abrir" aria-label="Abrir"><Eye size={size} /></button>
+        <Button variant="ghost" size="sm" iconOnly onClick={() => onPreview(f)} title="Abrir" aria-label="Abrir" icon={<Eye size={size} />} />
       )}
       {canEditOffice && office && (
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          className="text-(--primary-ink)"
           onClick={abrirNoOffice}
-          disabled={busy}
-          style={{ ...iconBtnStyle, color: 'var(--electric)', opacity: busy ? 0.5 : 1, cursor: busy ? 'default' : 'pointer' }}
+          loading={busy}
           title={tituloOffice}
           aria-label={tituloOffice}
-        >
-          <FilePenLine size={size} />
-        </button>
+          icon={<FilePenLine size={size} />}
+        />
       )}
-      <button onClick={() => downloadFile(f.id, f.originalName)} style={iconBtnStyle} title="Baixar" aria-label="Baixar"><Download size={size} /></button>
+      <Button variant="ghost" size="sm" iconOnly onClick={() => downloadFile(f.id, f.originalName)} title="Baixar" aria-label="Baixar" icon={<Download size={size} />} />
       {canReplace && onReplace && (
-        <button onClick={() => onReplace(f)} style={iconBtnStyle} title="Substituir arquivo" aria-label="Substituir"><Replace size={size} /></button>
+        <Button variant="ghost" size="sm" iconOnly onClick={() => onReplace(f)} title="Substituir arquivo" aria-label="Substituir" icon={<Replace size={size} />} />
       )}
       {canDelete && (
-        <button onClick={() => onDelete(f)} style={{ ...iconBtnStyle, color: 'var(--coral)' }} title="Excluir" aria-label="Excluir"><Trash2 size={size} /></button>
+        <Button variant="ghost" size="sm" iconOnly className="text-(--danger)" onClick={() => onDelete(f)} title="Excluir" aria-label="Excluir" icon={<Trash2 size={size} />} />
       )}
     </span>
   );

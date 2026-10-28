@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { KeyRound, Pencil, Plus, Trash2, Users as UsersIcon } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { MODULES } from '../lib/modules';
 import PageHeader from '../components/PageHeader';
-import { Button, Card, Modal, Table } from '../components/ui';
+import { Button, EmptyState, Field, Fieldset, Modal, Notice, Table } from '../components/ui';
 
 interface User {
   id: string;
@@ -52,17 +52,13 @@ const roleTom: Record<string, string> = {
   USER: 'muted',
 };
 
-/** Botão de ação em texto, dentro da linha da tabela / card. */
-function LinkButton({ tom = 'muted', bold, onClick, children }: { tom?: 'electric' | 'coral' | 'teal' | 'muted'; bold?: boolean; onClick: () => void; children: string }) {
-  const color = tom === 'muted' ? 'var(--text-secondary)' : `var(--${tom})`;
+function StatusPill({ u }: { u: User }) {
+  const { label, tom } = statusInfo(u);
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{ background: 'none', border: 'none', cursor: 'pointer', color, fontSize: 12, fontWeight: bold ? 600 : 500, padding: 0, fontFamily: 'inherit' }}
-    >
-      {children}
-    </button>
+    <span className={`pill pill-${tom}`}>
+      <span className="pill-dot" aria-hidden="true" />
+      {label}
+    </span>
   );
 }
 
@@ -70,6 +66,7 @@ function UserModal({
   editing,
   form,
   error,
+  saving,
   onChange,
   onSubmit,
   onClose,
@@ -77,6 +74,7 @@ function UserModal({
   editing: User | null;
   form: FormState;
   error: string;
+  saving: boolean;
   onChange: (f: FormState) => void;
   onSubmit: (e: { preventDefault(): void }) => void;
   onClose: () => void;
@@ -87,87 +85,86 @@ function UserModal({
   };
 
   return (
-    <Modal open title={editing ? 'Editar usuário' : 'Novo usuário'} onClose={onClose} maxWidth={460}>
-      <form id="form-usuario" onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {error && (
-          <div style={{ padding: '8px 12px', background: 'var(--coral-soft)', borderRadius: 'var(--radius-tile)', color: 'var(--coral)', fontSize: 13 }}>
-            {error}
-          </div>
-        )}
+    <Modal
+      open
+      title={editing ? 'Editar usuário' : 'Novo usuário'}
+      onClose={onClose}
+      maxWidth={520}
+      footer={(
+        <>
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" variant="primary" form="form-usuario" loading={saving}>
+            {editing ? 'Salvar alterações' : 'Criar usuário'}
+          </Button>
+        </>
+      )}
+    >
+      <form id="form-usuario" onSubmit={onSubmit} className="stack">
+        {error && <Notice kind="danger">{error}</Notice>}
 
-        <div>
-          <label className="field-label">Nome *</label>
-          <input className="field" placeholder="Nome completo" required value={form.name}
-            onChange={(e) => onChange({ ...form, name: e.target.value })} />
-        </div>
-        <div>
-          <label className="field-label">Email *</label>
-          <input className="field" type="email" placeholder="email@exemplo.com" required value={form.email}
-            onChange={(e) => onChange({ ...form, email: e.target.value })} />
-        </div>
-        <div>
-          <label className="field-label">{editing ? 'Nova senha (deixe vazio para manter)' : 'Senha *'}</label>
-          <input className="field" type="password" placeholder="••••••••" required={!editing} value={form.password}
-            onChange={(e) => onChange({ ...form, password: e.target.value })} />
-        </div>
-        <div>
-          <label className="field-label">WhatsApp</label>
-          <input className="field" placeholder="5511999999999" value={form.phone}
-            onChange={(e) => onChange({ ...form, phone: e.target.value })} />
-        </div>
-        <div>
-          <label className="field-label">Perfil *</label>
-          <select className="field" value={form.role} onChange={(e) => onChange({ ...form, role: e.target.value })}>
-            <option value="USER">Usuário Comum</option>
-            <option value="GESTOR">Gestor</option>
-            <option value="ADMIN">Administrador</option>
-          </select>
-        </div>
+        <Fieldset legend="Dados da pessoa">
+          <Field label="Nome" required>
+            {(ctl) => (
+              <input {...ctl} className="field" placeholder="Nome completo" required value={form.name}
+                onChange={(e) => onChange({ ...form, name: e.target.value })} data-autofocus />
+            )}
+          </Field>
+          <div className="form-grid-2">
+            <Field label="Email" required>
+              {(ctl) => (
+                <input {...ctl} className="field" type="email" placeholder="email@exemplo.com" required value={form.email}
+                  onChange={(e) => onChange({ ...form, email: e.target.value })} />
+              )}
+            </Field>
+            <Field label="WhatsApp" hint="Só números, com DDI e DDD">
+              {(ctl) => (
+                <input {...ctl} className="field" placeholder="5511999999999" value={form.phone}
+                  onChange={(e) => onChange({ ...form, phone: e.target.value })} />
+              )}
+            </Field>
+          </div>
+        </Fieldset>
+
+        <Fieldset legend="Acesso">
+          <div className="form-grid-2">
+            <Field label={editing ? 'Nova senha' : 'Senha'} required={!editing} hint={editing ? 'Deixe vazio para manter a atual' : undefined}>
+              {(ctl) => (
+                <input {...ctl} className="field" type="password" placeholder="••••••••" required={!editing} value={form.password}
+                  autoComplete="new-password" onChange={(e) => onChange({ ...form, password: e.target.value })} />
+              )}
+            </Field>
+            <Field label="Perfil" required>
+              {(ctl) => (
+                <select {...ctl} className="field" value={form.role} onChange={(e) => onChange({ ...form, role: e.target.value })}>
+                  <option value="USER">Usuário Comum</option>
+                  <option value="GESTOR">Gestor</option>
+                  <option value="ADMIN">Administrador</option>
+                </select>
+              )}
+            </Field>
+          </div>
+        </Fieldset>
 
         {/* Módulos liberados — só para não-admins (ADMIN tem acesso total). */}
-        <div>
-          <label className="field-label">Módulos liberados</label>
+        <Fieldset legend="Módulos liberados" hint="Chamados, Suprimentos e Meus Arquivos estão sempre disponíveis.">
           {form.role === 'ADMIN' ? (
-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>
-              Administrador tem acesso a todos os módulos.
-            </p>
+            <p className="muted text-sm-2">Administrador tem acesso a todos os módulos.</p>
           ) : (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '6px 12px',
-                padding: '10px 12px',
-                background: 'var(--bg-primary)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-tile)',
-              }}
-            >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-1.5 px-3 py-2.5 bg-(--bg) border border-(--line) rounded-(--radius-sm)" role="group" aria-label="Módulos liberados">
               {MODULES.map((m) => (
-                <label
-                  key={m.key}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer' }}
-                >
+                <label key={m.key} className="flex items-center gap-2 text-[13px] cursor-pointer min-h-7">
                   <input
                     type="checkbox"
+                    className="accent-(--primary) cursor-pointer"
                     checked={form.modules.includes(m.key)}
                     onChange={() => toggleModule(m.key)}
-                    style={{ accentColor: 'var(--electric)', cursor: 'pointer' }}
                   />
                   {m.label}
                 </label>
               ))}
             </div>
           )}
-          <p style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6, marginBottom: 0 }}>
-            Chamados, Suprimentos e Meus Arquivos estão sempre disponíveis.
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, paddingTop: 4, justifyContent: 'flex-end' }}>
-          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button type="submit">{editing ? 'Salvar alterações' : 'Criar usuário'}</Button>
-        </div>
+        </Fieldset>
       </form>
     </Modal>
   );
@@ -177,14 +174,19 @@ export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState<{ kind: 'success' | 'danger'; text: string } | null>(null);
 
   const load = () => {
-    api.get('/users').then((r) => setUsers(r.data)).finally(() => setLoading(false));
+    api.get('/users')
+      .then((r) => { setUsers(r.data); setLoadError(false); })
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
@@ -201,6 +203,7 @@ export default function UsersPage() {
   const handleSubmit = async (e: { preventDefault(): void }) => {
     e.preventDefault();
     setError('');
+    setSaving(true);
     try {
       const payload: Partial<FormState> = { ...form };
       if (!payload.password) delete payload.password;
@@ -214,6 +217,8 @@ export default function UsersPage() {
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
       setError(msg ?? 'Erro ao salvar usuário.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -224,63 +229,86 @@ export default function UsersPage() {
 
   const resetPassword = async (u: User) => {
     if (!confirm(`Enviar um código de redefinição de senha para ${u.name} via WhatsApp?\n\nA senha atual continua válida até o usuário concluir a troca.`)) return;
-    setNotice('');
+    setNotice(null);
     try {
       const res = await api.post(`/users/${u.id}/reset-password`);
-      setNotice(res.data?.message ?? `Código de redefinição enviado para ${u.name}.`);
+      setNotice({ kind: 'success', text: res.data?.message ?? `Código de redefinição enviado para ${u.name}.` });
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setNotice(msg ?? 'Erro ao enviar o código de redefinição.');
+      setNotice({ kind: 'danger', text: msg ?? 'Erro ao enviar o código de redefinição.' });
     }
   };
 
   const removeUser = async (u: User) => {
     if (!confirm(`Excluir PERMANENTEMENTE o usuário "${u.name}"?\n\nIsto apaga também todos os chamados, arquivos e histórico dele. Esta ação NÃO pode ser desfeita.`)) return;
     if (!confirm(`Confirma a exclusão definitiva de "${u.name}"? Última chance.`)) return;
-    setNotice('');
+    setNotice(null);
     try {
       await api.delete(`/users/${u.id}`);
-      setNotice(`Usuário "${u.name}" excluído.`);
+      setNotice({ kind: 'success', text: `Usuário "${u.name}" excluído.` });
       load();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setNotice(msg ?? 'Erro ao excluir o usuário.');
+      setNotice({ kind: 'danger', text: msg ?? 'Erro ao excluir o usuário.' });
     }
   };
 
   const ativos = users.filter((u) => u.isActive).length;
   const pendentes = users.filter((u) => !u.isActive && u.phoneVerified).length;
 
-  const acoes = (u: User) => (
-    <>
-      <LinkButton tom="electric" onClick={() => openEdit(u)}>Editar</LinkButton>
-      <LinkButton tom={!u.isActive && u.phoneVerified ? 'teal' : 'muted'} bold={!u.isActive && u.phoneVerified} onClick={() => toggleActive(u)}>{toggleLabel(u)}</LinkButton>
-      <LinkButton onClick={() => resetPassword(u)}>Redefinir senha</LinkButton>
-      {currentUser?.id !== u.id && <LinkButton tom="coral" onClick={() => removeUser(u)}>Excluir</LinkButton>}
-    </>
+  const acoes = (u: User) => {
+    const aprovar = !u.isActive && Boolean(u.phoneVerified);
+    return (
+      <div className="row">
+        <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => openEdit(u)}>Editar</Button>
+        <Button variant={aprovar ? 'secondary' : 'ghost'} size="sm" onClick={() => toggleActive(u)}>{toggleLabel(u)}</Button>
+        <Button variant="ghost" size="sm" icon={<KeyRound size={14} />} onClick={() => resetPassword(u)}>Redefinir senha</Button>
+        {currentUser?.id !== u.id && (
+          <Button
+            variant="ghost"
+            size="sm"
+            iconOnly
+            aria-label={`Excluir usuário ${u.name}`}
+            title="Excluir usuário"
+            icon={<Trash2 size={16} />}
+            onClick={() => removeUser(u)}
+          />
+        )}
+      </div>
+    );
+  };
+
+  const cabecalho = (
+    <tr>
+      <th>Nome</th>
+      <th>Email</th>
+      <th>Perfil</th>
+      <th>Status</th>
+      <th><span className="sr-only">Ações</span></th>
+    </tr>
+  );
+
+  const vazio = (
+    <EmptyState
+      icon={<UsersIcon size={22} />}
+      title="Nenhum usuário cadastrado"
+      action={<Button variant="primary" icon={<Plus size={16} />} onClick={openCreate}>Novo usuário</Button>}
+    >
+      Cadastre as pessoas que vão usar o portal e escolha o perfil de cada uma.
+    </EmptyState>
   );
 
   return (
     <>
       <PageHeader
         title="Usuários"
-        subtitle={loading ? 'Carregando…' : `${users.length} cadastrado${users.length === 1 ? '' : 's'} · ${ativos} ativo${ativos === 1 ? '' : 's'}${pendentes ? ` · ${pendentes} aguardando aprovação` : ''}`}
-        actions={<Button variant="secondary" icon={<Plus size={16} />} onClick={openCreate}>Novo usuário</Button>}
+        description={loading ? 'Carregando…' : `${users.length} cadastrado${users.length === 1 ? '' : 's'} · ${ativos} ativo${ativos === 1 ? '' : 's'}${pendentes ? ` · ${pendentes} aguardando aprovação` : ''}`}
+        actions={<Button variant="primary" icon={<Plus size={16} />} onClick={openCreate}>Novo usuário</Button>}
       />
 
-      <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <main className="page-body stack">
         {notice && (
-          <Card style={{ padding: '10px 14px', borderLeft: '3px solid var(--electric)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>
-            <span>{notice}</span>
-            <button
-              type="button"
-              onClick={() => setNotice('')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 0, display: 'flex' }}
-              aria-label="Fechar aviso"
-            >
-              <X size={16} />
-            </button>
-          </Card>
+          <Notice kind={notice.kind} onClose={() => setNotice(null)}>{notice.text}</Notice>
         )}
 
         {showForm && (
@@ -288,66 +316,66 @@ export default function UsersPage() {
             editing={editing}
             form={form}
             error={error}
+            saving={saving}
             onChange={setForm}
             onSubmit={handleSubmit}
             onClose={closeModal}
           />
         )}
 
-        {loading ? (
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando...</p>
+        {loadError ? (
+          <Notice
+            kind="danger"
+            actions={<Button size="sm" variant="secondary" onClick={() => { setLoading(true); load(); }}>Tentar novamente</Button>}
+          >
+            Não foi possível carregar os usuários.
+          </Notice>
+        ) : loading ? (
+          <>
+            <div className="hidden md:block">
+              <Table loading rows={6} cols={5} head={cabecalho} />
+            </div>
+            <div className="md:hidden stack" aria-busy="true">
+              <div className="skeleton h-[110px]" />
+              <div className="skeleton h-[110px]" />
+              <div className="skeleton h-[110px]" />
+            </div>
+          </>
         ) : (
           <>
             {/* Desktop: tabela */}
             <div className="hidden md:block">
-              <Table
-                isEmpty={users.length === 0}
-                empty="Nenhum usuário cadastrado."
-                head={(
-                  <tr>
-                    <th>Nome</th>
-                    <th>Email</th>
-                    <th>Perfil</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                  </tr>
-                )}
-              >
+              <Table isEmpty={users.length === 0} empty={vazio} head={cabecalho}>
                 {users.map((u) => (
-                  <tr key={u.id} className="table-row">
-                    <td style={{ fontWeight: 500 }}>{u.name}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{u.email}</td>
+                  <tr key={u.id}>
+                    <td className="font-medium">{u.name}</td>
+                    <td className="muted">{u.email}</td>
                     <td><span className={`pill pill-${roleTom[u.role] ?? 'muted'}`}>{roleLabel[u.role] ?? u.role}</span></td>
-                    <td><span className={`pill pill-${statusInfo(u).tom}`}>{statusInfo(u).label}</span></td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>{acoes(u)}</div>
-                    </td>
+                    <td><StatusPill u={u} /></td>
+                    <td>{acoes(u)}</td>
                   </tr>
                 ))}
               </Table>
             </div>
 
             {/* Mobile: cards */}
-            <div className="md:hidden space-y-3">
+            <div className="md:hidden stack">
+              {users.length === 0 && <div className="card">{vazio}</div>}
               {users.map((u) => (
-                <Card key={u.id} style={{ padding: 14, opacity: u.isActive ? 1 : 0.7 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>{u.name}</span>
-                    <span className={`pill pill-${roleTom[u.role] ?? 'muted'}`} style={{ flexShrink: 0 }}>{roleLabel[u.role] ?? u.role}</span>
+                <div key={u.id} className={`ticket-card ${u.isActive ? '' : 'opacity-70'}`.trim()}>
+                  <p className="ticket-card-title">{u.name}</p>
+                  <div className="ticket-card-meta">
+                    <StatusPill u={u} />
+                    <span className={`pill pill-${roleTom[u.role] ?? 'muted'}`}>{roleLabel[u.role] ?? u.role}</span>
                   </div>
-                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {u.email}
-                  </p>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span className={`pill pill-${statusInfo(u).tom}`}>{statusInfo(u).label}</span>
-                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'flex-end' }}>{acoes(u)}</div>
-                  </div>
-                </Card>
+                  <p className="ticket-card-sub truncate mb-2">{u.email}</p>
+                  {acoes(u)}
+                </div>
               ))}
             </div>
           </>
         )}
-      </div>
+      </main>
     </>
   );
 }
