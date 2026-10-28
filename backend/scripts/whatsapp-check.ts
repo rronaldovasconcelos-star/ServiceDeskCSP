@@ -56,7 +56,6 @@ async function main(): Promise<void> {
       ? ok('WHATSAPP_CLOUD_APP_SECRET (assinatura do webhook validada)')
       : aviso('WHATSAPP_CLOUD_APP_SECRET ausente — webhook protegido só pelo segredo na URL'),
   );
-  linhas.push(env.botWebhookSecret ? ok('BOT_WEBHOOK_SECRET') : aviso('BOT_WEBHOOK_SECRET ausente — bot de suporte não recebe'));
 
   console.log('Configuração local:');
   linhas.forEach((l) => console.log(l));

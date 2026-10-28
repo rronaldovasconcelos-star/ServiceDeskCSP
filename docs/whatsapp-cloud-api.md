@@ -1,5 +1,7 @@
 # WhatsApp Cloud API — migração do canal do portal
 
+> **28/10/2026:** o bot de suporte (entrada de mensagens, `bot.cloudWebhook.ts`, `/api/bot/*`, ponte `/api/bot-bridge`) e o painel do agente foram REMOVIDOS do portal por decisão do Ronaldo. Deste documento continua valendo só a parte de SAÍDA (provider da Cloud API e templates das notificações). Trechos sobre webhook de entrada são históricos.
+
 > Última atualização: 2026-07-30. **Repositório público — nenhum segredo aqui.**
 > Token, phone_number_id e afins ficam no `.env.production` local e na env do servidor.
 

@@ -8,9 +8,6 @@ import suprimesRouter from './modules/suprimentos/suprimentos.router.js';
 import filesRouter from './modules/files/files.router.js';
 import filesDavRouter from './modules/files/files.dav.js';
 import whatsappRouter from './modules/whatsapp/whatsapp.router.js';
-import agentRouter from './modules/agent/agent.router.js';
-import botRouter from './modules/bot/bot.router.js';
-import botBridgeRouter from './modules/bot-bridge/botBridge.router.js';
 import maintenancesRouter from './modules/maintenances/maintenances.router.js';
 import remindersRouter from './modules/reminders/reminders.router.js';
 import backupRouter from './modules/backup/backup.router.js';
@@ -51,16 +48,7 @@ app.use(
     credentials: true,
   }),
 );
-// `verify` guarda o corpo cru: a validação da assinatura do webhook da Meta
-// (X-Hub-Signature-256) é um HMAC sobre os bytes originais — reserializar o JSON
-// já parseado mudaria o hash.
-app.use(
-  express.json({
-    verify: (req, _res, buf) => {
-      (req as express.Request & { rawBody?: Buffer }).rawBody = buf;
-    },
-  }),
-);
+app.use(express.json());
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
@@ -71,9 +59,6 @@ app.use('/api/reports', reportsRouter);
 app.use('/api/suprimentos', suprimesRouter);
 app.use('/api/files', filesRouter);
 app.use('/api/whatsapp', whatsappRouter);
-app.use('/api/agent', agentRouter);
-app.use('/api/bot', botRouter);
-app.use('/api/bot-bridge', botBridgeRouter);
 app.use('/api/maintenances', maintenancesRouter);
 app.use('/api/reminders', remindersRouter);
 app.use('/api/backup', backupRouter);
