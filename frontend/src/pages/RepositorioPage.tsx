@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { FileStack, HardDrive, List, FolderTree, FileArchive, History, PenLine, Search } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { FileStack, HardDrive, List, FolderTree, FileArchive, History, PenLine, Search, FolderOpen } from 'lucide-react';
 import api from '../lib/api';
 import FilesTreeView from '../components/FilesTreeView';
 import FileActionButtons from '../components/FileActionButtons';
 import FilePreviewModal from '../components/FilePreviewModal';
 import PageHeader from '../components/PageHeader';
-import { Button, Card, IconTile, Modal, Table } from '../components/ui';
+import { Button, Card, EmptyState, Field, IconTile, Modal, Notice, Table } from '../components/ui';
 import { useSyncOnFocus } from '../hooks/useSyncOnFocus';
+import { onTabsKeyDown } from '../lib/a11y';
 import {
   formatBytes, downloadZip, replaceFile, fetchFileLogs, fetchCapabilities, actionLabel, SEM_CAPACIDADES,
   type FileCapabilities, type FileRecord, type FileChangeLogRecord,
@@ -18,6 +19,11 @@ interface Metrics {
   totalFiles: number;
   totalBytes: number;
   byUser: { ownerId: string; name: string; email: string; fileCount: number; totalBytes: number }[];
+}
+
+/** Mensagem de erro da API (ou a padrão) sem recorrer a `any`. */
+function erroDaApi(e: unknown, padrao: string): string {
+  return (e as { response?: { data?: { error?: string } } })?.response?.data?.error ?? padrao;
 }
 
 export default function RepositorioPage() {
@@ -37,6 +43,7 @@ export default function RepositorioPage() {
   const canEditOffice = (f: FileRecord) => !!capabilities?.editInOffice && podeEditar(f);
   useSyncOnFocus((f) => { setFiles((prev) => prev.map((x) => (x.id === f.id ? f : x))); loadMetrics(); });
   const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState('');
   const [q, setQ] = useState('');
   const [ownerId, setOwnerId] = useState('');
   const [segmento, setSegmento] = useState('');
@@ -48,6 +55,7 @@ export default function RepositorioPage() {
   const [view, setView] = useState<'lista' | 'arvore'>('lista');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [zipping, setZipping] = useState(false);
+  const idBase = useId();
 
   function loadMetrics() {
     api.get('/files/metrics').then((r) => setMetrics(r.data));
@@ -55,6 +63,7 @@ export default function RepositorioPage() {
 
   function loadFiles() {
     setLoading(true);
+    setErro('');
     setSelected(new Set());
     const params: Record<string, string> = {};
     if (q) params.q = q;
@@ -65,6 +74,7 @@ export default function RepositorioPage() {
     if (tipoMaterial) params.tipoMaterial = tipoMaterial;
     api.get('/files', { params })
       .then((r) => setFiles(r.data))
+      .catch(() => setErro('Não foi possível carregar os arquivos.'))
       .finally(() => setLoading(false));
   }
 
@@ -133,19 +143,38 @@ export default function RepositorioPage() {
 
   const temFiltro = Boolean(segmento || serie || disciplina || tipoMaterial || dataInicio || dataFim);
 
+  const idAba = (k: 'lista' | 'arvore') => `${idBase}-aba-${k}`;
+  const idPainel = `${idBase}-painel`;
+
+  const cabecalho = (
+    <tr>
+      <th className="w-9">
+        <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Selecionar todos" className="cursor-pointer" />
+      </th>
+      <th>Nome</th>
+      <th>Professor</th>
+      <th>Série</th>
+      <th>Disciplina</th>
+      <th>Tipo</th>
+      <th>Tamanho</th>
+      <th>Data</th>
+      <th className="text-right">Ações</th>
+    </tr>
+  );
+
   return (
     <>
       <PageHeader
         title="Repositório de arquivos"
-        subtitle={metrics ? `${metrics.totalFiles} arquivo${metrics.totalFiles === 1 ? '' : 's'} · ${formatBytes(metrics.totalBytes)} em uso` : 'Carregando…'}
+        description={metrics ? `${metrics.totalFiles} arquivo${metrics.totalFiles === 1 ? '' : 's'} · ${formatBytes(metrics.totalBytes)} em uso` : 'Carregando…'}
         actions={(
           <>
-            <div className="search-bar" role="search" style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.18)' }}>
-              <Search size={14} style={{ color: 'var(--on-navy-muted)', flexShrink: 0 }} aria-hidden="true" />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome..." aria-label="Buscar arquivos" style={{ color: 'var(--on-navy)' }} />
+            <div className="search-bar" role="search">
+              <Search size={14} className="shrink-0" aria-hidden="true" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome..." aria-label="Buscar arquivos" />
             </div>
             {canEdit && (
-              <Button variant="onNavy" icon={<History size={15} />} onClick={() => setHistoryOpen(true)}>
+              <Button variant="secondary" icon={<History size={15} />} onClick={() => setHistoryOpen(true)}>
                 Histórico de alterações
               </Button>
             )}
@@ -153,9 +182,9 @@ export default function RepositorioPage() {
         )}
       />
 
-      <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="page-body stack gap-4">
         {/* Métricas */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+        <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(220px,1fr))]">
           <div className="kpi-card">
             <IconTile tone="electric" size={44}><FileStack size={20} aria-hidden="true" /></IconTile>
             <div>
@@ -187,10 +216,10 @@ export default function RepositorioPage() {
                 <tr key={u.ownerId}>
                   <td>
                     {u.name}
-                    <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-secondary)' }}>{u.email}</span>
+                    <span className="ml-2 text-[11px] text-(--text-2)">{u.email}</span>
                   </td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{u.fileCount}</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{formatBytes(u.totalBytes)}</td>
+                  <td className="text-(--text-2)">{u.fileCount}</td>
+                  <td className="text-(--text-2)">{formatBytes(u.totalBytes)}</td>
                 </tr>
               ))}
             </Table>
@@ -198,35 +227,53 @@ export default function RepositorioPage() {
         )}
 
         {/* Filtros */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className="field" style={{ width: 'auto' }}>
-            <option value="">Todos os professores</option>
-            {professorOptions.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
-          <select value={segmento} onChange={(e) => handleSegmento(e.target.value)} className="field" style={{ width: 'auto' }}>
-            <option value="">Todos os segmentos</option>
-            {SEGMENTOS.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
-          </select>
-          <select value={serie} onChange={(e) => setSerie(e.target.value)} disabled={!segmento} className="field" style={{ width: 'auto' }}>
-            <option value="">Todas as séries</option>
-            {serieOptions.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
-          </select>
-          <select value={disciplina} onChange={(e) => setDisciplina(e.target.value)} className="field" style={{ width: 'auto' }}>
-            <option value="">Todas as disciplinas</option>
-            {DISCIPLINAS.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
-          </select>
-          <select value={tipoMaterial} onChange={(e) => setTipoMaterial(e.target.value)} className="field" style={{ width: 'auto' }}>
-            <option value="">Todos os tipos</option>
-            {TIPOS_MATERIAL.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
-          </select>
-          <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-            De{' '}
-            <input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="field" style={{ width: 'auto' }} />
-          </label>
-          <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-            Até{' '}
-            <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="field" style={{ width: 'auto' }} />
-          </label>
+        <div className="toolbar mb-0">
+          <Field label="Professor">
+            {(ctl) => (
+              <select {...ctl} value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className="field w-auto">
+                <option value="">Todos os professores</option>
+                {professorOptions.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            )}
+          </Field>
+          <Field label="Segmento">
+            {(ctl) => (
+              <select {...ctl} value={segmento} onChange={(e) => handleSegmento(e.target.value)} className="field w-auto">
+                <option value="">Todos os segmentos</option>
+                {SEGMENTOS.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+              </select>
+            )}
+          </Field>
+          <Field label="Série">
+            {(ctl) => (
+              <select {...ctl} value={serie} onChange={(e) => setSerie(e.target.value)} disabled={!segmento} className="field w-auto">
+                <option value="">Todas as séries</option>
+                {serieOptions.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+              </select>
+            )}
+          </Field>
+          <Field label="Disciplina">
+            {(ctl) => (
+              <select {...ctl} value={disciplina} onChange={(e) => setDisciplina(e.target.value)} className="field w-auto">
+                <option value="">Todas as disciplinas</option>
+                {DISCIPLINAS.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
+              </select>
+            )}
+          </Field>
+          <Field label="Tipo">
+            {(ctl) => (
+              <select {...ctl} value={tipoMaterial} onChange={(e) => setTipoMaterial(e.target.value)} className="field w-auto">
+                <option value="">Todos os tipos</option>
+                {TIPOS_MATERIAL.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
+              </select>
+            )}
+          </Field>
+          <Field label="De">
+            {(ctl) => <input {...ctl} type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="field w-auto" />}
+          </Field>
+          <Field label="Até">
+            {(ctl) => <input {...ctl} type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="field w-auto" />}
+          </Field>
           {temFiltro && (
             <Button variant="ghost" size="sm" onClick={() => { setSegmento(''); setSerie(''); setDisciplina(''); setTipoMaterial(''); setDataInicio(''); setDataFim(''); }}>
               Limpar filtros
@@ -234,110 +281,110 @@ export default function RepositorioPage() {
           )}
 
           {/* Toggle lista / árvore */}
-          <div className="tabs" style={{ marginLeft: 'auto' }} role="tablist" aria-label="Modo de exibição">
+          <div className="tabs ml-auto" role="tablist" aria-label="Modo de exibição" onKeyDown={onTabsKeyDown}>
             {([['lista', List, 'Lista'], ['arvore', FolderTree, 'Árvore']] as const).map(([key, Icon, label]) => (
               <button
                 key={key}
                 type="button"
                 role="tab"
+                id={idAba(key)}
                 aria-selected={view === key}
+                aria-controls={idPainel}
+                tabIndex={view === key ? 0 : -1}
                 onClick={() => setView(key)}
-                title={label}
                 className={`tab${view === key ? ' active' : ''}`}
               >
-                <Icon size={14} /> {label}
+                <Icon size={14} aria-hidden="true" /> {label}
               </button>
             ))}
           </div>
         </div>
 
+        {erro && (
+          <Notice kind="danger" actions={<Button variant="secondary" size="sm" onClick={loadFiles}>Tentar novamente</Button>}>
+            {erro}
+          </Notice>
+        )}
+
         {/* Barra de ação em lote (visão lista) */}
         {view === 'lista' && selected.size > 0 && (
-          <Card style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: 'var(--electric-soft)', borderColor: 'transparent' }}>
-            <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>{selected.size} selecionado(s)</span>
-            <Button size="sm" icon={<FileArchive size={15} />} onClick={() => handleZip([...selected])} disabled={zipping}>
+          <div className="row gap-3 rounded-(--radius-sm) bg-(--primary-soft) px-3.5 py-2.5" role="status">
+            <span className="text-[13px] font-semibold text-(--text)">{selected.size} selecionado(s)</span>
+            <Button size="sm" icon={<FileArchive size={15} />} onClick={() => handleZip([...selected])} loading={zipping}>
               {zipping ? 'Gerando .zip...' : 'Baixar selecionados (.zip)'}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Limpar seleção</Button>
-          </Card>
+          </div>
         )}
 
-        {loading ? (
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando...</p>
-        ) : filteredFiles.length === 0 ? (
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Nenhum arquivo encontrado.</p>
-        ) : view === 'arvore' ? (
-          <FilesTreeView files={filteredFiles} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} showOwner canEditOffice={canEditOffice} onPreview={setPreviewTarget} canReplace={canEdit} onReplace={setReplaceTarget} />
-        ) : (
-          <>
-            {/* Desktop: tabela */}
-            <div className="hidden md:block">
-              <Table head={(
-                <tr>
-                  <th style={{ width: 36 }}>
-                    <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Selecionar todos" style={{ cursor: 'pointer' }} />
-                  </th>
-                  <th>Nome</th>
-                  <th>Professor</th>
-                  <th>Série</th>
-                  <th>Disciplina</th>
-                  <th>Tipo</th>
-                  <th>Tamanho</th>
-                  <th>Data</th>
-                  <th style={{ textAlign: 'right' }}>Ações</th>
-                </tr>
-              )}>
-                {filteredFiles.map((f) => (
-                  <tr key={f.id} className="table-row">
-                    <td>
-                      <input type="checkbox" checked={selected.has(f.id)} onChange={() => toggleOne(f.id)} aria-label="Selecionar arquivo" style={{ cursor: 'pointer' }} />
-                    </td>
-                    <td style={{ fontWeight: 500 }}>{f.originalName}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{f.owner.name}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{labelFor('serie', f.serie)}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{labelFor('disciplina', f.disciplina)}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{labelFor('tipoMaterial', f.tipoMaterial)}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{formatBytes(f.sizeBytes)}</td>
-                    <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }} title={f.lastEditedAt ? `Editado por ${f.lastEditedByName ?? '—'} em ${new Date(f.lastEditedAt).toLocaleString('pt-BR')}` : undefined}>
-                      {new Date(f.uploadedAt).toLocaleDateString('pt-BR')}
-                      {f.lastEditedAt && <PenLine size={12} style={{ marginLeft: 6, verticalAlign: '-2px', color: 'var(--electric)' }} aria-label="Editado on-line" />}
-                    </td>
-                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOffice={canEditOffice(f)} onPreview={setPreviewTarget} />
-                    </td>
-                  </tr>
-                ))}
-              </Table>
+        <div role="tabpanel" id={idPainel} aria-labelledby={idAba(view)}>
+          {loading ? (
+            <Table head={cabecalho} loading rows={5} cols={9} />
+          ) : filteredFiles.length === 0 ? (
+            <div className="card">
+              <EmptyState icon={<FolderOpen size={22} />} title="Nenhum arquivo encontrado.">
+                Ajuste os filtros ou a busca para ver outros arquivos.
+              </EmptyState>
             </div>
+          ) : view === 'arvore' ? (
+            <FilesTreeView files={filteredFiles} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} showOwner canEditOffice={canEditOffice} onPreview={setPreviewTarget} canReplace={canEdit} onReplace={setReplaceTarget} />
+          ) : (
+            <>
+              {/* Desktop: tabela */}
+              <div className="hidden md:block">
+                <Table head={cabecalho}>
+                  {filteredFiles.map((f) => (
+                    <tr key={f.id} className="table-row">
+                      <td>
+                        <input type="checkbox" checked={selected.has(f.id)} onChange={() => toggleOne(f.id)} aria-label="Selecionar arquivo" className="cursor-pointer" />
+                      </td>
+                      <td className="font-medium">{f.originalName}</td>
+                      <td className="text-(--text-2)">{f.owner.name}</td>
+                      <td className="text-(--text-2)">{labelFor('serie', f.serie)}</td>
+                      <td className="text-(--text-2)">{labelFor('disciplina', f.disciplina)}</td>
+                      <td className="text-(--text-2)">{labelFor('tipoMaterial', f.tipoMaterial)}</td>
+                      <td className="text-(--text-2)">{formatBytes(f.sizeBytes)}</td>
+                      <td className="whitespace-nowrap text-(--text-2)" title={f.lastEditedAt ? `Editado por ${f.lastEditedByName ?? '—'} em ${new Date(f.lastEditedAt).toLocaleString('pt-BR')}` : undefined}>
+                        {new Date(f.uploadedAt).toLocaleDateString('pt-BR')}
+                        {f.lastEditedAt && <PenLine size={12} className="ml-1.5 inline-block align-[-2px] text-(--primary-ink)" aria-label="Editado on-line" />}
+                      </td>
+                      <td className="text-right whitespace-nowrap">
+                        <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOffice={canEditOffice(f)} onPreview={setPreviewTarget} />
+                      </td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
 
-            {/* Mobile: cards */}
-            <div className="md:hidden space-y-3">
-              {filteredFiles.map((f) => (
-                <Card key={f.id} style={{ padding: 14 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
-                      <input type="checkbox" checked={selected.has(f.id)} onChange={() => toggleOne(f.id)} aria-label="Selecionar arquivo" style={{ cursor: 'pointer', marginTop: 2 }} />
-                      <div style={{ minWidth: 0 }}>
-                        <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13, wordBreak: 'break-word', display: 'block' }}>{f.originalName}</span>
-                        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{f.owner.name}</span>
+              {/* Mobile: cards */}
+              <div className="md:hidden space-y-3">
+                {filteredFiles.map((f) => (
+                  <Card key={f.id} className="p-3.5">
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-start gap-2">
+                        <input type="checkbox" checked={selected.has(f.id)} onChange={() => toggleOne(f.id)} aria-label="Selecionar arquivo" className="mt-0.5 cursor-pointer" />
+                        <div className="min-w-0">
+                          <span className="block text-[13px] font-semibold text-(--text) wrap-break-word">{f.originalName}</span>
+                          <span className="text-[11px] text-(--text-2)">{f.owner.name}</span>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 gap-0.5">
+                        <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOffice={canEditOffice(f)} onPreview={setPreviewTarget} />
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-                      <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOffice={canEditOffice(f)} onPreview={setPreviewTarget} />
+                    <div className="row gap-1.5 text-[11px] text-(--text-2)">
+                      {f.serie && <span className="pill pill-muted">{labelFor('serie', f.serie)}</span>}
+                      {f.disciplina && <span className="pill pill-muted">{labelFor('disciplina', f.disciplina)}</span>}
+                      {f.tipoMaterial && <span className="pill pill-muted">{labelFor('tipoMaterial', f.tipoMaterial)}</span>}
+                      <span className="pill pill-muted">{formatBytes(f.sizeBytes)}</span>
+                      <span className="ml-auto">{new Date(f.uploadedAt).toLocaleDateString('pt-BR')}</span>
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', fontSize: 11, color: 'var(--text-secondary)' }}>
-                    {f.serie && <span className="pill pill-muted">{labelFor('serie', f.serie)}</span>}
-                    {f.disciplina && <span className="pill pill-muted">{labelFor('disciplina', f.disciplina)}</span>}
-                    {f.tipoMaterial && <span className="pill pill-muted">{labelFor('tipoMaterial', f.tipoMaterial)}</span>}
-                    <span className="pill pill-muted">{formatBytes(f.sizeBytes)}</span>
-                    <span style={{ marginLeft: 'auto' }}>{new Date(f.uploadedAt).toLocaleDateString('pt-BR')}</span>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </>
-        )}
+                  </Card>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
 
         {replaceTarget && (
           <ReplaceModal
@@ -369,8 +416,8 @@ function ReplaceModal({ file, onClose, onDone }: { file: FileRecord; onClose: ()
     try {
       await replaceFile(file.id, picked);
       onDone();
-    } catch (e: any) {
-      setError(e?.response?.data?.error ?? 'Falha ao substituir o arquivo.');
+    } catch (e: unknown) {
+      setError(erroDaApi(e, 'Falha ao substituir o arquivo.'));
       setBusy(false);
     }
   }
@@ -390,28 +437,34 @@ function ReplaceModal({ file, onClose, onDone }: { file: FileRecord; onClose: ()
       footer={(
         <>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button onClick={submit} disabled={!picked || busy}>{busy ? 'Substituindo...' : 'Substituir'}</Button>
+          <Button onClick={submit} disabled={!picked} loading={busy}>{busy ? 'Substituindo...' : 'Substituir'}</Button>
         </>
       )}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
-          <div style={{ color: 'var(--text-primary)', fontWeight: 600, wordBreak: 'break-word' }}>{file.originalName}</div>
-          <div style={{ marginTop: 2 }}>{file.owner.name}{metaLine ? ` · ${metaLine}` : ''} · {formatBytes(file.sizeBytes)}</div>
+      <div className="stack gap-3.5">
+        <div className="text-[13px] text-(--text-2)">
+          <div className="font-semibold text-(--text) wrap-break-word">{file.originalName}</div>
+          <div className="mt-0.5">{file.owner.name}{metaLine ? ` · ${metaLine}` : ''} · {formatBytes(file.sizeBytes)}</div>
         </div>
 
-        <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>
+        <Notice kind="info">
           A versão enviada <strong>substitui</strong> a atual mantendo a mesma classificação. A troca fica registrada no histórico.
-        </p>
+        </Notice>
 
-        <input
-          ref={inputRef}
-          type="file"
-          onChange={(e) => setPicked(e.target.files?.[0] ?? null)}
-          style={{ fontSize: 13, color: 'var(--text-primary)' }}
-        />
+        <Field label="Novo arquivo" required>
+          {(ctl) => (
+            <input
+              {...ctl}
+              ref={inputRef}
+              type="file"
+              data-autofocus
+              onChange={(e) => setPicked(e.target.files?.[0] ?? null)}
+              className="field text-[13px]"
+            />
+          )}
+        </Field>
 
-        {error && <div style={{ fontSize: 12, color: 'var(--coral)' }}>{error}</div>}
+        {error && <Notice kind="danger">{error}</Notice>}
       </div>
     </Modal>
   );
@@ -422,37 +475,50 @@ function ReplaceModal({ file, onClose, onDone }: { file: FileRecord; onClose: ()
 function HistoryModal({ onClose }: { onClose: () => void }) {
   const [logs, setLogs] = useState<FileChangeLogRecord[] | null>(null);
   const [error, setError] = useState('');
+  const [tentativa, setTentativa] = useState(0);
 
   useEffect(() => {
     fetchFileLogs({ limit: 200 })
       .then(setLogs)
-      .catch((e: any) => setError(e?.response?.data?.error ?? 'Falha ao carregar o histórico.'));
-  }, []);
+      .catch((e: unknown) => setError(erroDaApi(e, 'Falha ao carregar o histórico.')));
+  }, [tentativa]);
 
   return (
     <Modal open title="Histórico de alterações" onClose={onClose} maxWidth={640}>
-      <div style={{ margin: '0 -22px -22px' }}>
+      {/* Lista encostada nas bordas do painel: compensa o padding do .modal-body. */}
+      <div className="-mx-[22px] -mb-[22px]">
         {error ? (
-          <p style={{ padding: 16, fontSize: 13, color: 'var(--coral)' }}>{error}</p>
+          <div className="p-4">
+            <Notice kind="danger" actions={<Button variant="secondary" size="sm" onClick={() => { setError(''); setTentativa((n) => n + 1); }}>Tentar novamente</Button>}>
+              {error}
+            </Notice>
+          </div>
         ) : !logs ? (
-          <p style={{ padding: 16, fontSize: 13, color: 'var(--text-secondary)' }}>Carregando...</p>
+          <div className="p-4" aria-busy="true" aria-live="polite">
+            <div className="skeleton skeleton-row" />
+            <div className="skeleton skeleton-row" />
+            <div className="skeleton skeleton-row" />
+            <p className="sr-only">Carregando...</p>
+          </div>
         ) : logs.length === 0 ? (
-          <p style={{ padding: 16, fontSize: 13, color: 'var(--text-secondary)' }}>Nenhuma alteração registrada ainda.</p>
+          <EmptyState icon={<History size={22} />} title="Nenhuma alteração registrada ainda." />
         ) : (
-          logs.map((l) => (
-            <div key={l.id} style={{ padding: '10px 22px', borderTop: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, wordBreak: 'break-word' }}>{l.fileName}</div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
-                {actionLabel(l)} <strong>{l.actorName}</strong>{l.actorEmail ? ` (${l.actorEmail})` : ''}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                <span>{new Date(l.createdAt).toLocaleString('pt-BR')}</span>
-                {l.oldSize != null && l.newSize != null && (
-                  <span>{formatBytes(l.oldSize)} → {formatBytes(l.newSize)}</span>
-                )}
-              </div>
-            </div>
-          ))
+          <ul className="m-0 list-none p-0">
+            {logs.map((l) => (
+              <li key={l.id} className="border-t border-(--line) px-[22px] py-2.5">
+                <div className="text-[13px] font-semibold text-(--text) wrap-break-word">{l.fileName}</div>
+                <div className="mt-0.5 text-xs text-(--text-2)">
+                  {actionLabel(l)} <strong>{l.actorName}</strong>{l.actorEmail ? ` (${l.actorEmail})` : ''}
+                </div>
+                <div className="row mt-0.5 gap-2 text-xs text-(--text-2)">
+                  <span>{new Date(l.createdAt).toLocaleString('pt-BR')}</span>
+                  {l.oldSize != null && l.newSize != null && (
+                    <span>{formatBytes(l.oldSize)} → {formatBytes(l.newSize)}</span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </Modal>

@@ -18,8 +18,6 @@ export const MODULES = [
   { key: 'users', label: 'Usuários' },
   { key: 'backups', label: 'Backups' },
   { key: 'whatsapp', label: 'WhatsApp' },
-  { key: 'bot', label: 'Bot Suporte' },
-  { key: 'agente', label: 'Agente IA' },
   { key: 'rh', label: 'RH — Holerites (importar e vincular)' },
 ];
 

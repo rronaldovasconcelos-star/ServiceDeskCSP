@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Wifi, WifiOff, RefreshCw, LogOut, RotateCcw, Loader2, MessageSquare } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, LogOut, RotateCcw, MessageSquare } from 'lucide-react';
 import api from '../lib/api';
 import PageHeader from '../components/PageHeader';
-import { Button, Card, IconTile } from '../components/ui';
+import { Button, Card, IconTile, Notice } from '../components/ui';
 
 type ConnState = 'open' | 'connecting' | 'close' | 'unknown';
 
@@ -23,18 +23,18 @@ const STATE_LABEL: Record<ConnState, string> = {
   unknown: 'Desconhecido',
 };
 
-/** Cor do estado da conexão: verde-água = no ar, elétrico = conectando, coral = fora. */
-const STATE_COLOR: Record<ConnState, string> = {
-  open: 'var(--teal)',
-  connecting: 'var(--electric)',
-  close: 'var(--coral)',
-  unknown: 'var(--text-secondary)',
+/** Badge do estado da conexão: verde = no ar, azul = conectando, vermelho = fora, cinza = desconhecido. */
+const STATE_PILL: Record<ConnState, string> = {
+  open: 'pill-teal',
+  connecting: 'pill-electric',
+  close: 'pill-coral',
+  unknown: 'pill-muted',
 };
-const STATE_TONE: Record<ConnState, 'teal' | 'electric' | 'coral' | 'soft'> = {
+const STATE_TONE: Record<ConnState, 'teal' | 'electric' | 'coral' | 'muted'> = {
   open: 'teal',
   connecting: 'electric',
   close: 'coral',
-  unknown: 'soft',
+  unknown: 'muted',
 };
 
 interface WhatsAppPanelProps {
@@ -133,67 +133,57 @@ export default function WhatsAppPage({
     <>
       <PageHeader
         title={title}
-        subtitle={<>Instância <code style={{ fontFamily: 'inherit', fontWeight: 600 }}>{instanceLabel}</code> · {STATE_LABEL[state]}</>}
+        description={<>Instância <code className="font-[inherit] font-semibold">{instanceLabel}</code> · {STATE_LABEL[state]}</>}
         actions={(
-          <Button variant="onNavy" icon={<RefreshCw size={15} className={loading['status'] ? 'animate-spin' : ''} />} onClick={fetchStatus} disabled={loading['status']}>
+          <Button variant="secondary" icon={<RefreshCw size={15} className={loading['status'] ? 'animate-spin' : ''} />} onClick={fetchStatus} disabled={loading['status']}>
             Atualizar status
           </Button>
         )}
       />
 
-      <div className="page-body" style={{ maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="page-body stack max-w-[720px] gap-4">
         {/* Toast */}
         {message && (
-          <div
-            className={`pill ${message.type === 'ok' ? 'pill-teal' : 'pill-coral'}`}
-            style={{ whiteSpace: 'normal', padding: '10px 14px', fontSize: 13, fontWeight: 500, borderRadius: 'var(--radius-tile)' }}
-          >
+          <Notice kind={message.type === 'ok' ? 'success' : 'danger'} onClose={() => setMessage(null)}>
             {message.text}
-          </div>
+          </Notice>
         )}
 
         {/* Estado da conexão */}
-        <Card raised style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+        <Card raised className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
             <IconTile tone={STATE_TONE[state]} size={44}>
               {isConnected ? <Wifi size={20} /> : <WifiOff size={20} />}
             </IconTile>
             <div>
-              <p style={{ color: 'var(--text-primary)', fontWeight: 600, margin: 0 }}>{STATE_LABEL[state]}</p>
-              <p style={{ color: 'var(--text-secondary)', fontSize: 12, margin: '2px 0 0' }}>
+              <p className="font-semibold text-(--text)">{STATE_LABEL[state]}</p>
+              <p className="mt-0.5 text-xs text-(--text-2)">
                 {isConnected ? (phone ?? 'Carregando…') : 'Sem número ativo'}
               </p>
             </div>
           </div>
-          <span
-            aria-hidden="true"
-            style={{
-              width: 12,
-              height: 12,
-              borderRadius: '50%',
-              flexShrink: 0,
-              background: STATE_COLOR[state],
-              boxShadow: `0 0 0 4px ${STATE_COLOR[state]}`,
-              opacity: 0.9,
-            }}
-          />
+          <span className={`pill pill-strong ${STATE_PILL[state]}`}>
+            <span className="pill-dot" aria-hidden="true" />
+            {STATE_LABEL[state]}
+          </span>
         </Card>
 
         {/* Ações */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+        <div className="row gap-2.5">
           <Button
             onClick={fetchQr}
-            disabled={loading['qr'] || isConnected}
-            icon={loading['qr'] ? <Loader2 size={15} className="animate-spin" /> : <MessageSquare size={15} />}
+            disabled={isConnected}
+            loading={loading['qr']}
+            icon={<MessageSquare size={15} />}
           >
             {isConnected ? 'Já conectado' : 'Gerar QR Code'}
           </Button>
 
           <Button
-            variant="ghost"
+            variant="secondary"
             onClick={restart}
-            disabled={loading['restart']}
-            icon={loading['restart'] ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
+            loading={loading['restart']}
+            icon={<RotateCcw size={15} />}
           >
             Reiniciar conexão
           </Button>
@@ -201,8 +191,9 @@ export default function WhatsAppPage({
           <Button
             variant="danger"
             onClick={disconnect}
-            disabled={loading['disconnect'] || !isConnected}
-            icon={loading['disconnect'] ? <Loader2 size={15} className="animate-spin" /> : <LogOut size={15} />}
+            disabled={!isConnected}
+            loading={loading['disconnect']}
+            icon={<LogOut size={15} />}
           >
             Desconectar
           </Button>
@@ -210,17 +201,18 @@ export default function WhatsAppPage({
 
         {/* QR Code */}
         {qrcode && (
-          <Card raised style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 24 }}>
-            <p style={{ color: 'var(--text-primary)', fontWeight: 600, margin: 0 }}>
+          <Card raised className="flex flex-col items-center gap-3.5 p-6">
+            <p className="font-semibold text-(--text)">
               Aponte o WhatsApp para o QR Code abaixo
             </p>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 13, textAlign: 'center', margin: 0 }}>
+            <p className="text-center text-[13px] text-(--text-2)">
               No celular: WhatsApp → Dispositivos conectados → Conectar dispositivo
             </p>
-            <div style={{ background: 'var(--on-navy)', padding: 12, borderRadius: 'var(--radius-tile)', border: '1px solid var(--border)' }}>
-              <img src={qrcode} alt="QR Code WhatsApp" style={{ width: 220, height: 220, display: 'block' }} />
+            {/* Fundo branco fixo: o QR precisa de contraste alto também no tema escuro. */}
+            <div className="rounded-(--radius-sm) border border-(--line) bg-(--on-navy) p-3">
+              <img src={qrcode} alt="QR Code WhatsApp" className="block size-[220px]" />
             </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 12, margin: 0 }}>
+            <p className="text-xs text-(--text-2)">
               O QR expira em ~60 segundos. Se expirar, clique em "Gerar QR Code" novamente.
             </p>
           </Card>
@@ -228,22 +220,18 @@ export default function WhatsAppPage({
 
         {/* Ajuda quando conectado */}
         {isConnected && !qrcode && (
-          <Card style={{ background: 'var(--teal-soft)', borderColor: 'transparent' }}>
-            <p style={{ color: 'var(--text-primary)', fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-              <strong>Tudo certo!</strong> O número {phone ?? '–'} está conectado e {purpose}.
-              Clique em <strong>Reiniciar conexão</strong> se houver falha no envio de mensagens sem desconectar.
-              Use <strong>Desconectar</strong> apenas para trocar de número — será necessário escanear um novo QR Code.
-            </p>
-          </Card>
+          <Notice kind="success" title="Tudo certo!">
+            O número {phone ?? '–'} está conectado e {purpose}.
+            Clique em <strong>Reiniciar conexão</strong> se houver falha no envio de mensagens sem desconectar.
+            Use <strong>Desconectar</strong> apenas para trocar de número — será necessário escanear um novo QR Code.
+          </Notice>
         )}
 
         {/* Ajuda quando desconectado */}
         {!isConnected && !qrcode && state !== 'unknown' && (
-          <Card style={{ background: 'var(--coral-soft)', borderColor: 'transparent' }}>
-            <p style={{ color: 'var(--text-primary)', fontSize: 13, margin: 0, lineHeight: 1.6 }}>
-              <strong>WhatsApp desconectado.</strong> Clique em <strong>Gerar QR Code</strong> e escaneie com o celular para reconectar.
-            </p>
-          </Card>
+          <Notice kind="danger" title="WhatsApp desconectado.">
+            Clique em <strong>Gerar QR Code</strong> e escaneie com o celular para reconectar.
+          </Notice>
         )}
       </div>
     </>

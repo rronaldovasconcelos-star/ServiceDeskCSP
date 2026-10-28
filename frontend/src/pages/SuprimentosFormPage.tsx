@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 import PageHeader from '../components/PageHeader';
-import { Button, Card } from '../components/ui';
+import { Button, Card, Field, Notice } from '../components/ui';
 
 interface SupplyItem {
   id: string;
@@ -18,6 +18,8 @@ const categoryLabel: Record<string, string> = {
 export default function SuprimentosFormPage() {
   const navigate = useNavigate();
   const [items, setItems] = useState<SupplyItem[]>([]);
+  const [itemsError, setItemsError] = useState(false);
+  const [itemsKey, setItemsKey] = useState(0);
   const [itemId, setItemId] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [urgency, setUrgency] = useState('MEDIA');
@@ -26,11 +28,14 @@ export default function SuprimentosFormPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.get('/suprimentos/items').then((r) => {
-      setItems(r.data);
-      if (r.data.length > 0) setItemId(r.data[0].id);
-    });
-  }, []);
+    api.get('/suprimentos/items')
+      .then((r) => {
+        setItems(r.data);
+        setItemsError(false);
+        if (r.data.length > 0) setItemId(r.data[0].id);
+      })
+      .catch(() => setItemsError(true));
+  }, [itemsKey]);
 
   const selectedItem = items.find((i) => i.id === itemId);
 
@@ -57,61 +62,76 @@ export default function SuprimentosFormPage() {
 
   return (
     <>
-      <PageHeader title="Novo pedido de suprimento" subtitle="Escolha o item do catálogo e a quantidade." />
+      <PageHeader
+        title="Novo pedido de suprimento"
+        description="Escolha o item do catálogo e a quantidade."
+        backTo="/suprimentos"
+        backLabel="Pedidos de suprimentos"
+      />
 
-      <div className="page-body" style={{ maxWidth: 640 }}>
+      <main className="page-body max-w-[680px]">
         {error && (
-          <div role="alert" style={{ marginBottom: 16, padding: '10px 14px', background: 'var(--coral-soft)', borderRadius: 'var(--radius-tile)', color: 'var(--coral)', fontSize: 13 }}>
-            {error}
-          </div>
+          <Notice kind="danger" className="mb-4" onClose={() => setError('')}>{error}</Notice>
+        )}
+        {itemsError && (
+          <Notice
+            kind="danger"
+            className="mb-4"
+            actions={<Button size="sm" variant="secondary" onClick={() => setItemsKey((k) => k + 1)}>Tentar novamente</Button>}
+          >
+            Não foi possível carregar o catálogo de itens.
+          </Notice>
         )}
 
         <Card raised>
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <label className="field-label">Item</label>
-              <select value={itemId} onChange={(e) => setItemId(e.target.value)} required className="field">
-                {Object.entries(groupedItems).map(([cat, catItems]) => (
-                  <optgroup key={cat} label={categoryLabel[cat] ?? cat}>
-                    {catItems.map((item) => (
-                      <option key={item.id} value={item.id}>{item.name}</option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-              {selectedItem && (
-                <p style={{ marginTop: 6, fontSize: 12, color: 'var(--text-secondary)' }}>Unidade: {selectedItem.unit}</p>
-              )}
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div>
-                <label className="field-label">Quantidade</label>
-                <input type="number" min={1} value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} required className="field" />
-              </div>
-              <div>
-                <label className="field-label">Urgência</label>
-                <select value={urgency} onChange={(e) => setUrgency(e.target.value)} className="field">
-                  <option value="BAIXA">Baixa</option>
-                  <option value="MEDIA">Média</option>
-                  <option value="ALTA">Alta</option>
-                  <option value="URGENTE">Urgente</option>
+          <form onSubmit={handleSubmit} className="stack">
+            <Field label="Item" required hint={selectedItem ? `Unidade: ${selectedItem.unit}` : undefined}>
+              {(ctl) => (
+                <select {...ctl} value={itemId} onChange={(e) => setItemId(e.target.value)} required className="field">
+                  {Object.entries(groupedItems).map(([cat, catItems]) => (
+                    <optgroup key={cat} label={categoryLabel[cat] ?? cat}>
+                      {catItems.map((item) => (
+                        <option key={item.id} value={item.id}>{item.name}</option>
+                      ))}
+                    </optgroup>
+                  ))}
                 </select>
-              </div>
+              )}
+            </Field>
+
+            <div className="form-grid-2">
+              <Field label="Quantidade" required>
+                {(ctl) => (
+                  <input {...ctl} type="number" min={1} value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} required className="field" />
+                )}
+              </Field>
+              <Field label="Urgência">
+                {(ctl) => (
+                  <select {...ctl} value={urgency} onChange={(e) => setUrgency(e.target.value)} className="field">
+                    <option value="BAIXA">Baixa</option>
+                    <option value="MEDIA">Média</option>
+                    <option value="ALTA">Alta</option>
+                    <option value="URGENTE">Urgente</option>
+                  </select>
+                )}
+              </Field>
             </div>
 
-            <div>
-              <label className="field-label">Observações</label>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="field" style={{ resize: 'vertical' }} placeholder="Informações adicionais (opcional)" />
-            </div>
+            <Field label="Observações" hint="Informações adicionais (opcional)">
+              {(ctl) => (
+                <textarea {...ctl} value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="field" placeholder="Informações adicionais (opcional)" />
+              )}
+            </Field>
 
-            <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
-              <Button type="submit" disabled={loading || !itemId}>{loading ? 'Enviando...' : 'Enviar pedido'}</Button>
+            <div className="form-actions">
+              <Button type="submit" variant="primary" disabled={!itemId} loading={loading}>
+                {loading ? 'Enviando...' : 'Enviar pedido'}
+              </Button>
               <Button type="button" variant="ghost" onClick={() => navigate('/suprimentos')}>Cancelar</Button>
             </div>
           </form>
         </Card>
-      </div>
+      </main>
     </>
   );
 }

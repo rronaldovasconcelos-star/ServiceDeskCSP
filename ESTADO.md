@@ -312,3 +312,45 @@ pasta `Holerites` do Drive. Deploy: `python update.py` (backend) e
 `python deploy_hostinger.py` (frontend), com `.deploy.env` preenchido.
 Prévia de um TXT sem tocar no banco: `npx tsx scripts/holerite-preview.ts arquivo.txt saida/`
 (com `--observacoes "texto"` para ver a caixa de observações preenchida).
+
+## Estado atual (28/10/2026) — REDESENHO "Central de Suporte" (Jira/Zendesk) NO GIT, NÃO PUBLICADO
+
+Branch `visual-central-suporte` (enviada; não mesclada em main). Rollback do Telehap: tag
+`visual-telehap-final` (058edd1). Produção segue com o Telehap. Doc: `docs/visual-central-suporte.md`.
+Plano aprovado: `~/.claude/plans/vou-soltar-um-prompt-federated-piglet.md` (PC rrona).
+
+Feito (fases 1–4): tokens Inter/#14243B/#2563EB em `index.css` (em `@layer components`, senão as
+utilities do Tailwind perdem p/ o CSS do sistema), sidebar navy agrupada + topbar branca com "Abrir
+chamado", PageHeader plano, login sem blob, `Field/Modal/Notice/EmptyState/Table loading`, inicial para
+TODOS em `/` (HomePage: serviços reais, meus chamados, fila da equipe p/ quem tem `dashboard`), Painel
+em `/dashboard` (avisa sem módulo `relatorios`), chamados (form em grupos + validação no campo, lista
+com `?status=` e busca local, detalhe com linha do tempo e faixa pós-abertura, responsável só ADMIN),
+todas as páginas em Field/Notice/EmptyState, abas com role, zero hex em src, `style={{}}` 762 → ~45.
+Guardas: tsc 0; eslint 31 (baseline 37, nenhum novo); build OK.
+
+**28/10 tarde (franc), pedidos dele ao ver o local:** crédito "Desenvolvido por Orbit Lab"; foto do
+colégio em alta no login (duas colunas ≥1024 px); paleta e fontes do site colegiosantapaula.com.br
+nos tokens (ver `docs/visual-central-suporte.md`); **"Agente IA" (painel da Liz) REMOVIDO do portal** —
+a Liz roda em outro lugar; ficam só as automações do próprio portal (WhatsApp e Bot de suporte).
+Saíram `pages/AgentePage.tsx`, `lib/lizApi.ts`, a rota `/agente`, o item do menu, o serviço da
+inicial e o módulo `agente` (front e back); o router `backend/src/modules/agent` continua montado
+mas sem tela. eslint caiu para 18 (a página levou 13 problemas antigos). Em seguida, pedido dele, **"Bot de suporte" também REMOVIDO** (tela `/whatsapp-suporte`, item do menu, serviço da inicial e módulo `bot` nos dois `modules.ts`): em Automação fica SÓ "WhatsApp" (conexão + envio de códigos e avisos). O backend do bot (`modules/bot`, webhook) continua no ar; `BOT_ENABLED` decide se ele responde.
+
+Conferido no Chrome local (rrona 28/10: claro/escuro 1568 px — login, inicial USER e GESTOR, Painel
+sem módulo, lista de chamados; **franc 28/10 tarde: TODAS as telas da fase 3** — login/cadastro/
+redefinição, inicial, abrir chamado, lista, detalhe, suprimentos (lista e novo), manutenções, agente,
+meus holerites, RH·Holerites, repositório, relatórios, usuários — nos dois temas, console limpo;
+**celular 414 e 360 px por iframe de mesma origem em 9 rotas + auditoria DOM**: inputs sem label 0,
+botões sem nome 0, imagens sem alt 0). **Defeito achado e corrigido (franc):** a topbar estourava a
+largura do celular (32 px em 414, 15 px em 360 → rolagem horizontal): o `.user-chip` encolhia e o
+botão Sair saía da tela. Correção: `.user-chip { flex: none }`, texto da marca só a partir de 400 px,
+rótulo "Abrir chamado" só a partir de 520 px (ícone antes). Depois da correção: overflow 0 nas 18
+molduras. Guardas após a correção: tsc 0, eslint 31 (baseline da branch), build OK.
+**FALTA**: o Ronaldo ver o visual novo (local ou prévia) e autorizar; mesclar `visual-central-suporte`
+em `main`; publicar (`deploy_hostinger.py` com `VITE_GOOGLE_CLIENT_ID` exportado; token Hostinger
+expirado → MCP `hosting_deployStaticWebsite`); avisar usuários (Ctrl+Shift+R).
+Local: backend `PORT=3199 WHATSAPP_PROVIDER=mock REMINDER_SCHEDULER_ENABLED=false STORAGE_PROVIDER=local
+npx tsx src/server.ts`, Vite 5199; contas de teste via `scripts/create-test-user.ts` (ADMIN
+teste@csp.local, USER usuario.teste@csp.local, GESTOR gestor.teste@csp.local c/ módulo dashboard).
+
+

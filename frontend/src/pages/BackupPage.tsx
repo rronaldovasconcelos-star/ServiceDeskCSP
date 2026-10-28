@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Database, Download, Trash2, RefreshCw, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Database, Download, Trash2, RefreshCw, HardDrive } from 'lucide-react';
 import api from '../lib/api';
 import PageHeader from '../components/PageHeader';
-import { Button, IconTile, Table } from '../components/ui';
+import { Button, EmptyState, Notice, Table } from '../components/ui';
+import { formatDateTime } from '../lib/dates';
 
 interface BackupFile {
   id: string;
@@ -20,14 +21,11 @@ function formatSize(bytes: number): string {
   return `${n.toFixed(n >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-const linkBtn = (cor: string): React.CSSProperties => ({
-  background: 'none', border: 'none', cursor: 'pointer', color: cor, fontSize: 12, padding: 0, fontWeight: 500, fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 4,
-});
-
 export default function BackupPage() {
   const [backups, setBackups] = useState<BackupFile[]>([]);
   const [configured, setConfigured] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -35,8 +33,8 @@ export default function BackupPage() {
   const load = () => {
     setLoading(true);
     api.get('/backup')
-      .then((r) => { setConfigured(r.data.configured); setBackups(r.data.backups ?? []); })
-      .catch(() => setError('Não foi possível carregar os backups.'))
+      .then((r) => { setConfigured(r.data.configured); setBackups(r.data.backups ?? []); setLoadError(false); })
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   };
 
@@ -90,77 +88,104 @@ export default function BackupPage() {
     }
   };
 
+  const cabecalho = (
+    <tr>
+      <th>Arquivo</th>
+      <th>Data</th>
+      <th>Tamanho</th>
+      <th><span className="sr-only">Ações</span></th>
+    </tr>
+  );
+
+  const vazio = (
+    <EmptyState
+      icon={<HardDrive size={22} />}
+      title="Nenhum backup gerado ainda"
+      action={configured ? <Button variant="primary" icon={<Database size={15} />} onClick={handleCreate} loading={creating}>Backup agora</Button> : undefined}
+    >
+      {configured
+        ? 'O backup automático diário cria o primeiro arquivo; você também pode gerar um agora.'
+        : 'Configure o Google Drive para habilitar os backups.'}
+    </EmptyState>
+  );
+
   return (
     <>
       <PageHeader
         title="Backups do sistema"
-        subtitle="Cópia do banco de dados na pasta Backups CSP do Google Drive"
+        description="Cópia do banco de dados na pasta Backups CSP do Google Drive"
         actions={(
           <>
-            <Button variant="onNavy" icon={<RefreshCw size={14} />} onClick={load} disabled={loading}>Atualizar</Button>
-            <Button variant="secondary" icon={<Database size={14} />} onClick={handleCreate} disabled={creating || !configured}>{creating ? 'Gerando...' : 'Backup agora'}</Button>
+            <Button variant="secondary" icon={<RefreshCw size={14} />} onClick={load} disabled={loading}>Atualizar</Button>
+            <Button variant="primary" icon={<Database size={14} />} onClick={handleCreate} disabled={!configured} loading={creating}>
+              {creating ? 'Gerando...' : 'Backup agora'}
+            </Button>
           </>
         )}
       />
 
-      <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {!configured && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--amber-soft)', borderRadius: 'var(--radius-card)', fontSize: 13 }}>
-            <IconTile tone="amber" size={34}><AlertTriangle size={16} /></IconTile>
+      <main className="page-body stack">
+        {!loading && !loadError && !configured && (
+          <Notice kind="warning" title="Google Drive não configurado">
             Google Drive não está configurado neste ambiente. Os backups ficam indisponíveis.
-          </div>
+          </Notice>
         )}
 
-        {configured && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'var(--teal-soft)', borderRadius: 'var(--radius-card)', fontSize: 13 }}>
-            <IconTile tone="teal" size={34}><ShieldCheck size={16} /></IconTile>
+        {!loading && !loadError && configured && (
+          <Notice kind="success">
             Backup automático diário ativo. Os mais antigos são removidos conforme a retenção.
-          </div>
+          </Notice>
         )}
 
         {error && (
-          <div role="alert" style={{ padding: '10px 14px', background: 'var(--coral-soft)', borderRadius: 'var(--radius-tile)', color: 'var(--coral)', fontSize: 13 }}>
-            {error}
-          </div>
+          <Notice kind="danger" onClose={() => setError('')}>{error}</Notice>
         )}
 
-        {loading ? (
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando...</p>
-        ) : (
-          <Table
-            isEmpty={backups.length === 0}
-            empty="Nenhum backup gerado ainda."
-            head={(
-              <tr>
-                <th>Arquivo</th>
-                <th>Data</th>
-                <th>Tamanho</th>
-                <th>Ações</th>
-              </tr>
-            )}
+        {loadError ? (
+          <Notice
+            kind="danger"
+            actions={<Button size="sm" variant="secondary" onClick={load}>Tentar novamente</Button>}
           >
+            Não foi possível carregar os backups.
+          </Notice>
+        ) : loading ? (
+          <Table loading rows={5} cols={4} head={cabecalho} />
+        ) : (
+          <Table isEmpty={backups.length === 0} empty={vazio} head={cabecalho}>
             {backups.map((b) => (
-              <tr key={b.id} className="table-row">
-                <td style={{ fontWeight: 500, wordBreak: 'break-all' }}>{b.name}</td>
-                <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                  {new Date(b.createdAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-                </td>
-                <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{formatSize(b.sizeBytes)}</td>
+              <tr key={b.id}>
+                <td className="font-medium break-all">{b.name}</td>
+                <td className="muted whitespace-nowrap">{formatDateTime(b.createdAt)}</td>
+                <td className="muted whitespace-nowrap">{formatSize(b.sizeBytes)}</td>
                 <td>
-                  <div style={{ display: 'flex', gap: 14 }}>
-                    <button onClick={() => handleDownload(b)} disabled={busyId === b.id} style={{ ...linkBtn('var(--electric)'), opacity: busyId === b.id ? 0.5 : 1 }}>
-                      <Download size={13} /> Baixar
-                    </button>
-                    <button onClick={() => handleDelete(b)} disabled={busyId === b.id} style={{ ...linkBtn('var(--coral)'), opacity: busyId === b.id ? 0.5 : 1 }}>
-                      <Trash2 size={13} /> Excluir
-                    </button>
+                  <div className="row flex-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<Download size={14} />}
+                      onClick={() => handleDownload(b)}
+                      disabled={busyId !== null && busyId !== b.id}
+                      loading={busyId === b.id}
+                    >
+                      Baixar
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      iconOnly
+                      aria-label={`Excluir backup ${b.name}`}
+                      title="Excluir backup"
+                      icon={<Trash2 size={16} />}
+                      onClick={() => handleDelete(b)}
+                      disabled={busyId !== null}
+                    />
                   </div>
                 </td>
               </tr>
             ))}
           </Table>
         )}
-      </div>
+      </main>
     </>
   );
 }

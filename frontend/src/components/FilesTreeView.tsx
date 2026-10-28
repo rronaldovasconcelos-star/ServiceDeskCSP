@@ -58,7 +58,7 @@ function collectIds(node: Node): string[] {
 export default function FilesTreeView({ files, onDownloadFolder, ...actions }: Props) {
   const tree = buildTree(files);
   return (
-    <div className="card" style={{ padding: '6px 4px' }}>
+    <div className="card p-2">
       {renderChildren(tree, 0, LEVELS, actions, onDownloadFolder)}
     </div>
   );
@@ -81,36 +81,27 @@ function renderChildren(
     const count = countFiles(child);
     const isLeaf = depth === levels.length - 1;
     return (
-      <details key={code} style={{ marginLeft: depth === 0 ? 0 : '14px' }} open={depth < 2}>
+      <details key={code} className={depth === 0 ? '' : 'ml-3.5'} open={depth < 2}>
+        {/* `details > summary` já perde o marcador e ganha hover no index.css; aqui só layout e foco. */}
         <summary
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            cursor: 'pointer',
-            padding: '6px 8px',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: '13px',
-            fontWeight: depth === 0 ? 700 : 500,
-            color: 'var(--text-primary)',
-            listStyle: 'none',
-          }}
+          className={`flex min-h-9 cursor-pointer items-center gap-1.5 rounded-(--radius-sm) px-2 py-1.5 text-[13px] text-(--text) focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-(--primary) ${depth === 0 ? 'font-bold' : 'font-medium'}`}
         >
-          <ChevronRight size={14} className="tree-caret" style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
+          <ChevronRight size={14} className="tree-caret shrink-0 text-(--text-2)" aria-hidden="true" />
           <span>{levelLabel(level, code)}</span>
-          <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 400 }}>({count})</span>
+          <span className="text-[11px] font-normal text-(--text-2)">({count})</span>
           {onDownloadFolder && count > 0 && (
             <button
+              type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDownloadFolder(collectIds(child)); }}
               title="Baixar esta pasta (.zip)"
               aria-label="Baixar esta pasta"
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 4px', color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center' }}
+              className="btn btn-ghost btn-icon btn-sm size-7 min-h-7 min-w-7"
             >
               <FolderDown size={14} />
             </button>
           )}
         </summary>
-        <div style={{ borderLeft: '1px solid var(--border)', marginLeft: '7px' }}>
+        <div className="ml-[7px] border-l border-(--line)">
           {isLeaf
             ? child.files.map((f) => (
                 <FileRow key={f.id} f={f} actions={actions} />
@@ -130,14 +121,11 @@ function countFiles(node: Node): number {
 
 function FileRow({ f, actions }: { f: FileRecord; actions: RowActions }) {
   return (
-    <div
-      className="table-row"
-      style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px 6px 22px', fontSize: '13px' }}
-    >
-      <FileText size={14} style={{ color: 'var(--text-secondary)', flexShrink: 0 }} />
-      <span style={{ color: 'var(--text-primary)', fontWeight: 500, wordBreak: 'break-word' }}>{f.originalName}</span>
-      {actions.showOwner && <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>· {f.owner.name}</span>}
-      <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+    <div className="table-row flex items-center gap-2 py-1.5 pr-2 pl-[22px] text-[13px]">
+      <FileText size={14} className="shrink-0 text-(--text-2)" aria-hidden="true" />
+      <span className="font-medium text-(--text) wrap-break-word">{f.originalName}</span>
+      {actions.showOwner && <span className="text-[11px] text-(--text-2)">· {f.owner.name}</span>}
+      <span className="ml-auto text-[11px] whitespace-nowrap text-(--text-2)">
         {formatBytes(f.sizeBytes)} · {new Date(f.uploadedAt).toLocaleDateString('pt-BR')}
       </span>
       <FileActionButtons

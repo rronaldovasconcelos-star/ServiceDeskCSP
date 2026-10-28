@@ -35,16 +35,18 @@ const urgencyLabels: Record<string, string> = {
   BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta', URGENTE: 'Urgente',
 };
 
-function Pill({ tom, bold, children }: { tom: Tom; bold?: boolean; children: string }) {
+/** Pílula de estado: `dot` acrescenta um ponto colorido antes do texto; `bold` usa `.pill-strong`. */
+function Pill({ tom, bold, dot, children }: { tom: Tom; bold?: boolean; dot?: boolean; children: string }) {
   return (
-    <span className={`pill pill-${tom}`} style={bold ? { fontWeight: 600 } : undefined}>
+    <span className={`pill pill-${tom}${bold ? ' pill-strong' : ''}`}>
+      {dot && <span className="pill-dot" aria-hidden="true" />}
       {children}
     </span>
   );
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  return <Pill tom={statusTom[status] ?? 'muted'}>{statusLabels[status] ?? status}</Pill>;
+  return <Pill tom={statusTom[status] ?? 'muted'} dot>{statusLabels[status] ?? status}</Pill>;
 }
 
 export function UrgencyBadge({ urgency }: { urgency: string }) {
@@ -65,5 +67,5 @@ const supplyStatusLabels: Record<string, string> = {
 };
 
 export function SupplyStatusBadge({ status }: { status: string }) {
-  return <Pill tom={supplyTom[status] ?? 'muted'}>{supplyStatusLabels[status] ?? status}</Pill>;
+  return <Pill tom={supplyTom[status] ?? 'muted'} dot>{supplyStatusLabels[status] ?? status}</Pill>;
 }

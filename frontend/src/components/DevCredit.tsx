@@ -1,34 +1,31 @@
 /**
- * Crédito profissional do desenvolvedor (marca "Ronaldo Dev").
- * Link abre conversa no WhatsApp. Usado na tela de login e no rodapé do portal.
+ * Crédito profissional: "Desenvolvido por Orbit Lab", com link para o site da empresa.
+ * Usado na tela de login e no rodapé do portal.
  */
-const WHATSAPP_URL =
-  'https://wa.me/5531984367833?text=' +
-  encodeURIComponent('Olá Ronaldo! Vi seu trabalho no Portal de Chamados.');
+const ORBITLAB_URL = 'https://orbitlab.com.br';
 
 interface Props {
-  /** 'onDark' = sobre fundo escuro/gradiente (login); 'onSurface' = rodapé temático. */
+  /** 'onDark' = sobre o navy (faixa de login); 'onSurface' = rodapé claro/escuro temático. */
   variant?: 'onDark' | 'onSurface';
 }
 
 export default function DevCredit({ variant = 'onSurface' }: Props) {
   const onDark = variant === 'onDark';
-  const baseColor = onDark ? 'var(--on-navy-muted)' : 'var(--text-secondary)';
-  const linkColor = onDark ? 'var(--on-navy)' : 'var(--electric)';
+  const baseColor = onDark ? 'var(--on-navy-muted)' : 'var(--text-2)';
+  const linkColor = onDark ? 'var(--on-navy)' : 'var(--primary-ink)';
 
   return (
-    <span style={{ color: baseColor, fontSize: '11px' }}>
+    <span className="text-[11px]" style={{ color: baseColor }}>
       Desenvolvido por{' '}
       <a
-        href={WHATSAPP_URL}
+        href={ORBITLAB_URL}
         target="_blank"
         rel="noopener noreferrer"
-        title="Falar com o desenvolvedor no WhatsApp"
-        style={{ color: linkColor, fontWeight: 600, textDecoration: 'none' }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'underline'; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'none'; }}
+        title="Site da Orbit Lab"
+        className="font-semibold no-underline hover:underline"
+        style={{ color: linkColor }}
       >
-        Ronaldo Dev
+        Orbit Lab
       </a>
     </span>
   );

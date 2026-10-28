@@ -1,11 +1,11 @@
 {
-  "name": "Portal de Chamados — Colégio Santa Paula",
-  "short_name": "CSP Chamados",
-  "description": "Portal de Chamados do Colégio Santa Paula",
+  "name": "Central de Suporte — Colégio Santa Paula",
+  "short_name": "Suporte CSP",
+  "description": "Central de Suporte do Colégio Santa Paula: chamados, suprimentos e documentos",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f2662",
-  "theme_color": "#1a3a8a",
+  "background_color": "#F5F7FB",
+  "theme_color": "#14243B",
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },

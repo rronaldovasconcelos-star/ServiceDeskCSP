@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Download, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Download, RefreshCw, AlertTriangle, FileText } from 'lucide-react';
 import api from '../lib/api';
 import PageHeader from '../components/PageHeader';
-import { Button, IconTile, Table } from '../components/ui';
+import { Button, EmptyState, Notice, Table } from '../components/ui';
 import { formatarCentavos, formatarCompetencia, baixarHoleritePdf, type HoleriteResumo } from '../lib/holerites';
 
 interface Resposta {
@@ -11,7 +11,8 @@ interface Resposta {
   holerites: HoleriteResumo[];
 }
 
-const tdNum: React.CSSProperties = { textAlign: 'right', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' };
+/** Célula numérica: alinhada à direita, sem quebra e com dígitos tabulares. */
+const TD_NUM = 'text-right whitespace-nowrap tabular-nums';
 
 export default function HoleritesPage() {
   const [dados, setDados] = useState<Resposta | null>(null);
@@ -42,55 +43,64 @@ export default function HoleritesPage() {
     }
   };
 
+  const cabecalho = (
+    <tr>
+      <th>Competência</th>
+      <th className="text-right">Vencimentos</th>
+      <th className="text-right">Descontos</th>
+      <th className="text-right">Líquido</th>
+      <th><span className="sr-only">Ações</span></th>
+    </tr>
+  );
+
   return (
     <>
       <PageHeader
         title="Meus holerites"
-        subtitle={dados?.colaborador ? `Colaborador ${dados.colaborador.codigo} · ${dados.colaborador.nome}` : 'Demonstrativos de pagamento em PDF'}
-        actions={<Button variant="onNavy" icon={<RefreshCw size={14} />} onClick={load} disabled={loading}>Atualizar</Button>}
+        description={dados?.colaborador ? `Colaborador ${dados.colaborador.codigo} · ${dados.colaborador.nome}` : 'Demonstrativos de pagamento em PDF'}
+        actions={<Button variant="secondary" icon={<RefreshCw size={14} />} onClick={load} disabled={loading}>Atualizar</Button>}
       />
 
-      <div className="page-body" style={{ maxWidth: 1000, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="page-body stack max-w-[1000px] gap-4">
         {error && (
-          <div role="alert" style={{ padding: '10px 14px', background: 'var(--coral-soft)', borderRadius: 'var(--radius-tile)', color: 'var(--coral)', fontSize: 13 }}>
+          <Notice
+            kind="danger"
+            onClose={() => setError('')}
+            actions={<Button variant="secondary" size="sm" onClick={load}>Tentar novamente</Button>}
+          >
             {error}
-          </div>
+          </Notice>
         )}
 
         {loading ? (
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando...</p>
+          <Table head={cabecalho} loading rows={4} cols={5} />
         ) : !dados?.vinculado ? (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '16px 18px', background: 'var(--amber-soft)', borderRadius: 'var(--radius-card)', fontSize: 13 }}>
-            <IconTile tone="amber" size={36}><AlertTriangle size={18} /></IconTile>
-            <div>
-              <strong>Seu login ainda não está vinculado a um colaborador da folha.</strong>
-              <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)' }}>
-                Procure o RH para fazer o vínculo. Assim que estiver feito, os holerites aparecem aqui.
-              </p>
-            </div>
+          <div className="card">
+            <EmptyState
+              icon={<AlertTriangle size={22} />}
+              title="Seu login ainda não está vinculado a um colaborador da folha."
+            >
+              Procure o RH para fazer o vínculo. Assim que estiver feito, os holerites aparecem aqui.
+            </EmptyState>
           </div>
         ) : (
           <Table
             isEmpty={dados.holerites.length === 0}
-            empty="Nenhum holerite importado ainda para o seu cadastro."
-            head={(
-              <tr>
-                <th>Competência</th>
-                <th style={{ textAlign: 'right' }}>Vencimentos</th>
-                <th style={{ textAlign: 'right' }}>Descontos</th>
-                <th style={{ textAlign: 'right' }}>Líquido</th>
-                <th></th>
-              </tr>
+            empty={(
+              <EmptyState icon={<FileText size={22} />} title="Nenhum holerite importado ainda">
+                Nenhum holerite importado ainda para o seu cadastro.
+              </EmptyState>
             )}
+            head={cabecalho}
           >
             {dados.holerites.map((h) => (
-              <tr key={h.id} className="table-row">
-                <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{formatarCompetencia(h.competencia)}</td>
-                <td style={{ ...tdNum, color: 'var(--text-secondary)' }}>{formatarCentavos(h.totalVencimentos)}</td>
-                <td style={{ ...tdNum, color: 'var(--text-secondary)' }}>{formatarCentavos(h.totalDescontos)}</td>
-                <td style={{ ...tdNum, fontWeight: 600 }}>{formatarCentavos(h.liquido)}</td>
-                <td style={{ textAlign: 'right' }}>
-                  <Button size="sm" icon={<Download size={13} />} onClick={() => handleDownload(h)} disabled={busyId === h.id}>
+              <tr key={h.id}>
+                <td className="font-semibold whitespace-nowrap">{formatarCompetencia(h.competencia)}</td>
+                <td className={`${TD_NUM} text-(--text-2)`}>{formatarCentavos(h.totalVencimentos)}</td>
+                <td className={`${TD_NUM} text-(--text-2)`}>{formatarCentavos(h.totalDescontos)}</td>
+                <td className={`${TD_NUM} font-semibold`}>{formatarCentavos(h.liquido)}</td>
+                <td className="text-right">
+                  <Button variant="secondary" size="sm" icon={<Download size={13} />} onClick={() => handleDownload(h)} loading={busyId === h.id}>
                     {busyId === h.id ? 'Gerando...' : 'Baixar PDF'}
                   </Button>
                 </td>

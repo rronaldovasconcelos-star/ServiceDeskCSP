@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, BookOpen } from 'lucide-react';
+import { Plus, BookOpen, Trash2, Package } from 'lucide-react';
 import api from '../lib/api';
 import { SupplyStatusBadge, UrgencyBadge } from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
 import PageHeader from '../components/PageHeader';
-import { Button, Card, Table } from '../components/ui';
+import { Button, Card, EmptyState, Field, Notice, Table } from '../components/ui';
+import { formatDateTime, formatRelative } from '../lib/dates';
 
 interface SupplyRequest {
   id: string;
@@ -32,6 +33,7 @@ export default function SuprimentosPage() {
   const isAdmin = user?.role === 'ADMIN';
   const [requests, setRequests] = useState<SupplyRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [status, setStatus] = useState('');
   const [category, setCategory] = useState('');
 
@@ -41,6 +43,7 @@ export default function SuprimentosPage() {
   const [bulkCategory, setBulkCategory] = useState('');
   const [bulkCount, setBulkCount] = useState<number | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
 
   const bulkParams = () => {
@@ -54,9 +57,12 @@ export default function SuprimentosPage() {
 
   const previewBulk = async () => {
     setBulkBusy(true);
+    setBulkError('');
     try {
       const r = await api.get('/suprimentos/requests/admin/bulk-preview', { params: bulkParams() });
       setBulkCount(r.data.count);
+    } catch {
+      setBulkError('Não foi possível pré-visualizar a exclusão.');
     } finally {
       setBulkBusy(false);
     }
@@ -66,6 +72,7 @@ export default function SuprimentosPage() {
     if (bulkCount === null) return;
     if (!window.confirm(`Excluir permanentemente ${bulkCount} pedido(s)? Esta ação não pode ser desfeita.`)) return;
     setBulkBusy(true);
+    setBulkError('');
     try {
       await api.delete('/suprimentos/requests/admin/bulk', { params: bulkParams() });
       setBulkCount(null);
@@ -73,6 +80,8 @@ export default function SuprimentosPage() {
       setBulkTo('');
       setBulkCategory('');
       setReloadKey((k) => k + 1);
+    } catch {
+      setBulkError('Não foi possível excluir os pedidos.');
     } finally {
       setBulkBusy(false);
     }
@@ -94,107 +103,122 @@ export default function SuprimentosPage() {
     if (status) params.status = status;
     if (category) params.category = category;
     api.get('/suprimentos/requests', { params })
-      .then((r) => setRequests(r.data))
+      .then((r) => { setRequests(r.data); setLoadError(false); })
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [status, category, reloadKey]);
 
   const pendentes = requests.filter((r) => r.status === 'PENDENTE').length;
+  const temFiltro = Boolean(status || category);
+
+  const cabecalho = (
+    <tr>
+      <th>Item</th>
+      <th>Quantidade</th>
+      <th>Urgência</th>
+      <th>Status</th>
+      {isAdmin && <th>Solicitante</th>}
+      <th>Data</th>
+      {isAdmin && <th><span className="sr-only">Ações</span></th>}
+    </tr>
+  );
+
+  const vazio = (
+    <EmptyState
+      icon={<Package size={22} />}
+      title={temFiltro ? 'Nenhum pedido com esses filtros' : 'Nenhum pedido ainda'}
+      action={<Link className="btn btn-primary" to="/suprimentos/new">Novo pedido</Link>}
+    >
+      {temFiltro
+        ? 'Tente escolher outro status ou categoria.'
+        : 'Quando alguém pedir um suprimento, ele aparece aqui.'}
+    </EmptyState>
+  );
 
   return (
     <>
       <PageHeader
         title="Pedidos de suprimentos"
-        subtitle={loading ? 'Carregando…' : `${requests.length} pedido${requests.length === 1 ? '' : 's'}, ${pendentes} aguardando aprovação`}
+        description={loading ? 'Carregando…' : `${requests.length} pedido${requests.length === 1 ? '' : 's'}, ${pendentes} aguardando aprovação`}
         actions={(
           <>
-            {isAdmin && <Button variant="onNavy" icon={<BookOpen size={15} />} onClick={() => navigate('/suprimentos/catalogo')}>Catálogo</Button>}
-            <Button variant="secondary" icon={<Plus size={16} />} onClick={() => navigate('/suprimentos/new')}>Novo pedido</Button>
+            {isAdmin && <Button variant="secondary" icon={<BookOpen size={15} />} onClick={() => navigate('/suprimentos/catalogo')}>Catálogo</Button>}
+            <Button variant="primary" icon={<Plus size={16} />} onClick={() => navigate('/suprimentos/new')}>Novo pedido</Button>
           </>
         )}
       />
 
-      <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <select value={status} onChange={(e) => setStatus(e.target.value)} className="field" style={{ width: 'auto' }}>
-            {statuses.map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}
-          </select>
-          <select value={category} onChange={(e) => setCategory(e.target.value)} className="field" style={{ width: 'auto' }}>
-            {categories.map((c) => <option key={c} value={c}>{categoryLabel[c]}</option>)}
-          </select>
-        </div>
-
-        {isAdmin && (
-          <Card title="Excluir pedidos em massa" style={{ padding: '16px 20px' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                De{' '}
-                <input type="date" value={bulkFrom} onChange={(e) => setBulkFrom(e.target.value)} className="field" style={{ width: 'auto' }} />
-              </label>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                Até{' '}
-                <input type="date" value={bulkTo} onChange={(e) => setBulkTo(e.target.value)} className="field" style={{ width: 'auto' }} />
-              </label>
-              <select value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} className="field" style={{ width: 'auto' }}>
+      <main className="page-body">
+        <div className="toolbar">
+          <Field label="Status">
+            {(ctl) => (
+              <select {...ctl} value={status} onChange={(e) => setStatus(e.target.value)} className="field">
+                {statuses.map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}
+              </select>
+            )}
+          </Field>
+          <Field label="Categoria">
+            {(ctl) => (
+              <select {...ctl} value={category} onChange={(e) => setCategory(e.target.value)} className="field">
                 {categories.map((c) => <option key={c} value={c}>{categoryLabel[c]}</option>)}
               </select>
-              <Button variant="ghost" onClick={previewBulk} disabled={!hasBulkFilter || bulkBusy}>Pré-visualizar</Button>
-              {bulkCount !== null && (
-                <Button variant="danger" onClick={runBulkDelete} disabled={bulkCount === 0 || bulkBusy}>Excluir {bulkCount}</Button>
-              )}
-            </div>
-            {bulkCount !== null && (
-              <p style={{ fontSize: 12, color: bulkCount > 0 ? 'var(--coral)' : 'var(--text-secondary)', margin: '10px 0 0' }}>
-                {bulkCount > 0
-                  ? `${bulkCount} pedido(s) serão excluídos com os filtros selecionados.`
-                  : 'Nenhum pedido corresponde aos filtros selecionados.'}
-              </p>
             )}
-            {!hasBulkFilter && (
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '10px 0 0' }}>
-                Informe ao menos um filtro (período ou tipo) para excluir em massa.
-              </p>
-            )}
-          </Card>
-        )}
+          </Field>
+        </div>
 
-        {loading ? (
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando...</p>
-        ) : (
+        {loadError ? (
+          <Notice
+            kind="danger"
+            actions={<Button size="sm" variant="secondary" onClick={() => setReloadKey((k) => k + 1)}>Tentar novamente</Button>}
+          >
+            Não foi possível carregar os pedidos.
+          </Notice>
+        ) : loading ? (
           <>
             <div className="hidden md:block">
-              <Table
-                isEmpty={requests.length === 0}
-                empty="Nenhum pedido com esses filtros."
-                head={(
-                  <tr>
-                    <th>Item</th>
-                    <th>Quantidade</th>
-                    <th>Urgência</th>
-                    <th>Status</th>
-                    {isAdmin && <th>Solicitante</th>}
-                    <th>Data</th>
-                    {isAdmin && <th>Ações</th>}
-                  </tr>
-                )}
-              >
+              <Table loading rows={6} cols={isAdmin ? 7 : 5} head={cabecalho} />
+            </div>
+            <div className="md:hidden stack" aria-busy="true">
+              <div className="skeleton h-[96px]" />
+              <div className="skeleton h-[96px]" />
+              <div className="skeleton h-[96px]" />
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Desktop: tabela */}
+            <div className="hidden md:block">
+              <Table isEmpty={requests.length === 0} empty={vazio} head={cabecalho}>
                 {requests.map((r) => (
-                  <tr key={r.id} className="table-row">
+                  <tr key={r.id} className="table-row" onClick={() => navigate(`/suprimentos/${r.id}`)}>
                     <td>
-                      <Link to={`/suprimentos/${r.id}`} style={{ fontWeight: 500, color: 'var(--electric)', textDecoration: 'none' }}>
-                        {r.item.name}
-                      </Link>
-                      <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-secondary)' }}>{categoryLabel[r.item.category] ?? r.item.category}</span>
+                      <div className="row">
+                        <Link
+                          to={`/suprimentos/${r.id}`}
+                          className="font-medium no-underline hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {r.item.name}
+                        </Link>
+                        <span className="pill pill-muted">{categoryLabel[r.item.category] ?? r.item.category}</span>
+                      </div>
                     </td>
-                    <td>{r.quantity} {r.item.unit}</td>
+                    <td className="whitespace-nowrap">{r.quantity} {r.item.unit}</td>
                     <td><UrgencyBadge urgency={r.urgency} /></td>
                     <td><SupplyStatusBadge status={r.status} /></td>
-                    {isAdmin && <td style={{ color: 'var(--text-secondary)' }}>{r.requester.name}</td>}
-                    <td style={{ color: 'var(--text-secondary)' }}>{new Date(r.createdAt).toLocaleDateString('pt-BR')}</td>
+                    {isAdmin && <td className="muted">{r.requester.name}</td>}
+                    <td className="muted whitespace-nowrap" title={formatDateTime(r.createdAt)}>{formatRelative(r.createdAt)}</td>
                     {isAdmin && (
-                      <td>
-                        <button onClick={() => deleteOne(r.id, r.item.name)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--coral)', fontSize: 12, padding: 0, fontWeight: 500, fontFamily: 'inherit' }}>
-                          Excluir
-                        </button>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          iconOnly
+                          aria-label={`Excluir pedido de ${r.item.name}`}
+                          title="Excluir pedido"
+                          icon={<Trash2 size={16} />}
+                          onClick={() => deleteOne(r.id, r.item.name)}
+                        />
                       </td>
                     )}
                   </tr>
@@ -202,38 +226,86 @@ export default function SuprimentosPage() {
               </Table>
             </div>
 
-            <div className="md:hidden space-y-3">
-              {requests.length === 0 && <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Nenhum pedido com esses filtros.</p>}
+            {/* Mobile: cards */}
+            <div className="md:hidden stack">
+              {requests.length === 0 && <div className="card">{vazio}</div>}
               {requests.map((r) => (
-                <Card key={r.id} style={{ padding: 14 }}>
-                  <Link to={`/suprimentos/${r.id}`} style={{ display: 'block', textDecoration: 'none' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
-                      <div>
-                        <span style={{ fontWeight: 600, color: 'var(--electric)', fontSize: 13, display: 'block' }}>{r.item.name}</span>
-                        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{categoryLabel[r.item.category] ?? r.item.category}</span>
-                      </div>
+                <div key={r.id}>
+                  <Link to={`/suprimentos/${r.id}`} className="ticket-card">
+                    <p className="ticket-card-title">{r.item.name}</p>
+                    <div className="ticket-card-meta">
                       <SupplyStatusBadge status={r.status} />
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
                       <UrgencyBadge urgency={r.urgency} />
                       <span className="pill pill-muted">{r.quantity} {r.item.unit}</span>
+                      <span className="pill pill-muted">{categoryLabel[r.item.category] ?? r.item.category}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
-                      {isAdmin ? <span>{r.requester.name}</span> : <span />}
-                      <span>{new Date(r.createdAt).toLocaleDateString('pt-BR')}</span>
-                    </div>
+                    <p className="ticket-card-sub">
+                      {isAdmin && <>{r.requester.name} · </>}
+                      pedido <span title={formatDateTime(r.createdAt)}>{formatRelative(r.createdAt)}</span>
+                    </p>
                   </Link>
                   {isAdmin && (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                      <Button variant="ghost" size="sm" onClick={() => deleteOne(r.id, r.item.name)} style={{ color: 'var(--coral)' }}>Excluir</Button>
+                    <div className="flex justify-end mt-1">
+                      <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} onClick={() => deleteOne(r.id, r.item.name)}>
+                        Excluir
+                      </Button>
                     </div>
                   )}
-                </Card>
+                </div>
               ))}
             </div>
           </>
         )}
-      </div>
+
+        {/* Ferramentas de administrador — exclusão em massa, restrita ao ADMIN */}
+        {isAdmin && (
+          <Card title="Excluir pedidos em massa" className="mt-6">
+            <div className="stack">
+              <p className="muted text-sm-2">
+                Remove permanentemente os pedidos que correspondem ao período e ao tipo escolhidos.
+                Pré-visualize antes de confirmar.
+              </p>
+              <div className="toolbar">
+                <Field label="De">
+                  {(ctl) => <input {...ctl} type="date" value={bulkFrom} onChange={(e) => setBulkFrom(e.target.value)} className="field" />}
+                </Field>
+                <Field label="Até">
+                  {(ctl) => <input {...ctl} type="date" value={bulkTo} onChange={(e) => setBulkTo(e.target.value)} className="field" />}
+                </Field>
+                <Field label="Categoria">
+                  {(ctl) => (
+                    <select {...ctl} value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} className="field">
+                      {categories.map((c) => <option key={c} value={c}>{categoryLabel[c]}</option>)}
+                    </select>
+                  )}
+                </Field>
+                <div className="row">
+                  <Button variant="secondary" onClick={previewBulk} disabled={!hasBulkFilter} loading={bulkBusy && bulkCount === null}>
+                    Pré-visualizar
+                  </Button>
+                  {bulkCount !== null && (
+                    <Button variant="danger" onClick={runBulkDelete} disabled={bulkCount === 0} loading={bulkBusy && bulkCount !== null}>
+                      Excluir {bulkCount}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {bulkError && <Notice kind="danger">{bulkError}</Notice>}
+              {bulkCount !== null && bulkCount > 0 && (
+                <Notice kind="warning">
+                  {bulkCount} pedido(s) serão excluídos com os filtros selecionados.
+                </Notice>
+              )}
+              {bulkCount === 0 && (
+                <p className="muted text-sm-2">Nenhum pedido corresponde aos filtros selecionados.</p>
+              )}
+              {!hasBulkFilter && (
+                <p className="muted text-sm-2">Informe ao menos um filtro (período ou tipo) para excluir em massa.</p>
+              )}
+            </div>
+          </Card>
+        )}
+      </main>
     </>
   );
 }

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { CalendarClock, Pencil, Play, Plus, Trash2 } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import PageHeader from '../components/PageHeader';
-import { Button, Card, Modal, Table } from '../components/ui';
+import { Button, EmptyState, Field, Fieldset, Modal, Notice, Table } from '../components/ui';
+import { formatDateTime } from '../lib/dates';
 
 interface Maintenance {
   id: string;
@@ -47,12 +48,13 @@ function isoToLocalInput(iso: string): string {
 }
 
 function StatusPill({ status }: { status: string }) {
-  return <span className={`pill pill-${statusTom[status] ?? 'muted'}`}>{statusLabel[status] ?? status}</span>;
+  return (
+    <span className={`pill pill-${statusTom[status] ?? 'muted'}`}>
+      <span className="pill-dot" aria-hidden="true" />
+      {statusLabel[status] ?? status}
+    </span>
+  );
 }
-
-const linkBtn: React.CSSProperties = {
-  background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 0, fontWeight: 500, fontFamily: 'inherit',
-};
 
 function MaintenanceModal({
   editId, form, users, saving, error, onChange, onSubmit, onClose,
@@ -71,62 +73,68 @@ function MaintenanceModal({
       open
       title={editId ? 'Editar manutenção' : 'Nova manutenção programada'}
       onClose={onClose}
-      maxWidth={520}
+      maxWidth={560}
       footer={(
         <>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" form="form-manutencao" disabled={saving}>
+          <Button type="submit" variant="primary" form="form-manutencao" loading={saving}>
             {saving ? 'Salvando...' : editId ? 'Salvar alterações' : 'Criar manutenção'}
           </Button>
         </>
       )}
     >
-      <form id="form-manutencao" onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {error && (
-          <div className="pill pill-coral" style={{ whiteSpace: 'normal', padding: '10px 12px', fontSize: 13, borderRadius: 'var(--radius-tile)' }}>
-            {error}
-          </div>
-        )}
+      <form id="form-manutencao" onSubmit={onSubmit} className="stack">
+        {error && <Notice kind="danger">{error}</Notice>}
 
-        <div>
-          <label className="field-label">Nome *</label>
-          <input value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} required placeholder="Ex: Revisão do ar-condicionado" className="field" />
-        </div>
-        <div>
-          <label className="field-label">Descrição *</label>
-          <textarea value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} required rows={3} placeholder="O que deve ser feito" className="field" style={{ resize: 'none' }} />
-        </div>
+        <Fieldset legend="O que será feito">
+          <Field label="Nome" required>
+            {(ctl) => (
+              <input {...ctl} value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} required placeholder="Ex: Revisão do ar-condicionado" className="field" data-autofocus />
+            )}
+          </Field>
+          <Field label="Descrição" required>
+            {(ctl) => (
+              <textarea {...ctl} value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} required rows={3} placeholder="O que deve ser feito" className="field" />
+            )}
+          </Field>
+          <Field label="Urgência" required>
+            {(ctl) => (
+              <select {...ctl} value={form.urgency} onChange={(e) => onChange({ ...form, urgency: e.target.value })} className="field">
+                {URGENCIES.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+            )}
+          </Field>
+        </Fieldset>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label className="field-label">Urgência *</label>
-            <select value={form.urgency} onChange={(e) => onChange({ ...form, urgency: e.target.value })} className="field">
-              {URGENCIES.map((u) => <option key={u} value={u}>{u}</option>)}
-            </select>
+        <Fieldset legend="Agendamento" hint="O chamado é gerado automaticamente na data; o lembrete avisa o responsável antes.">
+          <div className="form-grid-2">
+            <Field label="Recorrência" required>
+              {(ctl) => (
+                <select {...ctl} value={form.recurrence} onChange={(e) => onChange({ ...form, recurrence: e.target.value })} className="field">
+                  {RECURRENCES.map((r) => <option key={r} value={r}>{recurrenceLabel[r]}</option>)}
+                </select>
+              )}
+            </Field>
+            <Field label="Início (1ª ocorrência)" required>
+              {(ctl) => (
+                <input {...ctl} type="datetime-local" value={form.nextRunAt} onChange={(e) => onChange({ ...form, nextRunAt: e.target.value })} required className="field" />
+              )}
+            </Field>
+            <Field label="Lembrete (dias antes)" hint="0 = sem lembrete antecipado">
+              {(ctl) => (
+                <input {...ctl} type="number" min={0} max={365} value={form.leadDays} onChange={(e) => onChange({ ...form, leadDays: e.target.value })} className="field" />
+              )}
+            </Field>
+            <Field label="Responsável" required>
+              {(ctl) => (
+                <select {...ctl} value={form.responsavelId} onChange={(e) => onChange({ ...form, responsavelId: e.target.value })} required className="field">
+                  <option value="">Selecione...</option>
+                  {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+              )}
+            </Field>
           </div>
-          <div>
-            <label className="field-label">Recorrência *</label>
-            <select value={form.recurrence} onChange={(e) => onChange({ ...form, recurrence: e.target.value })} className="field">
-              {RECURRENCES.map((r) => <option key={r} value={r}>{recurrenceLabel[r]}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="field-label">Início (1ª ocorrência) *</label>
-            <input type="datetime-local" value={form.nextRunAt} onChange={(e) => onChange({ ...form, nextRunAt: e.target.value })} required className="field" />
-          </div>
-          <div>
-            <label className="field-label">Lembrete (dias antes)</label>
-            <input type="number" min={0} max={365} value={form.leadDays} onChange={(e) => onChange({ ...form, leadDays: e.target.value })} className="field" />
-          </div>
-        </div>
-
-        <div>
-          <label className="field-label">Responsável *</label>
-          <select value={form.responsavelId} onChange={(e) => onChange({ ...form, responsavelId: e.target.value })} required className="field">
-            <option value="">Selecione...</option>
-            {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
-        </div>
+        </Fieldset>
       </form>
     </Modal>
   );
@@ -138,6 +146,7 @@ export default function ManutencoesPage() {
   const [items, setItems] = useState<Maintenance[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -146,7 +155,10 @@ export default function ManutencoesPage() {
 
   const load = () => {
     setLoading(true);
-    api.get('/maintenances').then((r) => setItems(r.data)).finally(() => setLoading(false));
+    api.get('/maintenances')
+      .then((r) => { setItems(r.data); setLoadError(false); })
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -214,62 +226,93 @@ export default function ManutencoesPage() {
   };
 
   const actions = (m: Maintenance) => (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-      <button onClick={() => openEdit(m)} style={{ ...linkBtn, color: 'var(--electric)' }}>Editar</button>
+    <div className="row">
+      <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => openEdit(m)}>Editar</Button>
       {(m.status === 'ACTIVE' || m.status === 'PAUSED') && (
-        <button onClick={() => toggleStatus(m)} style={{ ...linkBtn, color: 'var(--text-secondary)', fontWeight: 400 }}>
+        <Button variant="ghost" size="sm" onClick={() => toggleStatus(m)}>
           {m.status === 'PAUSED' ? 'Retomar' : 'Pausar'}
-        </button>
+        </Button>
       )}
-      <button onClick={() => runNow(m)} style={{ ...linkBtn, color: 'var(--teal)' }}>Gerar agora</button>
+      <Button variant="ghost" size="sm" icon={<Play size={14} />} onClick={() => runNow(m)}>Gerar agora</Button>
       {isAdmin && (
-        <button onClick={() => remove(m)} style={{ ...linkBtn, color: 'var(--coral)' }}>Excluir</button>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label={`Excluir manutenção ${m.name}`}
+          title="Excluir manutenção"
+          icon={<Trash2 size={16} />}
+          onClick={() => remove(m)}
+        />
       )}
     </div>
   );
 
   const ativas = items.filter((m) => m.status === 'ACTIVE').length;
-  const fmtData = (iso: string) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+
+  const cabecalho = (
+    <tr>
+      <th>Nome</th>
+      <th>Recorrência</th>
+      <th>Próxima</th>
+      <th>Responsável</th>
+      <th>Status</th>
+      <th><span className="sr-only">Ações</span></th>
+    </tr>
+  );
+
+  const vazio = (
+    <EmptyState
+      icon={<CalendarClock size={22} />}
+      title="Nenhuma manutenção programada"
+      action={<Button variant="primary" icon={<Plus size={16} />} onClick={openNew}>Nova manutenção</Button>}
+    >
+      Cadastre uma manutenção e o chamado é gerado sozinho na data combinada.
+    </EmptyState>
+  );
 
   return (
     <>
       <PageHeader
         title="Manutenções programadas"
-        subtitle={loading ? 'Carregando…' : `${items.length} manutenç${items.length === 1 ? 'ão' : 'ões'} cadastrada${items.length === 1 ? '' : 's'}, ${ativas} ativa${ativas === 1 ? '' : 's'}`}
-        actions={<Button variant="secondary" icon={<Plus size={16} />} onClick={openNew}>Nova manutenção</Button>}
+        description={loading ? 'Carregando…' : `${items.length} manutenç${items.length === 1 ? 'ão' : 'ões'} cadastrada${items.length === 1 ? '' : 's'}, ${ativas} ativa${ativas === 1 ? '' : 's'}`}
+        actions={<Button variant="primary" icon={<Plus size={16} />} onClick={openNew}>Nova manutenção</Button>}
       />
 
-      <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <main className="page-body stack">
         {showForm && (
           <MaintenanceModal editId={editId} form={form} users={users} saving={saving} error={error} onChange={setForm} onSubmit={handleSubmit} onClose={() => setShowForm(false)} />
         )}
 
-        {loading ? (
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando...</p>
+        {loadError ? (
+          <Notice
+            kind="danger"
+            actions={<Button size="sm" variant="secondary" onClick={load}>Tentar novamente</Button>}
+          >
+            Não foi possível carregar as manutenções.
+          </Notice>
+        ) : loading ? (
+          <>
+            <div className="hidden md:block">
+              <Table loading rows={6} cols={6} head={cabecalho} />
+            </div>
+            <div className="md:hidden stack" aria-busy="true">
+              <div className="skeleton h-[110px]" />
+              <div className="skeleton h-[110px]" />
+              <div className="skeleton h-[110px]" />
+            </div>
+          </>
         ) : (
           <>
             {/* Desktop: tabela */}
             <div className="hidden md:block">
-              <Table
-                isEmpty={items.length === 0}
-                empty="Nenhuma manutenção programada."
-                head={(
-                  <tr>
-                    <th>Nome</th>
-                    <th>Recorrência</th>
-                    <th>Próxima</th>
-                    <th>Responsável</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                  </tr>
-                )}
-              >
+              <Table isEmpty={items.length === 0} empty={vazio} head={cabecalho}>
                 {items.map((m) => (
-                  <tr key={m.id} className="table-row" style={{ opacity: m.status === 'ACTIVE' ? 1 : 0.6 }}>
-                    <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{m.name}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{recurrenceLabel[m.recurrence] ?? m.recurrence}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{fmtData(m.nextRunAt)}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{m.responsavel.name}</td>
+                  <tr key={m.id} className={m.status === 'ACTIVE' ? undefined : 'opacity-60'}>
+                    <td className="font-medium">{m.name}</td>
+                    <td className="muted">{recurrenceLabel[m.recurrence] ?? m.recurrence}</td>
+                    <td className="muted whitespace-nowrap">{formatDateTime(m.nextRunAt)}</td>
+                    <td className="muted">{m.responsavel.name}</td>
                     <td><StatusPill status={m.status} /></td>
                     <td>{actions(m)}</td>
                   </tr>
@@ -278,26 +321,24 @@ export default function ManutencoesPage() {
             </div>
 
             {/* Mobile: cards */}
-            <div className="md:hidden space-y-3">
-              {items.length === 0 && <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Nenhuma manutenção programada.</p>}
+            <div className="md:hidden stack">
+              {items.length === 0 && <div className="card">{vazio}</div>}
               {items.map((m) => (
-                <Card key={m.id} style={{ padding: 14, opacity: m.status === 'ACTIVE' ? 1 : 0.7 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>{m.name}</span>
+                <div key={m.id} className={`ticket-card ${m.status === 'ACTIVE' ? '' : 'opacity-70'}`.trim()}>
+                  <p className="ticket-card-title">{m.name}</p>
+                  <div className="ticket-card-meta">
                     <StatusPill status={m.status} />
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
                     <span className="pill pill-muted">{recurrenceLabel[m.recurrence] ?? m.recurrence}</span>
-                    <span className="pill pill-muted">{fmtData(m.nextRunAt)}</span>
+                    <span className="pill pill-muted">{formatDateTime(m.nextRunAt)}</span>
                   </div>
-                  <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 10px' }}>Responsável: {m.responsavel.name}</p>
+                  <p className="ticket-card-sub mb-2">Responsável: {m.responsavel.name}</p>
                   {actions(m)}
-                </Card>
+                </div>
               ))}
             </div>
           </>
         )}
-      </div>
+      </main>
     </>
   );
 }

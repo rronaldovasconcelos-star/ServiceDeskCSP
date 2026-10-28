@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { BookOpen, Pencil, Plus, Trash2 } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import PageHeader from '../components/PageHeader';
-import { Button, Card, Modal, Table } from '../components/ui';
+import { Button, Card, EmptyState, Field, Modal, Notice, Table } from '../components/ui';
 
 interface SupplyItem {
   id: string;
@@ -20,15 +20,12 @@ const categoryLabel: Record<string, string> = {
 };
 const emptyForm = { name: '', unit: '', category: 'PAPEL', description: '' };
 
-const linkBtn = (cor: string): React.CSSProperties => ({
-  background: 'none', border: 'none', cursor: 'pointer', color: cor, fontSize: 12, padding: 0, fontWeight: 500, fontFamily: 'inherit',
-});
-
 export default function SuprimentosCatalogoPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
   const [items, setItems] = useState<SupplyItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -41,10 +38,14 @@ export default function SuprimentosCatalogoPage() {
   const [bulkCategory, setBulkCategory] = useState('');
   const [bulkPreview, setBulkPreview] = useState<{ count: number; blocked: number } | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState('');
 
   const load = () => {
     setLoading(true);
-    api.get('/suprimentos/items').then((r) => setItems(r.data)).finally(() => setLoading(false));
+    api.get('/suprimentos/items')
+      .then((r) => { setItems(r.data); setLoadError(false); })
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => { load(); }, []);
@@ -62,9 +63,12 @@ export default function SuprimentosCatalogoPage() {
 
   const previewBulk = async () => {
     setBulkBusy(true);
+    setBulkError('');
     try {
       const r = await api.get('/suprimentos/items/admin/bulk-preview', { params: bulkParams() });
       setBulkPreview(r.data);
+    } catch {
+      setBulkError('Não foi possível pré-visualizar a exclusão.');
     } finally {
       setBulkBusy(false);
     }
@@ -74,6 +78,7 @@ export default function SuprimentosCatalogoPage() {
     if (!bulkPreview) return;
     if (!window.confirm(`Excluir permanentemente ${bulkPreview.count} item(ns) do catálogo? Esta ação não pode ser desfeita.`)) return;
     setBulkBusy(true);
+    setBulkError('');
     try {
       await api.delete('/suprimentos/items/admin/bulk', { params: bulkParams() });
       setBulkPreview(null);
@@ -81,6 +86,8 @@ export default function SuprimentosCatalogoPage() {
       setBulkTo('');
       setBulkCategory('');
       load();
+    } catch {
+      setBulkError('Não foi possível excluir os itens.');
     } finally {
       setBulkBusy(false);
     }
@@ -133,28 +140,64 @@ export default function SuprimentosCatalogoPage() {
   };
 
   const ativoPill = (isActive: boolean) => (
-    <span className={`pill ${isActive ? 'pill-teal' : 'pill-muted'}`}>{isActive ? 'Ativo' : 'Inativo'}</span>
+    <span className={`pill ${isActive ? 'pill-teal' : 'pill-muted'}`}>
+      <span className="pill-dot" aria-hidden="true" />
+      {isActive ? 'Ativo' : 'Inativo'}
+    </span>
   );
 
   const acoes = (item: SupplyItem) => (
-    <div style={{ display: 'flex', gap: 14 }}>
-      <button onClick={() => openEdit(item)} style={linkBtn('var(--electric)')}>Editar</button>
-      <button onClick={() => toggleActive(item.id)} style={linkBtn('var(--text-secondary)')}>{item.isActive ? 'Desativar' : 'Ativar'}</button>
-      {isAdmin && <button onClick={() => deleteItem(item.id, item.name)} style={linkBtn('var(--coral)')}>Excluir</button>}
+    <div className="row justify-end md:justify-start">
+      <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => openEdit(item)}>Editar</Button>
+      <Button variant="ghost" size="sm" onClick={() => toggleActive(item.id)}>{item.isActive ? 'Desativar' : 'Ativar'}</Button>
+      {isAdmin && (
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label={`Excluir ${item.name}`}
+          title="Excluir item"
+          icon={<Trash2 size={16} />}
+          onClick={() => deleteItem(item.id, item.name)}
+        />
+      )}
     </div>
   );
 
   const ativos = items.filter((i) => i.isActive).length;
 
+  const cabecalho = (
+    <tr>
+      <th>Nome</th>
+      <th>Categoria</th>
+      <th>Unidade</th>
+      <th>Descrição</th>
+      <th>Status</th>
+      <th><span className="sr-only">Ações</span></th>
+    </tr>
+  );
+
+  const vazio = (
+    <EmptyState
+      icon={<BookOpen size={22} />}
+      title="Nenhum item no catálogo"
+      action={<Button variant="primary" icon={<Plus size={16} />} onClick={openNew}>Novo item</Button>}
+    >
+      Crie o primeiro em Novo item. Os itens do catálogo são o que as pessoas podem pedir.
+    </EmptyState>
+  );
+
   return (
     <>
       <PageHeader
         title="Catálogo de suprimentos"
-        subtitle={loading ? 'Carregando…' : `${items.length} ${items.length === 1 ? 'item' : 'itens'}, ${ativos} ${ativos === 1 ? 'ativo' : 'ativos'}`}
-        actions={<Button variant="secondary" icon={<Plus size={16} />} onClick={openNew}>Novo item</Button>}
+        description={loading ? 'Carregando…' : `${items.length} ${items.length === 1 ? 'item' : 'itens'}, ${ativos} ${ativos === 1 ? 'ativo' : 'ativos'}`}
+        backTo="/suprimentos"
+        backLabel="Pedidos de suprimentos"
+        actions={<Button variant="primary" icon={<Plus size={16} />} onClick={openNew}>Novo item</Button>}
       />
 
-      <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <main className="page-body stack">
         <Modal
           open={showForm}
           title={editId ? 'Editar item' : 'Novo item'}
@@ -162,98 +205,70 @@ export default function SuprimentosCatalogoPage() {
           footer={(
             <>
               <Button variant="ghost" onClick={closeModal}>Cancelar</Button>
-              <Button type="submit" form="form-item" disabled={saving}>{saving ? 'Salvando...' : editId ? 'Salvar alterações' : 'Criar item'}</Button>
+              <Button type="submit" variant="primary" form="form-item" loading={saving}>
+                {saving ? 'Salvando...' : editId ? 'Salvar alterações' : 'Criar item'}
+              </Button>
             </>
           )}
         >
-          <form id="form-item" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {error && (
-              <div role="alert" style={{ padding: '10px 12px', background: 'var(--coral-soft)', borderRadius: 'var(--radius-tile)', color: 'var(--coral)', fontSize: 13 }}>
-                {error}
-              </div>
-            )}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label className="field-label">Nome</label>
-                <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="Ex: Papel A4" className="field" />
-              </div>
-              <div>
-                <label className="field-label">Unidade</label>
-                <input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} required placeholder="resma, unidade..." className="field" />
-              </div>
-              <div>
-                <label className="field-label">Categoria</label>
-                <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="field">
-                  {categories.map((c) => <option key={c} value={c}>{categoryLabel[c]}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="field-label">Descrição</label>
-                <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Opcional" className="field" />
-              </div>
+          <form id="form-item" onSubmit={handleSubmit} className="stack">
+            {error && <Notice kind="danger">{error}</Notice>}
+            <div className="form-grid-2">
+              <Field label="Nome" required>
+                {(ctl) => (
+                  <input {...ctl} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="Ex: Papel A4" className="field" data-autofocus />
+                )}
+              </Field>
+              <Field label="Unidade" required hint="Como o item é contado: resma, unidade, caixa…">
+                {(ctl) => (
+                  <input {...ctl} value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} required placeholder="resma, unidade..." className="field" />
+                )}
+              </Field>
+              <Field label="Categoria">
+                {(ctl) => (
+                  <select {...ctl} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="field">
+                    {categories.map((c) => <option key={c} value={c}>{categoryLabel[c]}</option>)}
+                  </select>
+                )}
+              </Field>
+              <Field label="Descrição" hint="Opcional">
+                {(ctl) => (
+                  <input {...ctl} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Opcional" className="field" />
+                )}
+              </Field>
             </div>
           </form>
         </Modal>
 
-        {isAdmin && (
-          <Card title="Excluir itens em massa" style={{ padding: '16px 20px' }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                De{' '}
-                <input type="date" value={bulkFrom} onChange={(e) => setBulkFrom(e.target.value)} className="field" style={{ width: 'auto' }} />
-              </label>
-              <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                Até{' '}
-                <input type="date" value={bulkTo} onChange={(e) => setBulkTo(e.target.value)} className="field" style={{ width: 'auto' }} />
-              </label>
-              <select value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} className="field" style={{ width: 'auto' }}>
-                <option value="">Todas as categorias</option>
-                {categories.map((c) => <option key={c} value={c}>{categoryLabel[c]}</option>)}
-              </select>
-              <Button variant="ghost" onClick={previewBulk} disabled={!hasBulkFilter || bulkBusy}>Pré-visualizar</Button>
-              {bulkPreview && (
-                <Button variant="danger" onClick={runBulkDelete} disabled={bulkPreview.count === 0 || bulkBusy}>Excluir {bulkPreview.count}</Button>
-              )}
-            </div>
-            {bulkPreview && (
-              <p style={{ fontSize: 12, color: bulkPreview.count > 0 ? 'var(--coral)' : 'var(--text-secondary)', margin: '10px 0 0' }}>
-                {bulkPreview.count > 0 ? `${bulkPreview.count} item(ns) serão excluídos.` : 'Nenhum item elegível para exclusão.'}
-                {bulkPreview.blocked > 0 && ` ${bulkPreview.blocked} item(ns) com pedidos vinculados serão ignorados.`}
-              </p>
-            )}
-            {!hasBulkFilter && (
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '10px 0 0' }}>
-                Informe ao menos um filtro (período ou tipo). Itens com pedidos vinculados não são excluídos.
-              </p>
-            )}
-          </Card>
-        )}
-
-        {loading ? (
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando...</p>
-        ) : (
+        {loadError ? (
+          <Notice
+            kind="danger"
+            actions={<Button size="sm" variant="secondary" onClick={load}>Tentar novamente</Button>}
+          >
+            Não foi possível carregar o catálogo.
+          </Notice>
+        ) : loading ? (
           <>
             <div className="hidden md:block">
-              <Table
-                isEmpty={items.length === 0}
-                empty="Nenhum item no catálogo. Crie o primeiro em Novo item."
-                head={(
-                  <tr>
-                    <th>Nome</th>
-                    <th>Categoria</th>
-                    <th>Unidade</th>
-                    <th>Descrição</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                  </tr>
-                )}
-              >
+              <Table loading rows={6} cols={6} head={cabecalho} />
+            </div>
+            <div className="md:hidden stack" aria-busy="true">
+              <div className="skeleton h-[96px]" />
+              <div className="skeleton h-[96px]" />
+              <div className="skeleton h-[96px]" />
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Desktop: tabela */}
+            <div className="hidden md:block">
+              <Table isEmpty={items.length === 0} empty={vazio} head={cabecalho}>
                 {items.map((item) => (
-                  <tr key={item.id} className="table-row" style={{ opacity: item.isActive ? 1 : 0.55 }}>
-                    <td style={{ fontWeight: 500 }}>{item.name}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{categoryLabel[item.category] ?? item.category}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{item.unit}</td>
-                    <td style={{ color: 'var(--text-secondary)', fontSize: 12 }}>{item.description ?? '—'}</td>
+                  <tr key={item.id} className={item.isActive ? undefined : 'opacity-60'}>
+                    <td className="font-medium">{item.name}</td>
+                    <td className="muted">{categoryLabel[item.category] ?? item.category}</td>
+                    <td className="muted">{item.unit}</td>
+                    <td className="muted text-xs">{item.description ?? '—'}</td>
                     <td>{ativoPill(item.isActive)}</td>
                     <td>{acoes(item)}</td>
                   </tr>
@@ -261,26 +276,79 @@ export default function SuprimentosCatalogoPage() {
               </Table>
             </div>
 
-            <div className="md:hidden space-y-3">
-              {items.length === 0 && <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Nenhum item no catálogo.</p>}
+            {/* Mobile: cards */}
+            <div className="md:hidden stack">
+              {items.length === 0 && <div className="card">{vazio}</div>}
               {items.map((item) => (
-                <Card key={item.id} style={{ padding: 14, opacity: item.isActive ? 1 : 0.6 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontWeight: 600, fontSize: 13 }}>{item.name}</span>
+                <div key={item.id} className={`ticket-card ${item.isActive ? '' : 'opacity-60'}`.trim()}>
+                  <p className="ticket-card-title">{item.name}</p>
+                  <div className="ticket-card-meta">
                     {ativoPill(item.isActive)}
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
                     <span className="pill pill-muted">{categoryLabel[item.category] ?? item.category}</span>
                     <span className="pill pill-muted">{item.unit}</span>
                   </div>
-                  {item.description && <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px' }}>{item.description}</p>}
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{acoes(item)}</div>
-                </Card>
+                  {item.description && <p className="ticket-card-sub mb-2">{item.description}</p>}
+                  {acoes(item)}
+                </div>
               ))}
             </div>
           </>
         )}
-      </div>
+
+        {/* Ferramentas de administrador — exclusão em massa, restrita ao ADMIN */}
+        {isAdmin && (
+          <Card title="Excluir itens em massa" className="mt-6">
+            <div className="stack">
+              <p className="muted text-sm-2">
+                Remove permanentemente os itens que correspondem ao período e ao tipo escolhidos.
+                Itens com pedidos vinculados não são excluídos. Pré-visualize antes de confirmar.
+              </p>
+              <div className="toolbar">
+                <Field label="De">
+                  {(ctl) => <input {...ctl} type="date" value={bulkFrom} onChange={(e) => setBulkFrom(e.target.value)} className="field" />}
+                </Field>
+                <Field label="Até">
+                  {(ctl) => <input {...ctl} type="date" value={bulkTo} onChange={(e) => setBulkTo(e.target.value)} className="field" />}
+                </Field>
+                <Field label="Categoria">
+                  {(ctl) => (
+                    <select {...ctl} value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)} className="field">
+                      <option value="">Todas as categorias</option>
+                      {categories.map((c) => <option key={c} value={c}>{categoryLabel[c]}</option>)}
+                    </select>
+                  )}
+                </Field>
+                <div className="row">
+                  <Button variant="secondary" onClick={previewBulk} disabled={!hasBulkFilter} loading={bulkBusy && bulkPreview === null}>
+                    Pré-visualizar
+                  </Button>
+                  {bulkPreview && (
+                    <Button variant="danger" onClick={runBulkDelete} disabled={bulkPreview.count === 0} loading={bulkBusy && bulkPreview !== null}>
+                      Excluir {bulkPreview.count}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {bulkError && <Notice kind="danger">{bulkError}</Notice>}
+              {bulkPreview && bulkPreview.count > 0 && (
+                <Notice kind="warning">
+                  {bulkPreview.count} item(ns) serão excluídos.
+                  {bulkPreview.blocked > 0 && ` ${bulkPreview.blocked} item(ns) com pedidos vinculados serão ignorados.`}
+                </Notice>
+              )}
+              {bulkPreview && bulkPreview.count === 0 && (
+                <p className="muted text-sm-2">
+                  Nenhum item elegível para exclusão.
+                  {bulkPreview.blocked > 0 && ` ${bulkPreview.blocked} item(ns) com pedidos vinculados serão ignorados.`}
+                </p>
+              )}
+              {!hasBulkFilter && (
+                <p className="muted text-sm-2">Informe ao menos um filtro (período ou tipo). Itens com pedidos vinculados não são excluídos.</p>
+              )}
+            </div>
+          </Card>
+        )}
+      </main>
     </>
   );
 }

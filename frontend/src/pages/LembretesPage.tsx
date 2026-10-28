@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { BellRing, Pencil, Plus, Send, Trash2 } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -7,7 +7,8 @@ import {
   disciplinasFor, tiposFor, labelFor,
 } from '../lib/taxonomy';
 import PageHeader from '../components/PageHeader';
-import { Button, Card, Modal, Table } from '../components/ui';
+import { Button, EmptyState, Field, Fieldset, Modal, Notice, Table } from '../components/ui';
+import { formatDateTime } from '../lib/dates';
 
 interface Reminder {
   id: string;
@@ -62,10 +63,6 @@ const emptyForm: FormState = {
   audience: 'ALL', recipientIds: [], messageExtra: '',
 };
 
-const linkBtn: React.CSSProperties = {
-  background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 0, fontWeight: 500, fontFamily: 'inherit',
-};
-
 function isoToLocalInput(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -73,7 +70,12 @@ function isoToLocalInput(iso: string): string {
 }
 
 function StatusPill({ status }: { status: string }) {
-  return <span className={`pill pill-${statusTom[status] ?? 'muted'}`}>{statusLabel[status] ?? status}</span>;
+  return (
+    <span className={`pill pill-${statusTom[status] ?? 'muted'}`}>
+      <span className="pill-dot" aria-hidden="true" />
+      {statusLabel[status] ?? status}
+    </span>
+  );
 }
 
 // Espelha buildReminderMessage do backend, para a prévia.
@@ -106,9 +108,9 @@ function classTags(r: Reminder) {
   ];
   const tags = axes.filter(([, v]) => v).map(([axis, v]) => labelFor(axis as Parameters<typeof labelFor>[0], v));
   if (r.anoLetivo) tags.unshift(r.anoLetivo);
-  if (tags.length === 0) return <span style={{ color: 'var(--text-secondary)' }}>—</span>;
+  if (tags.length === 0) return <span className="muted">—</span>;
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+    <div className="flex flex-wrap gap-1">
       {tags.map((t, i) => (
         <span key={i} className="pill pill-muted">{t}</span>
       ))}
@@ -140,115 +142,143 @@ function ReminderModal({
     onChange({ ...form, recipientIds: has ? form.recipientIds.filter((x) => x !== id) : [...form.recipientIds, id] });
   };
 
-  const radioLabel: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'var(--text-primary)', cursor: 'pointer' };
-
   return (
     <Modal
       open
       title={editId ? 'Editar lembrete' : 'Novo lembrete de material'}
       onClose={onClose}
-      maxWidth={560}
+      maxWidth={600}
       footer={(
         <>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" form="form-lembrete" disabled={saving}>
+          <Button type="submit" variant="primary" form="form-lembrete" loading={saving}>
             {saving ? 'Salvando...' : editId ? 'Salvar alterações' : 'Criar lembrete'}
           </Button>
         </>
       )}
     >
-      <form id="form-lembrete" onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {error && (
-          <div className="pill pill-coral" style={{ whiteSpace: 'normal', padding: '10px 12px', fontSize: 13, borderRadius: 'var(--radius-tile)' }}>
-            {error}
-          </div>
-        )}
+      <form id="form-lembrete" onSubmit={onSubmit} className="stack">
+        {error && <Notice kind="danger">{error}</Notice>}
 
-        <div>
-          <label className="field-label">Nome do lembrete *</label>
-          <input value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} required placeholder="Ex: Provas da 2ª etapa" className="field" />
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
-            <label className="field-label">Recorrência *</label>
-            <select value={form.recurrence} onChange={(e) => onChange({ ...form, recurrence: e.target.value })} className="field">
-              {RECURRENCES.map((r) => <option key={r} value={r}>{recurrenceLabel[r]}</option>)}
-            </select>
+        <Fieldset legend="Agendamento">
+          <Field label="Nome do lembrete" required>
+            {(ctl) => (
+              <input {...ctl} value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} required placeholder="Ex: Provas da 2ª etapa" className="field" data-autofocus />
+            )}
+          </Field>
+          <div className="form-grid-2">
+            <Field label="Recorrência" required>
+              {(ctl) => (
+                <select {...ctl} value={form.recurrence} onChange={(e) => onChange({ ...form, recurrence: e.target.value })} className="field">
+                  {RECURRENCES.map((r) => <option key={r} value={r}>{recurrenceLabel[r]}</option>)}
+                </select>
+              )}
+            </Field>
+            <Field label="Próximo disparo" required>
+              {(ctl) => (
+                <input {...ctl} type="datetime-local" value={form.nextRunAt} onChange={(e) => onChange({ ...form, nextRunAt: e.target.value })} required className="field" />
+              )}
+            </Field>
           </div>
-          <div>
-            <label className="field-label">Próximo disparo *</label>
-            <input type="datetime-local" value={form.nextRunAt} onChange={(e) => onChange({ ...form, nextRunAt: e.target.value })} required className="field" />
-          </div>
-        </div>
+        </Fieldset>
 
         {/* Classificação alvo */}
-        <div>
-          <label className="field-label">Classificação (opcional — habilita "só lembrar quem não enviou")</label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
-            <select value={form.anoLetivo} onChange={(e) => onChange({ ...form, anoLetivo: e.target.value })} className="field">
-              <option value="">Ano...</option>
-              {ANOS_LETIVOS.map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
-            <select value={form.segmento} onChange={(e) => setSegmento(e.target.value)} className="field">
-              <option value="">Segmento...</option>
-              {SEGMENTOS.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
-            </select>
-            <select value={form.serie} onChange={(e) => onChange({ ...form, serie: e.target.value })} disabled={!form.segmento} className="field">
-              <option value="">Série...</option>
-              {serieOptions.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
-            </select>
-            <select value={form.etapa} onChange={(e) => onChange({ ...form, etapa: e.target.value })} className="field">
-              <option value="">Etapa...</option>
-              {ETAPAS.map((e2) => <option key={e2.code} value={e2.code}>{e2.label}</option>)}
-            </select>
-            <select value={form.disciplina} onChange={(e) => onChange({ ...form, disciplina: e.target.value })} className="field">
-              <option value="">Disciplina...</option>
-              {disciplinaOptions.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
-            </select>
-            <select value={form.tipoMaterial} onChange={(e) => onChange({ ...form, tipoMaterial: e.target.value })} className="field">
-              <option value="">Tipo...</option>
-              {tipoOptions.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
-            </select>
+        <Fieldset legend="Classificação" hint='Opcional — habilita "só lembrar quem não enviou".'>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <Field label="Ano">
+              {(ctl) => (
+                <select {...ctl} value={form.anoLetivo} onChange={(e) => onChange({ ...form, anoLetivo: e.target.value })} className="field">
+                  <option value="">Ano...</option>
+                  {ANOS_LETIVOS.map((a) => <option key={a} value={a}>{a}</option>)}
+                </select>
+              )}
+            </Field>
+            <Field label="Segmento">
+              {(ctl) => (
+                <select {...ctl} value={form.segmento} onChange={(e) => setSegmento(e.target.value)} className="field">
+                  <option value="">Segmento...</option>
+                  {SEGMENTOS.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+                </select>
+              )}
+            </Field>
+            <Field label="Série" hint={form.segmento ? undefined : 'Escolha o segmento antes'}>
+              {(ctl) => (
+                <select {...ctl} value={form.serie} onChange={(e) => onChange({ ...form, serie: e.target.value })} disabled={!form.segmento} className="field">
+                  <option value="">Série...</option>
+                  {serieOptions.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+                </select>
+              )}
+            </Field>
+            <Field label="Etapa">
+              {(ctl) => (
+                <select {...ctl} value={form.etapa} onChange={(e) => onChange({ ...form, etapa: e.target.value })} className="field">
+                  <option value="">Etapa...</option>
+                  {ETAPAS.map((e2) => <option key={e2.code} value={e2.code}>{e2.label}</option>)}
+                </select>
+              )}
+            </Field>
+            <Field label="Disciplina">
+              {(ctl) => (
+                <select {...ctl} value={form.disciplina} onChange={(e) => onChange({ ...form, disciplina: e.target.value })} className="field">
+                  <option value="">Disciplina...</option>
+                  {disciplinaOptions.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
+                </select>
+              )}
+            </Field>
+            <Field label="Tipo">
+              {(ctl) => (
+                <select {...ctl} value={form.tipoMaterial} onChange={(e) => onChange({ ...form, tipoMaterial: e.target.value })} className="field">
+                  <option value="">Tipo...</option>
+                  {tipoOptions.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
+                </select>
+              )}
+            </Field>
           </div>
-        </div>
+        </Fieldset>
 
         {/* Destinatários */}
-        <div>
-          <label className="field-label">Destinatários *</label>
-          <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
-            <label style={radioLabel}>
-              <input type="radio" checked={form.audience === 'ALL'} onChange={() => onChange({ ...form, audience: 'ALL' })} /> Todos os professores
+        <Fieldset legend="Destinatários">
+          <div className="choice-grid" role="radiogroup" aria-label="Destinatários">
+            <label className="choice">
+              <input type="radio" name="audience" checked={form.audience === 'ALL'} onChange={() => onChange({ ...form, audience: 'ALL' })} />
+              <span className="choice-title">Todos os professores</span>
             </label>
-            <label style={radioLabel}>
-              <input type="radio" checked={form.audience === 'SELECTED'} onChange={() => onChange({ ...form, audience: 'SELECTED' })} /> Selecionar
+            <label className="choice">
+              <input type="radio" name="audience" checked={form.audience === 'SELECTED'} onChange={() => onChange({ ...form, audience: 'SELECTED' })} />
+              <span className="choice-title">Selecionar</span>
             </label>
           </div>
           {form.audience === 'SELECTED' && (
-            <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-tile)', padding: 8 }}>
+            <div className="max-h-40 overflow-y-auto border border-(--line) rounded-(--radius-sm) p-2" role="group" aria-label="Professores selecionados">
               {users.length === 0 ? (
-                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: 0 }}>Nenhum usuário.</p>
+                <p className="muted text-xs m-0">Nenhum usuário.</p>
               ) : users.map((u) => (
-                <label key={u.id} style={{ ...radioLabel, gap: 8, padding: '3px 0' }}>
-                  <input type="checkbox" checked={form.recipientIds.includes(u.id)} onChange={() => toggleRecipient(u.id)} /> {u.name}
+                <label key={u.id} className="flex items-center gap-2 text-[13px] py-1 cursor-pointer">
+                  <input type="checkbox" className="accent-(--primary)" checked={form.recipientIds.includes(u.id)} onChange={() => toggleRecipient(u.id)} /> {u.name}
                 </label>
               ))}
             </div>
           )}
-        </div>
+        </Fieldset>
 
-        <div>
-          <label className="field-label">Mensagem adicional (opcional)</label>
-          <textarea value={form.messageExtra} onChange={(e) => onChange({ ...form, messageExtra: e.target.value })} rows={2} placeholder="Ex: Prazo final nesta sexta." className="field" style={{ resize: 'none' }} />
-        </div>
+        <Fieldset legend="Mensagem">
+          <Field label="Mensagem adicional" hint="Opcional">
+            {(ctl) => (
+              <textarea {...ctl} value={form.messageExtra} onChange={(e) => onChange({ ...form, messageExtra: e.target.value })} rows={2} placeholder="Ex: Prazo final nesta sexta." className="field min-h-[64px]" />
+            )}
+          </Field>
 
-        {/* Prévia */}
-        <div>
-          <label className="field-label">Prévia da mensagem</label>
-          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit', fontSize: 12, color: 'var(--text-secondary)', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-tile)', padding: '10px 12px' }}>
-            {previewMessage(form)}
-          </pre>
-        </div>
+          {/* Prévia */}
+          <div className="field-wrap">
+            <p className="field-label" id="previa-lembrete">Prévia da mensagem</p>
+            <pre
+              aria-labelledby="previa-lembrete"
+              className="m-0 whitespace-pre-wrap break-words [font-family:inherit] text-xs muted bg-(--bg) border border-(--line) rounded-(--radius-sm) px-3 py-2.5"
+            >
+              {previewMessage(form)}
+            </pre>
+          </div>
+        </Fieldset>
       </form>
     </Modal>
   );
@@ -260,6 +290,7 @@ export default function LembretesPage() {
   const [items, setItems] = useState<Reminder[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -268,7 +299,10 @@ export default function LembretesPage() {
 
   const load = () => {
     setLoading(true);
-    api.get('/reminders').then((r) => setItems(r.data)).finally(() => setLoading(false));
+    api.get('/reminders')
+      .then((r) => { setItems(r.data); setLoadError(false); })
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -351,63 +385,94 @@ export default function LembretesPage() {
   };
 
   const actions = (r: Reminder) => (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-      <button onClick={() => openEdit(r)} style={{ ...linkBtn, color: 'var(--electric)' }}>Editar</button>
+    <div className="row">
+      <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => openEdit(r)}>Editar</Button>
       {(r.status === 'ACTIVE' || r.status === 'PAUSED') && (
-        <button onClick={() => toggleStatus(r)} style={{ ...linkBtn, color: 'var(--text-secondary)', fontWeight: 400 }}>
+        <Button variant="ghost" size="sm" onClick={() => toggleStatus(r)}>
           {r.status === 'PAUSED' ? 'Retomar' : 'Pausar'}
-        </button>
+        </Button>
       )}
-      <button onClick={() => runNow(r)} style={{ ...linkBtn, color: 'var(--teal)' }}>Disparar agora</button>
+      <Button variant="ghost" size="sm" icon={<Send size={14} />} onClick={() => runNow(r)}>Disparar agora</Button>
       {isAdmin && (
-        <button onClick={() => remove(r)} style={{ ...linkBtn, color: 'var(--coral)' }}>Excluir</button>
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          aria-label={`Excluir lembrete ${r.name}`}
+          title="Excluir lembrete"
+          icon={<Trash2 size={16} />}
+          onClick={() => remove(r)}
+        />
       )}
     </div>
   );
 
   const ativos = items.filter((r) => r.status === 'ACTIVE').length;
-  const fmtData = (iso: string) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+
+  const cabecalho = (
+    <tr>
+      <th>Nome</th>
+      <th>Recorrência</th>
+      <th>Próximo</th>
+      <th>Alvo</th>
+      <th>Classificação</th>
+      <th>Status</th>
+      <th><span className="sr-only">Ações</span></th>
+    </tr>
+  );
+
+  const vazio = (
+    <EmptyState
+      icon={<BellRing size={22} />}
+      title="Nenhum lembrete cadastrado"
+      action={<Button variant="primary" icon={<Plus size={16} />} onClick={openNew}>Novo lembrete</Button>}
+    >
+      Crie um lembrete e os professores que ainda não enviaram o material recebem o aviso por WhatsApp.
+    </EmptyState>
+  );
 
   return (
     <>
       <PageHeader
         title="Lembretes de material"
-        subtitle={loading ? 'Carregando…' : `${items.length} lembrete${items.length === 1 ? '' : 's'} cadastrado${items.length === 1 ? '' : 's'}, ${ativos} ativo${ativos === 1 ? '' : 's'}`}
-        actions={<Button variant="secondary" icon={<Plus size={16} />} onClick={openNew}>Novo lembrete</Button>}
+        description={loading ? 'Carregando…' : `${items.length} lembrete${items.length === 1 ? '' : 's'} cadastrado${items.length === 1 ? '' : 's'}, ${ativos} ativo${ativos === 1 ? '' : 's'}`}
+        actions={<Button variant="primary" icon={<Plus size={16} />} onClick={openNew}>Novo lembrete</Button>}
       />
 
-      <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <main className="page-body stack">
         {showForm && (
           <ReminderModal editId={editId} form={form} users={users} saving={saving} error={error} onChange={setForm} onSubmit={handleSubmit} onClose={() => setShowForm(false)} />
         )}
 
-        {loading ? (
-          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando...</p>
+        {loadError ? (
+          <Notice
+            kind="danger"
+            actions={<Button size="sm" variant="secondary" onClick={load}>Tentar novamente</Button>}
+          >
+            Não foi possível carregar os lembretes.
+          </Notice>
+        ) : loading ? (
+          <>
+            <div className="hidden md:block">
+              <Table loading rows={6} cols={7} head={cabecalho} />
+            </div>
+            <div className="md:hidden stack" aria-busy="true">
+              <div className="skeleton h-[120px]" />
+              <div className="skeleton h-[120px]" />
+              <div className="skeleton h-[120px]" />
+            </div>
+          </>
         ) : (
           <>
             {/* Desktop: tabela */}
             <div className="hidden md:block">
-              <Table
-                isEmpty={items.length === 0}
-                empty="Nenhum lembrete cadastrado."
-                head={(
-                  <tr>
-                    <th>Nome</th>
-                    <th>Recorrência</th>
-                    <th>Próximo</th>
-                    <th>Alvo</th>
-                    <th>Classificação</th>
-                    <th>Status</th>
-                    <th>Ações</th>
-                  </tr>
-                )}
-              >
+              <Table isEmpty={items.length === 0} empty={vazio} head={cabecalho}>
                 {items.map((r) => (
-                  <tr key={r.id} className="table-row" style={{ opacity: r.status === 'ACTIVE' ? 1 : 0.6 }}>
-                    <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{r.name}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{recurrenceLabel[r.recurrence] ?? r.recurrence}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{fmtData(r.nextRunAt)}</td>
-                    <td style={{ color: 'var(--text-secondary)' }}>{audienceLabel(r)}</td>
+                  <tr key={r.id} className={r.status === 'ACTIVE' ? undefined : 'opacity-60'}>
+                    <td className="font-medium">{r.name}</td>
+                    <td className="muted">{recurrenceLabel[r.recurrence] ?? r.recurrence}</td>
+                    <td className="muted whitespace-nowrap">{formatDateTime(r.nextRunAt)}</td>
+                    <td className="muted">{audienceLabel(r)}</td>
                     <td>{classTags(r)}</td>
                     <td><StatusPill status={r.status} /></td>
                     <td>{actions(r)}</td>
@@ -417,27 +482,25 @@ export default function LembretesPage() {
             </div>
 
             {/* Mobile: cards */}
-            <div className="md:hidden space-y-3">
-              {items.length === 0 && <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Nenhum lembrete cadastrado.</p>}
+            <div className="md:hidden stack">
+              {items.length === 0 && <div className="card">{vazio}</div>}
               {items.map((r) => (
-                <Card key={r.id} style={{ padding: 14, opacity: r.status === 'ACTIVE' ? 1 : 0.7 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>{r.name}</span>
+                <div key={r.id} className={`ticket-card ${r.status === 'ACTIVE' ? '' : 'opacity-70'}`.trim()}>
+                  <p className="ticket-card-title">{r.name}</p>
+                  <div className="ticket-card-meta">
                     <StatusPill status={r.status} />
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
                     <span className="pill pill-muted">{recurrenceLabel[r.recurrence] ?? r.recurrence}</span>
-                    <span className="pill pill-muted">{fmtData(r.nextRunAt)}</span>
+                    <span className="pill pill-muted">{formatDateTime(r.nextRunAt)}</span>
                   </div>
-                  <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 6px' }}>Alvo: {audienceLabel(r)}</p>
-                  <div style={{ marginBottom: 10 }}>{classTags(r)}</div>
+                  <p className="ticket-card-sub mb-1.5">Alvo: {audienceLabel(r)}</p>
+                  <div className="mb-2.5">{classTags(r)}</div>
                   {actions(r)}
-                </Card>
+                </div>
               ))}
             </div>
           </>
         )}
-      </div>
+      </main>
     </>
   );
 }

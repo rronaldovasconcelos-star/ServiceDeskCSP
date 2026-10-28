@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
 import ReportsPage from './pages/ReportsPage';
 import TicketsPage from './pages/TicketsPage';
@@ -22,7 +23,6 @@ import BackupPage from './pages/BackupPage';
 import MeusArquivosPage from './pages/MeusArquivosPage';
 import RepositorioPage from './pages/RepositorioPage';
 import WhatsAppPage from './pages/WhatsAppPage';
-import AgentePage from './pages/AgentePage';
 import HoleritesPage from './pages/HoleritesPage';
 import HoleritesRhPage from './pages/HoleritesRhPage';
 
@@ -37,6 +37,14 @@ export default function App() {
           <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
           <Route
             path="/"
+            element={
+              <ProtectedRoute>
+                <Layout><HomePage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
             element={
               <ProtectedRoute module="dashboard">
                 <Layout><DashboardPage /></Layout>
@@ -176,29 +184,6 @@ export default function App() {
             element={
               <ProtectedRoute module="whatsapp">
                 <Layout><WhatsAppPage /></Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/whatsapp-suporte"
-            element={
-              <ProtectedRoute module="bot">
-                <Layout>
-                  <WhatsAppPage
-                    apiBase="/bot/connection"
-                    title="WhatsApp — Bot de Suporte"
-                    instanceLabel="csp-suporte"
-                    purpose="recebendo mensagens e abrindo chamados"
-                  />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/agente"
-            element={
-              <ProtectedRoute module="agente">
-                <Layout><AgentePage /></Layout>
               </ProtectedRoute>
             }
           />

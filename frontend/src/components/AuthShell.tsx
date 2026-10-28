@@ -1,5 +1,6 @@
+import { useId } from 'react';
 import type { ReactNode } from 'react';
-import { Headset, ShieldCheck, Clock3 } from 'lucide-react';
+import { Headset, ShieldCheck, Clock3, AlertCircle, Info } from 'lucide-react';
 import DevCredit from './DevCredit';
 
 interface Props {
@@ -7,92 +8,156 @@ interface Props {
 }
 
 const pontos = [
-  { icon: Headset, texto: 'Chamados de TI, manutenção e pedagógico num só lugar' },
+  { icon: Headset, texto: 'Chamados de TI, manutenção e pedagógico' },
   { icon: Clock3, texto: 'Acompanhe cada pedido até a conclusão' },
   { icon: ShieldCheck, texto: 'Acesso só para a equipe do colégio' },
 ];
 
-/**
- * Casca das telas de entrada (login, cadastro, redefinir senha): metade
- * azul-marinho com a forma elétrica e o logo em máscara circular; metade clara
- * com o card do formulário. No celular, só o card sobre o navy.
- */
-export default function AuthShell({ children }: Props) {
+/** Pontos de confiança (usados na foto em telas largas e abaixo do card nas estreitas). */
+function Pontos() {
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row" style={{ background: 'var(--navy)' }}>
-      {/* Lado navy */}
-      <section className="relative overflow-hidden lg:flex-1 flex flex-col justify-between px-6 pt-8 pb-6 lg:p-14" style={{ color: 'var(--on-navy)' }}>
-        <img src="/blob.svg" alt="" aria-hidden="true" className="absolute pointer-events-none" style={{ right: -120, top: -90, width: 560, opacity: 0.95 }} />
-        <img src="/blob.svg" alt="" aria-hidden="true" className="absolute pointer-events-none hidden lg:block" style={{ left: -260, bottom: -200, width: 520, transform: 'rotate(160deg)', opacity: 0.35 }} />
-
-        <div className="relative z-10 flex items-center gap-3">
-          <img src="/logo.png" alt="Colégio Santa Paula" className="w-12 h-12 object-contain bg-white p-0.5" style={{ borderRadius: 'var(--radius-tile)' }} />
-          <div>
-            <p className="font-semibold leading-tight" style={{ margin: 0 }}>Colégio Santa Paula</p>
-            <p className="text-xs leading-tight" style={{ margin: '2px 0 0', color: 'var(--sky)', fontWeight: 500 }}>Portal de Chamados</p>
-          </div>
+    <div className="auth-points">
+      {pontos.map(({ icon: Icon, texto }) => (
+        <div key={texto} className="auth-point">
+          <span className="icon-tile soft" aria-hidden="true"><Icon size={16} /></span>
+          <span>{texto}</span>
         </div>
-
-        <div className="relative z-10 hidden lg:block" style={{ maxWidth: 480 }}>
-          <div
-            className="flex items-center justify-center mb-8"
-            style={{ width: 180, height: 180, borderRadius: '50%', background: 'var(--on-navy)', boxShadow: 'var(--shadow-navy)' }}
-          >
-            <img src="/logo-hd.png" alt="" aria-hidden="true" className="w-36 h-36 object-contain" />
-          </div>
-          <h1 style={{ fontSize: 40, lineHeight: 1.1, fontWeight: 600, margin: 0 }}>
-            Suporte da escola,
-            <br />
-            <span style={{ color: 'var(--sky)' }}>sem perder nada no caminho.</span>
-          </h1>
-          <ul className="mt-8 flex flex-col gap-4" style={{ listStyle: 'none', padding: 0, margin: '32px 0 0' }}>
-            {pontos.map(({ icon: Icon, texto }) => (
-              <li key={texto} className="flex items-center gap-3">
-                <span className="icon-tile" style={{ background: 'rgba(255,255,255,0.12)' }}><Icon size={18} /></span>
-                <span style={{ color: 'var(--on-navy-muted)', fontSize: 14 }}>{texto}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <p className="relative z-10 hidden lg:block" style={{ margin: 0 }}><DevCredit variant="onDark" /></p>
-      </section>
-
-      {/* Lado do formulário */}
-      <section className="flex-1 lg:flex-none lg:w-[520px] flex items-start lg:items-center justify-center px-4 pb-8 lg:p-10" style={{ background: 'var(--paper)' }}>
-        <div className="w-full" style={{ maxWidth: 400 }}>
-          <div className="card card-raised" style={{ padding: '32px 28px', marginTop: 24 }}>
-            {children}
-          </div>
-          <p className="text-center mt-5 lg:hidden" style={{ margin: '20px 0 0' }}><DevCredit variant="onSurface" /></p>
-        </div>
-      </section>
+      ))}
     </div>
   );
 }
 
-/** Campo com ícone à esquerda, no padrão do portal. */
-export function AuthField({ label, icon, children, hint }: { label: string; icon?: ReactNode; children: ReactNode; hint?: ReactNode }) {
+/**
+ * Casca das telas de entrada (login, cadastro, redefinir senha). Em telas largas,
+ * duas colunas: foto do colégio em alta à esquerda (com véu azul-marinho, marca e
+ * pontos de confiança) e o card do formulário à direita. Em telas estreitas, a faixa
+ * azul-marinho com a marca e o card sobreposto, como antes.
+ */
+export default function AuthShell({ children }: Props) {
   return (
-    <div>
-      <label className="field-label">{label}</label>
-      <div className="relative">
-        {icon && <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-secondary)', display: 'inline-flex' }}>{icon}</span>}
-        {children}
+    <div className="auth-page">
+      <aside className="auth-photo" aria-hidden="true">
+        <picture>
+          <source type="image/webp" srcSet="/login-foto-m.webp 800w, /login-foto.webp 1400w" sizes="52vw" />
+          <img src="/login-foto.jpg" srcSet="/login-foto-m.jpg 800w, /login-foto.jpg 1400w" sizes="52vw" alt="" decoding="async" />
+        </picture>
+        <div className="auth-photo-veil" />
+        <div className="auth-photo-content">
+          <div className="auth-band-brand">
+            <img src="/logo.png" alt="" />
+            <div>
+              <p className="auth-band-name">Colégio Santa Paula</p>
+              <p className="auth-band-sub">Central de Suporte</p>
+            </div>
+          </div>
+          <div>
+            <h2 className="auth-photo-title">Suporte para quem faz a escola acontecer</h2>
+            <p className="auth-photo-sub">Abra chamados, peça suprimentos e acompanhe tudo em um só lugar.</p>
+            <Pontos />
+            <p className="mt-6"><DevCredit variant="onDark" /></p>
+          </div>
+        </div>
+      </aside>
+
+      <header className="auth-band">
+        <div className="auth-band-brand">
+          <img src="/logo.png" alt="Colégio Santa Paula" />
+          <div>
+            <p className="auth-band-name">Colégio Santa Paula</p>
+            <p className="auth-band-sub">Central de Suporte</p>
+          </div>
+        </div>
+      </header>
+
+      <main className="auth-main">
+        <div className="card card-raised auth-card">
+          {children}
+        </div>
+        <Pontos />
+        <p className="mt-5 text-center lg:hidden"><DevCredit variant="onSurface" /></p>
+      </main>
+    </div>
+  );
+}
+
+/** Cabeçalho do card de autenticação: logo em alta + título + subtítulo. */
+export function AuthHeading({ title, subtitle }: { title: string; subtitle?: ReactNode }) {
+  return (
+    <div className="auth-card-logo">
+      <img src="/logo-hd.png" alt="" aria-hidden="true" />
+      <div>
+        <h1 className="auth-card-title">{title}</h1>
+        {subtitle && <p className="auth-card-sub">{subtitle}</p>}
       </div>
-      {hint && <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '6px 0 0' }}>{hint}</p>}
+    </div>
+  );
+}
+
+/** Atributos que o campo deve espalhar no `<input>` para ligar rótulo, dica e erro. */
+export interface AuthFieldControl {
+  id: string;
+  'aria-describedby'?: string;
+  'aria-invalid'?: true;
+}
+
+interface AuthFieldProps {
+  label: string;
+  icon?: ReactNode;
+  hint?: ReactNode;
+  error?: ReactNode;
+  /**
+   * Render-prop: recebe `{ id, aria-describedby, aria-invalid }` para espalhar no
+   * controle. Também aceita um nó pronto (modo antigo, sem `htmlFor`) para as
+   * páginas que ainda não migraram.
+   */
+  children: ((ctl: AuthFieldControl) => ReactNode) | ReactNode;
+}
+
+/** Campo com rótulo, ícone à esquerda, dica e erro, no padrão do portal. */
+export function AuthField({ label, icon, hint, error, children }: AuthFieldProps) {
+  const id = useId();
+  const hintId = `${id}-hint`;
+  const errId = `${id}-err`;
+  const isRenderProp = typeof children === 'function';
+
+  const describedBy = [hint ? hintId : null, error ? errId : null].filter(Boolean).join(' ') || undefined;
+  const ctl: AuthFieldControl = { id };
+  if (describedBy) ctl['aria-describedby'] = describedBy;
+  if (error) ctl['aria-invalid'] = true;
+
+  return (
+    <div className="field-wrap">
+      <label htmlFor={isRenderProp ? id : undefined} className="field-label">{label}</label>
+      <div className="relative">
+        {icon && (
+          <span
+            className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none inline-flex"
+            style={{ color: 'var(--text-2)' }}
+            aria-hidden="true"
+          >
+            {icon}
+          </span>
+        )}
+        {isRenderProp ? (children as (ctl: AuthFieldControl) => ReactNode)(ctl) : children}
+      </div>
+      {hint && <p id={hintId} className="field-hint">{hint}</p>}
+      {error && <p id={errId} className="field-error" role="alert">{error}</p>}
     </div>
   );
 }
 
 export const authInputClass = 'field with-icon';
 
+/** Aviso dentro do card: erro (vermelho) ou informação (azul), sempre com ícone. */
 export function AuthAlert({ kind, children }: { kind: 'error' | 'info'; children: ReactNode }) {
-  const cor = kind === 'error' ? 'var(--coral)' : 'var(--electric)';
-  const fundo = kind === 'error' ? 'var(--coral-soft)' : 'var(--electric-soft)';
+  const isError = kind === 'error';
   return (
-    <div role={kind === 'error' ? 'alert' : 'status'} style={{ background: fundo, color: cor, borderRadius: 'var(--radius-tile)', padding: '10px 14px', fontSize: 13, marginBottom: 18 }}>
-      {children}
+    <div
+      className={`notice ${isError ? 'notice-danger' : 'notice-info'} mb-4`}
+      role={isError ? 'alert' : 'status'}
+    >
+      {isError ? <AlertCircle size={16} aria-hidden="true" /> : <Info size={16} aria-hidden="true" />}
+      <div className="notice-body">{children}</div>
     </div>
   );
 }
