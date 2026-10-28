@@ -311,4 +311,29 @@ Arquivo de amostra da folha (dados reais, fora do git): existia em
 pasta `Holerites` do Drive. Deploy: `python update.py` (backend) e
 `python deploy_hostinger.py` (frontend), com `.deploy.env` preenchido.
 Prévia de um TXT sem tocar no banco: `npx tsx scripts/holerite-preview.ts arquivo.txt saida/`
-(com `--observacoes "texto"` para ver a caixa de observações preenchida).
+(com `--observacoes "texto"` para ver a caixa de observações preenchida).## Estado atual (28/10/2026) — REDESENHO "Central de Suporte" (Jira/Zendesk) NO GIT, NÃO PUBLICADO
+
+Branch `visual-central-suporte` (enviada; não mesclada em main). Rollback do Telehap: tag
+`visual-telehap-final` (058edd1). Produção segue com o Telehap. Doc: `docs/visual-central-suporte.md`.
+Plano aprovado: `~/.claude/plans/vou-soltar-um-prompt-federated-piglet.md` (PC rrona).
+
+Feito (fases 1–4): tokens Inter/#14243B/#2563EB em `index.css` (em `@layer components`, senão as
+utilities do Tailwind perdem p/ o CSS do sistema), sidebar navy agrupada + topbar branca com "Abrir
+chamado", PageHeader plano, login sem blob, `Field/Modal/Notice/EmptyState/Table loading`, inicial para
+TODOS em `/` (HomePage: serviços reais, meus chamados, fila da equipe p/ quem tem `dashboard`), Painel
+em `/dashboard` (avisa sem módulo `relatorios`), chamados (form em grupos + validação no campo, lista
+com `?status=` e busca local, detalhe com linha do tempo e faixa pós-abertura, responsável só ADMIN),
+todas as páginas em Field/Notice/EmptyState, abas com role, zero hex em src, `style={{}}` 762 → ~45.
+Guardas: tsc 0; eslint 31 (baseline 37, nenhum novo); build OK.
+
+Conferido no Chrome local (claro/escuro, 1568 px): login, inicial USER e GESTOR, Painel sem módulo,
+lista de chamados. **FALTA**: conferir no Chrome as telas da fase 3 (abrir chamado, detalhe, auth,
+suprimentos, manutenções, agente, holerites, repositório, relatórios) + 414/360 px por iframe +
+auditoria DOM (checklist §7 do plano); mesclar em main; publicar SÓ com autorização do Ronaldo
+(`deploy_hostinger.py` com `VITE_GOOGLE_CLIENT_ID` exportado; token Hostinger expirado → MCP
+`hosting_deployStaticWebsite`); avisar usuários (Ctrl+Shift+R).
+Local: backend `PORT=3199 WHATSAPP_PROVIDER=mock REMINDER_SCHEDULER_ENABLED=false STORAGE_PROVIDER=local
+npx tsx src/server.ts`, Vite 5199; contas de teste via `scripts/create-test-user.ts` (ADMIN
+teste@csp.local, USER usuario.teste@csp.local, GESTOR gestor.teste@csp.local c/ módulo dashboard).
+
+
