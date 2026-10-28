@@ -21,7 +21,6 @@ import {
   Sun,
   Moon,
   MessageSquare,
-  Headset,
   CalendarClock,
   Bell,
   DatabaseBackup,
@@ -78,7 +77,6 @@ const navGroups: NavGroup[] = [
     label: 'Automação',
     items: [
       { to: '/whatsapp', label: 'WhatsApp', icon: MessageSquare, module: 'whatsapp' },
-      { to: '/whatsapp-suporte', label: 'Bot de suporte', icon: Headset, module: 'bot' },
     ],
   },
 ];

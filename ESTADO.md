@@ -334,7 +334,7 @@ nos tokens (ver `docs/visual-central-suporte.md`); **"Agente IA" (painel da Liz)
 a Liz roda em outro lugar; ficam só as automações do próprio portal (WhatsApp e Bot de suporte).
 Saíram `pages/AgentePage.tsx`, `lib/lizApi.ts`, a rota `/agente`, o item do menu, o serviço da
 inicial e o módulo `agente` (front e back); o router `backend/src/modules/agent` continua montado
-mas sem tela. eslint caiu para 18 (a página levou 13 problemas antigos).
+mas sem tela. eslint caiu para 18 (a página levou 13 problemas antigos). Em seguida, pedido dele, **"Bot de suporte" também REMOVIDO** (tela `/whatsapp-suporte`, item do menu, serviço da inicial e módulo `bot` nos dois `modules.ts`): em Automação fica SÓ "WhatsApp" (conexão + envio de códigos e avisos). O backend do bot (`modules/bot`, webhook) continua no ar; `BOT_ENABLED` decide se ele responde.
 
 Conferido no Chrome local (rrona 28/10: claro/escuro 1568 px — login, inicial USER e GESTOR, Painel
 sem módulo, lista de chamados; **franc 28/10 tarde: TODAS as telas da fase 3** — login/cadastro/

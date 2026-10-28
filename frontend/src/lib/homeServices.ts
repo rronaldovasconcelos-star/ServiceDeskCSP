@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   PlusCircle, Ticket, PackagePlus, Package, FolderOpen, Receipt, BookOpen,
   CalendarClock, Bell, HardDrive, BriefcaseBusiness, LayoutDashboard, BarChart3,
-  Users, DatabaseBackup, MessageSquare, Headset,
+  Users, DatabaseBackup, MessageSquare,
 } from 'lucide-react';
 import { canAccess } from './modules';
 
@@ -36,7 +36,6 @@ export const HOME_SERVICES: HomeService[] = [
   { key: 'users', to: '/users', label: 'Usuários', description: 'Contas, perfis e módulos', icon: Users, module: 'users' },
   { key: 'backups', to: '/backups', label: 'Backups', description: 'Cópias de segurança do portal', icon: DatabaseBackup, module: 'backups' },
   { key: 'whatsapp', to: '/whatsapp', label: 'WhatsApp', description: 'Conexão e envios', icon: MessageSquare, module: 'whatsapp' },
-  { key: 'bot', to: '/whatsapp-suporte', label: 'Bot de suporte', description: 'Abertura de chamados pelo WhatsApp', icon: Headset, module: 'bot' },
 ];
 
 type AccessUser = { role?: string; modules?: string[] } | null | undefined;

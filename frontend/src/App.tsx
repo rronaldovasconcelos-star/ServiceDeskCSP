@@ -187,21 +187,6 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/whatsapp-suporte"
-            element={
-              <ProtectedRoute module="bot">
-                <Layout>
-                  <WhatsAppPage
-                    apiBase="/bot/connection"
-                    title="WhatsApp — Bot de Suporte"
-                    instanceLabel="csp-suporte"
-                    purpose="recebendo mensagens e abrindo chamados"
-                  />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
