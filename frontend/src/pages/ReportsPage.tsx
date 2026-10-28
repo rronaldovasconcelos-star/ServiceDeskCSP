@@ -5,9 +5,11 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Minus, FileText, FileSpreadsheet,
-  Inbox, CheckCircle2, Timer, Layers,
+  Inbox, CheckCircle2, Timer, Layers, Lightbulb,
 } from 'lucide-react';
 import api from '../lib/api';
+import PageHeader from '../components/PageHeader';
+import { Button, Card, IconTile, Table } from '../components/ui';
 
 /* ── Tipos ── */
 interface Trend { value: number | null; prev?: number | null; pct: number | null; }
@@ -42,9 +44,17 @@ const CAT_LABEL: Record<string, string> = {
   TI: 'TI', MANUTENCAO: 'Manutenção', PEDAGOGICO: 'Pedagógico',
   ADMINISTRATIVO: 'Administrativo', SUPRIMENTOS: 'Suprimentos', OUTROS: 'Outros',
 };
-const ACCENT = '#4d8ef0';
-const GREEN = '#22c55e';
-const AMBER = '#f59e0b';
+
+/* Paleta dos gráficos: os mesmos tokens do tema (iguais ao Dashboard). */
+const ELECTRIC = 'var(--electric)';
+const TEAL = 'var(--teal)';
+const AMBER = 'var(--amber)';
+const CORAL = 'var(--coral)';
+const GRID = 'var(--border)';
+const TOOLTIP_STYLE = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-tile)', fontSize: 12 } as const;
+const TICK = { fontSize: 11, fill: 'var(--text-secondary)' } as const;
+
+type Tom = 'electric' | 'teal' | 'amber' | 'coral' | 'muted';
 
 function isoDay(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -62,35 +72,29 @@ function TrendBadge({ pct, invert }: { pct: number | null; invert?: boolean }) {
   if (pct == null) return <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>—</span>;
   const good = invert ? pct < 0 : pct > 0;
   const flat = pct === 0;
-  const color = flat ? 'var(--text-secondary)' : good ? GREEN : '#ef4444';
+  const tom: Tom = flat ? 'muted' : good ? 'teal' : 'coral';
   const Icon = flat ? Minus : pct > 0 ? TrendingUp : TrendingDown;
-  const bg = flat ? 'rgba(148,163,184,.12)' : good ? 'rgba(34,197,94,.12)' : 'rgba(239,68,68,.12)';
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 600,
-      color, background: bg, padding: '2px 7px', borderRadius: 20,
-    }}>
+    <span className={`pill pill-${tom}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>
       <Icon size={12} /> {Math.abs(pct)}%
     </span>
   );
 }
 
-function KpiCard({ label, value, pct, invert, icon, accent, prev }: {
+function KpiCard({ label, value, pct, invert, icon, tone, prev }: {
   label: string; value: string; pct: number | null; invert?: boolean;
-  icon: React.ReactNode; accent: string; prev?: string;
+  icon: React.ReactNode; tone: Exclude<Tom, 'muted'>; prev?: string;
 }) {
   return (
     <div className="kpi-card">
-      <span style={{
-        position: 'absolute', top: 0, left: 0, width: 3, height: '100%',
-        background: accent, borderRadius: 'var(--radius) 0 0 var(--radius)',
-      }} />
-      <div className="kpi-card-icon">{icon}</div>
-      <p className="kpi-label">{label}</p>
-      <p className="kpi-value">{value}</p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-        <TrendBadge pct={pct} invert={invert} />
-        {prev != null && <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>vs. {prev}</span>}
+      <IconTile tone={tone} size={44}>{icon}</IconTile>
+      <div className="min-w-0">
+        <p className="kpi-label">{label}</p>
+        <p className="kpi-value">{value}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+          <TrendBadge pct={pct} invert={invert} />
+          {prev != null && <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>vs. {prev}</span>}
+        </div>
       </div>
     </div>
   );
@@ -158,115 +162,102 @@ export default function ReportsPage() {
     ? Object.entries(overview.byCategory).map(([k, v]) => ({ name: CAT_LABEL[k] ?? k, value: v })).sort((a, b) => b.value - a.value)
     : [];
   const slaData = sla
-    ? [{ name: 'No prazo', value: sla.onTime, color: GREEN },
+    ? [{ name: 'No prazo', value: sla.onTime, color: TEAL },
        { name: 'Em risco', value: sla.atRisk, color: AMBER },
-       { name: 'Estourado', value: sla.breached, color: '#ef4444' }]
+       { name: 'Estourado', value: sla.breached, color: CORAL }]
     : [];
 
   const fmtTick = (d: string) => d.slice(8, 10) + '/' + d.slice(5, 7);
   const fmtLabel = (d: unknown) => fmtTick(String(d));
+  const fmtBr = (d: string) => d.split('-').reverse().join('/');
+
+  const slaTom = (v: number | null): Tom => v == null ? 'muted' : v >= 90 ? 'teal' : v >= 80 ? 'amber' : 'coral';
 
   return (
-    <div>
-      {/* Header */}
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Relatórios</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '4px 0 0' }}>
-            Visão executiva · {dates.from.split('-').reverse().join('/')} a {dates.to.split('-').reverse().join('/')}
-          </p>
-        </div>
-        <div className="page-header-actions">
-          {/* Seletor de período */}
-          <div style={{ display: 'flex', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+    <>
+      <PageHeader
+        title="Relatórios"
+        subtitle={`Visão executiva · ${fmtBr(dates.from)} a ${fmtBr(dates.to)}`}
+        actions={(
+          <>
+            <Button variant="onNavy" size="sm" icon={<FileSpreadsheet size={14} />} disabled={exporting != null}
+              onClick={() => handleExport('/reports/export/csv', `chamados_${dates.from}_${dates.to}.xlsx`, 'xlsx')}>
+              {exporting === 'xlsx' ? 'Gerando…' : 'Excel'}
+            </Button>
+            <Button variant="secondary" size="sm" icon={<FileText size={14} />} disabled={exporting != null}
+              onClick={() => handleExport('/reports/export/executivo/pdf', `relatorio-executivo_${dates.from}_${dates.to}.pdf`, 'pdf')}>
+              {exporting === 'pdf' ? 'Gerando…' : 'Relatório PDF'}
+            </Button>
+          </>
+        )}
+      />
+
+      <div className="page-body" style={{ maxWidth: 1400, paddingBottom: 60 }}>
+        {/* Seletor de período */}
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 20 }}>
+          <div className="tabs">
             {RANGES.map((r) => (
-              <button key={r.key} onClick={() => setRange(r.key)}
-                style={{
-                  background: range === r.key ? 'var(--accent)' : 'transparent',
-                  color: range === r.key ? '#fff' : 'var(--text-secondary)',
-                  border: 'none', borderRight: '1px solid var(--border)',
-                  fontSize: 12, fontWeight: 500, padding: '7px 13px', cursor: 'pointer',
-                }}>
+              <button key={r.key} type="button" className={`tab${range === r.key ? ' active' : ''}`} onClick={() => setRange(r.key)}>
                 {r.label}
               </button>
             ))}
           </div>
           {range === 'custom' && (
             <>
-              <input type="date" value={custom.from} max={custom.to}
-                onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))}
-                style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '5px 8px', fontSize: 12 }} />
-              <input type="date" value={custom.to} min={custom.from} max={isoDay(new Date())}
-                onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))}
-                style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '5px 8px', fontSize: 12 }} />
+              <input type="date" value={custom.from} max={custom.to} className="field" style={{ width: 'auto' }}
+                onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))} />
+              <input type="date" value={custom.to} min={custom.from} max={isoDay(new Date())} className="field" style={{ width: 'auto' }}
+                onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))} />
             </>
           )}
-          <button className="btn-export btn-export-csv" disabled={exporting != null}
-            onClick={() => handleExport('/reports/export/csv', `chamados_${dates.from}_${dates.to}.xlsx`, 'xlsx')}>
-            <FileSpreadsheet size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-            {exporting === 'xlsx' ? 'Gerando…' : 'Excel'}
-          </button>
-          <button className="btn-export btn-export-pdf" disabled={exporting != null}
-            onClick={() => handleExport('/reports/export/executivo/pdf', `relatorio-executivo_${dates.from}_${dates.to}.pdf`, 'pdf')}>
-            <FileText size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-            {exporting === 'pdf' ? 'Gerando…' : 'Relatório PDF'}
-          </button>
         </div>
-      </div>
 
-      <div style={{ padding: '22px 24px 60px', maxWidth: 1400, margin: '0 auto' }}>
-        {loading && <p style={{ color: 'var(--text-secondary)' }}>Carregando relatórios…</p>}
+        {loading && <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando relatórios…</p>}
 
         {!loading && overview && (
           <>
             {/* Banner resumo */}
             {narrative && (
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(77,142,240,.12), rgba(34,197,94,.06))',
-                border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-                padding: '14px 18px', marginBottom: 22, fontSize: 13,
-                color: 'var(--text-secondary)', lineHeight: 1.6,
-              }}>
-                💡 {narrative}
-              </div>
+              <Card style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: '14px 18px', marginBottom: 22, background: 'var(--electric-soft)', borderColor: 'transparent' }}>
+                <IconTile tone="electric" size={32}><Lightbulb size={16} /></IconTile>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.6 }}>{narrative}</p>
+              </Card>
             )}
 
             {/* KPIs */}
             <p className="section-label">Indicadores-chave · comparado ao período anterior</p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <KpiCard label="Chamados abertos" value={String(overview.opened.value)} pct={overview.opened.pct}
-                prev={String(overview.opened.prev ?? 0)} accent="var(--status-andamento)" icon={<Inbox size={20} />} />
+                prev={String(overview.opened.prev ?? 0)} tone="electric" icon={<Inbox size={20} />} />
               <KpiCard label="Resolvidos" value={String(overview.resolved.value)} pct={overview.resolved.pct}
-                prev={String(overview.resolved.prev ?? 0)} accent="var(--status-concluido)" icon={<CheckCircle2 size={20} />} />
+                prev={String(overview.resolved.prev ?? 0)} tone="teal" icon={<CheckCircle2 size={20} />} />
               <KpiCard label="Tempo médio resolução"
                 value={overview.avgResolutionHours.value != null ? `${overview.avgResolutionHours.value}h` : '—'}
                 pct={overview.avgResolutionHours.pct} invert
                 prev={overview.avgResolutionHours.prev != null ? `${overview.avgResolutionHours.prev}h` : '—'}
-                accent="var(--accent)" icon={<Timer size={20} />} />
+                tone="electric" icon={<Timer size={20} />} />
               <KpiCard label="Backlog atual" value={String(overview.backlog.value)} pct={null}
-                accent="var(--status-aberto)" icon={<Layers size={20} />} />
+                tone="amber" icon={<Layers size={20} />} />
             </div>
 
             {/* Análise operacional */}
             <p className="section-label" style={{ marginTop: 28 }}>Análise operacional</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
-              <div className="chart-card">
-                <p className="chart-title">Tendência — abertos vs. resolvidos</p>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <Card className="lg:col-span-2" title="Tendência — abertos vs. resolvidos">
                 <ResponsiveContainer width="100%" height={240}>
                   <LineChart data={series} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,.12)" vertical={false} />
-                    <XAxis dataKey="date" tickFormatter={fmtTick} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} interval="preserveStartEnd" minTickGap={28} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
-                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} labelFormatter={fmtLabel} />
-                    <Line type="monotone" dataKey="opened" name="Abertos" stroke={ACCENT} strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="resolved" name="Resolvidos" stroke={GREEN} strokeWidth={2} dot={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+                    <XAxis dataKey="date" tickFormatter={fmtTick} tick={TICK} interval="preserveStartEnd" minTickGap={28} />
+                    <YAxis allowDecimals={false} tick={TICK} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={fmtLabel} />
+                    <Line type="monotone" dataKey="opened" name="Abertos" stroke={ELECTRIC} strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="resolved" name="Resolvidos" stroke={TEAL} strokeWidth={2} dot={false} />
                   </LineChart>
                 </ResponsiveContainer>
-              </div>
+              </Card>
 
               {/* SLA donut */}
-              <div className="chart-card">
-                <p className="chart-title">SLA cumprido</p>
+              <Card title="SLA cumprido">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ position: 'relative', width: 130, height: 130, flexShrink: 0 }}>
                     <ResponsiveContainer width="100%" height="100%">
@@ -281,7 +272,7 @@ export default function ReportsPage() {
                       <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>no prazo</span>
                     </div>
                   </div>
-                  <div style={{ fontSize: 12, lineHeight: 2 }}>
+                  <div style={{ fontSize: 12, lineHeight: 2, color: 'var(--text-secondary)' }}>
                     {slaData.map((d) => (
                       <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ width: 9, height: 9, borderRadius: '50%', background: d.color, display: 'inline-block' }} />
@@ -290,24 +281,22 @@ export default function ReportsPage() {
                     ))}
                   </div>
                 </div>
-              </div>
+              </Card>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
-              <div className="chart-card">
-                <p className="chart-title">Distribuição por categoria</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4" style={{ marginTop: 16 }}>
+              <Card title="Distribuição por categoria">
                 <ResponsiveContainer width="100%" height={200}>
                   <BarChart data={catData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,.12)" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
-                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} cursor={{ fill: 'rgba(77,142,240,.08)' }} />
-                    <Bar dataKey="value" name="Chamados" fill={ACCENT} radius={[5, 5, 0, 0]} maxBarSize={42} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+                    <XAxis dataKey="name" tick={TICK} />
+                    <YAxis allowDecimals={false} tick={TICK} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} cursor={{ fill: 'var(--electric-soft)' }} />
+                    <Bar dataKey="value" name="Chamados" fill={ELECTRIC} radius={[6, 6, 0, 0]} maxBarSize={42} />
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
-              <div className="chart-card">
-                <p className="chart-title">Backlog ao longo do tempo</p>
+              </Card>
+              <Card title="Backlog ao longo do tempo">
                 <ResponsiveContainer width="100%" height={200}>
                   <AreaChart data={series} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
                     <defs>
@@ -316,76 +305,65 @@ export default function ReportsPage() {
                         <stop offset="100%" stopColor={AMBER} stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,.12)" vertical={false} />
-                    <XAxis dataKey="date" tickFormatter={fmtTick} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} interval="preserveStartEnd" minTickGap={28} />
-                    <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
-                    <Tooltip contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }} labelFormatter={fmtLabel} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+                    <XAxis dataKey="date" tickFormatter={fmtTick} tick={TICK} interval="preserveStartEnd" minTickGap={28} />
+                    <YAxis allowDecimals={false} tick={TICK} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} labelFormatter={fmtLabel} />
                     <Area type="monotone" dataKey="backlog" name="Backlog" stroke={AMBER} strokeWidth={2} fill="url(#bk)" />
                   </AreaChart>
                 </ResponsiveContainer>
-              </div>
+              </Card>
             </div>
 
             {/* Produtividade */}
             <p className="section-label" style={{ marginTop: 28 }}>Produtividade da equipe</p>
-            <div className="chart-card" style={{ padding: 0, overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr>
-                    {['Atendente', 'Resolvidos', 'Tempo médio', 'SLA', 'Reabertura', 'Carga'].map((h, i) => (
-                      <th key={h} style={{
-                        textAlign: i === 0 ? 'left' : 'center', fontSize: 11, textTransform: 'uppercase',
-                        letterSpacing: '.05em', color: 'var(--text-secondary)', fontWeight: 600,
-                        padding: '12px 14px', borderBottom: '1px solid var(--border)',
-                      }}>{h}</th>
-                    ))}
+            <Table
+              isEmpty={agents.length === 0}
+              empty="Nenhum chamado resolvido com responsável no período."
+              head={(
+                <tr>
+                  <th>Atendente</th>
+                  <th style={{ textAlign: 'center' }}>Resolvidos</th>
+                  <th style={{ textAlign: 'center' }}>Tempo médio</th>
+                  <th style={{ textAlign: 'center' }}>SLA</th>
+                  <th style={{ textAlign: 'center' }}>Reabertura</th>
+                  <th style={{ textAlign: 'center' }}>Carga</th>
+                </tr>
+              )}
+            >
+              {agents.map((a) => {
+                const initials = a.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
+                return (
+                  <tr key={a.id}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                        <span style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--electric-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--electric)', flexShrink: 0 }}>{initials}</span>
+                        {a.name}
+                      </div>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>{a.resolved}</td>
+                    <td style={{ textAlign: 'center' }}>{a.avgResolutionHours != null ? `${a.avgResolutionHours}h` : '—'}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <span className={`pill pill-${slaTom(a.slaCompliance)}`} style={{ fontWeight: 600 }}>
+                        {a.slaCompliance != null ? `${a.slaCompliance}%` : '—'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>{a.reopenRate}%</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ height: 6, width: 80, borderRadius: 3, background: 'var(--electric-soft)', overflow: 'hidden', display: 'inline-block' }}>
+                          <span style={{ display: 'block', height: '100%', width: `${a.loadPct}%`, background: 'var(--electric)' }} />
+                        </span>
+                        <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{a.currentLoad}</span>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {agents.length === 0 && (
-                    <tr><td colSpan={6} style={{ padding: 20, textAlign: 'center', color: 'var(--text-secondary)' }}>
-                      Nenhum chamado resolvido com responsável no período.
-                    </td></tr>
-                  )}
-                  {agents.map((a) => {
-                    const slaColor = a.slaCompliance == null ? 'var(--text-secondary)'
-                      : a.slaCompliance >= 90 ? GREEN : a.slaCompliance >= 80 ? AMBER : '#ef4444';
-                    const slaBg = a.slaCompliance == null ? 'rgba(148,163,184,.12)'
-                      : a.slaCompliance >= 90 ? 'rgba(34,197,94,.12)' : a.slaCompliance >= 80 ? 'rgba(245,158,11,.12)' : 'rgba(239,68,68,.12)';
-                    const initials = a.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
-                    return (
-                      <tr key={a.id}>
-                        <td style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                            <span style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--bg-active)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>{initials}</span>
-                            {a.name}
-                          </div>
-                        </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>{a.resolved}</td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>{a.avgResolutionHours != null ? `${a.avgResolutionHours}h` : '—'}</td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>
-                          <span style={{ padding: '2px 9px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: slaColor, background: slaBg }}>
-                            {a.slaCompliance != null ? `${a.slaCompliance}%` : '—'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>{a.reopenRate}%</td>
-                        <td style={{ padding: '12px 14px', textAlign: 'center', borderBottom: '1px solid var(--border)' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ height: 6, width: 80, borderRadius: 3, background: 'var(--bg-active)', overflow: 'hidden', display: 'inline-block' }}>
-                              <span style={{ display: 'block', height: '100%', width: `${a.loadPct}%`, background: 'var(--accent)' }} />
-                            </span>
-                            <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{a.currentLoad}</span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                );
+              })}
+            </Table>
           </>
         )}
       </div>
-    </div>
+    </>
   );
 }

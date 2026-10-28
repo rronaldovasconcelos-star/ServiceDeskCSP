@@ -25,17 +25,17 @@ hospedagem Hostinger.
   backend (após `prisma generate`) e do frontend em 0 erros, eslint nos 37 de baseline,
   `vite build` OK. No franc: `git pull` antes de continuar.
 
-## Onde parou (27/10/2026, noite) — REDESENHO VISUAL "Telehap" (EM ANDAMENTO, NÃO PUBLICADO)
+## Onde parou (27/10/2026, noite, rrona) — REDESENHO VISUAL "Telehap" COMPLETO NO GIT, NÃO PUBLICADO
 
 Pedido do Ronaldo: trocar a cara do portal pelo estilo do kit **Telehap – Call Center &
 Customer Support** (TemplateMonster 568094). Plano aprovado e salvo em
-`C:\Users\franc\.claude\plans\https-demo-templatemonster-com-pt-br-dem-cozy-bee.md`
+`C:/Users/franc/.claude/plans/https-demo-templatemonster-com-pt-br-dem-cozy-bee.md`
 (direção "moldura Telehap, miolo claro": sidebar/topo/login/faixa de cabeçalho em
 azul-marinho com forma orgânica azul-elétrica e botões-pílula; áreas de dados claras;
-fonte Poppins; tokens em `frontend/src/index.css`). O visual novo está SÓ no git; o site
-em produção continua com o visual antigo até o próximo `deploy_hostinger.py`.
+fonte Poppins; tokens em `frontend/src/index.css`). **O visual novo está SÓ no git; o site
+em produção continua com o visual antigo até o próximo `deploy_hostinger.py`.**
 
-**Feito (commits `294cfbc` + este):**
+**Feito (commits `294cfbc`, `6bc4892` e o da fase 4 final):**
 - Fase 1 — tokens novos no `index.css` (nomes antigos viraram aliases), Poppins no
   `index.html`, tema persistido no `localStorage` (`ThemeContext`), `App.css` morto apagado.
 - Fase 2 — `Layout.tsx` (sidebar navy 232 px com tiles de ícone, item ativo em pílula),
@@ -43,20 +43,29 @@ em produção continua com o visual antigo até o próximo `deploy_hostinger.py`
   (`Button`, `Card`, `IconTile`, `Modal`, `Table`), `StatusBadge` por classes `.pill-*`.
 - Fase 3 — `components/AuthShell.tsx` (casca dividida) + Login/Register/Reset;
   Dashboard com tiles e paleta nos gráficos. Conferido no Chrome local nos dois temas.
-- Fase 4 (parcial) — migradas para `PageHeader`/`Card`/`Table`/`Button`/`Modal` e sem
-  hex: Tickets (lista, detalhe, novo), Suprimentos (lista, novo, detalhe, catálogo),
-  Meus Arquivos, Meus Holerites, Backups.
+- Fase 4 (COMPLETA em 27/10 à noite, no rrona) — TODAS as páginas em
+  `PageHeader`/`Card`/`Table`/`Button`/`Modal`, abas em `.tabs/.tab` (classe nova no
+  `index.css`), KPIs em `.kpi-card` + `IconTile`, pílulas `.pill-*`; **zero hex em
+  `frontend/src/*.ts(x)`** (`grep -rn "#[0-9a-fA-F]\{3,6\}" src --include=*.tsx` vazio).
+  Nesta rodada: Repositório, Usuários, Manutenções, Lembretes, Relatórios, RH · Holerites,
+  WhatsApp, Agente; componentes KanbanBoard, FileUploader, FilePreviewModal (segue modal
+  próprio de 90vh), FileActionButtons, FilesTreeView, MapaBairros (cor do Leaflet lida de
+  `--violet` por `getComputedStyle`), DevCredit, AuthShell. Modais à mão viraram `<Modal>`
+  (Esc e scroll-lock pelo componente). Lógica, rotas e API intocadas.
 
-**Falta (Fase 4):** RepositorioPage, UsersPage, ManutencoesPage, LembretesPage,
-ReportsPage, HoleritesRhPage, WhatsAppPage, AgentePage; e os hex em `KanbanBoard`,
-`FileUploader`, `FilePreviewModal`, `FileActionButtons`, `MapaBairros`, `DevCredit`.
-As páginas não migradas renderizam bem com os tokens (aliases), só sem a faixa navy.
-Receita por página: trocar o cabeçalho inline por `<PageHeader>` + `<div className="page-body">`,
-tabela por `<Table>`, modais escritos à mão por `<Modal>`, botões por `<Button>`, cores
-hex por `var(--electric|--teal|--amber|--coral|--violet|--text-secondary)`. Conferir com
-`npx tsc --noEmit -p tsconfig.app.json`, `npx eslint src` (baseline 37) e `npx vite build`.
-Para ver local: backend `PORT=3199` + `VITE_API_URL=http://localhost:3199/api npx vite --port 5199`
-(admin local `admin@santapaula.com.br` / `Admin@123`; 5 chamados de teste no dev.db).
+**Guardas depois da fase 4:** `npx tsc --noEmit -p tsconfig.app.json` 0 erros; `npx eslint
+src` nos **37 problemas de baseline** (nenhum novo); `npx vite build` OK.
+**NÃO conferido no Chrome nesta rodada** (fases 1–3 foram; as páginas da fase 4 não).
+
+**Próximos passos:**
+1. Abrir local e passar pelas páginas da fase 4 nos dois temas (claro/escuro), em
+   desktop e largura de celular: backend `PORT=3199` + `VITE_API_URL=http://localhost:3199/api
+   npx vite --port 5199` (admin local `admin@santapaula.com.br` / `Admin@123`; 5 chamados
+   de teste no dev.db). Ajustar o que destoar.
+2. Publicar: `python deploy_hostinger.py` (só frontend; o backend não mudou nesta fase).
+   Provar pelo bundle servido (hash + "Poppins"/`page-hero` no JS/CSS).
+3. Avisar os usuários do visual novo (hard refresh Ctrl+Shift+R se virem o antigo).
+
 ## Estado anterior (27/10/2026, noite) — "Abrir no Word" + ajustes do Google
 
 **EM PRODUÇÃO desde 27/10 ~17h50** (deploy do franc pelos dois scripts com `!`, Python 3.12).

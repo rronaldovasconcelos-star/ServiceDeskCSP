@@ -100,20 +100,11 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
   }
 
   return (
-    <div
-      style={{
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius)',
-        padding: '16px',
-        marginBottom: '16px',
-        boxShadow: 'var(--shadow)',
-      }}
-    >
+    <div className="card" style={{ padding: '16px' }}>
       {/* Classificação — 6 eixos obrigatórios */}
       <div style={{ marginBottom: '12px' }}>
         <label style={fieldLabelStyle}>
-          Classificação <span style={{ color: '#ef4444' }}>*</span>
+          Classificação <span style={{ color: 'var(--coral)' }}>*</span>
         </label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px' }}>
           <select value={anoLetivo} onChange={(e) => setAnoLetivo(e.target.value)} disabled={uploading} style={selectStyle(!!anoLetivo)}>
@@ -158,8 +149,8 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
           if (!uploading && e.dataTransfer.files.length) send(e.dataTransfer.files);
         }}
         style={{
-          border: `2px dashed ${dragging ? 'var(--accent)' : 'var(--border)'}`,
-          borderRadius: 'var(--radius)',
+          border: `2px dashed ${dragging ? 'var(--electric)' : 'var(--border)'}`,
+          borderRadius: 'var(--radius-card)',
           padding: '28px 16px',
           textAlign: 'center',
           cursor: uploading ? 'default' : 'pointer',
@@ -168,7 +159,7 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
           opacity: classificacaoCompleta ? 1 : 0.6,
         }}
       >
-        <UploadCloud size={28} color="var(--accent)" style={{ marginBottom: '8px' }} />
+        <UploadCloud size={28} color="var(--electric)" style={{ marginBottom: '8px' }} />
         <p style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 500, margin: '0 0 2px' }}>
           Arraste arquivos aqui ou clique para selecionar
         </p>
@@ -192,7 +183,7 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
               style={{
                 width: `${progress}%`,
                 height: '100%',
-                background: 'var(--accent)',
+                background: 'var(--electric)',
                 transition: 'width 0.2s',
               }}
             />
@@ -208,11 +199,10 @@ export default function FileUploader({ onUploaded }: { onUploaded: () => void })
           style={{
             marginTop: '12px',
             padding: '8px 12px',
-            background: 'rgba(239,68,68,0.1)',
-            border: '1px solid rgba(239,68,68,0.3)',
-            color: '#ef4444',
+            background: 'var(--coral-soft)',
+            color: 'var(--coral)',
             fontSize: '12px',
-            borderRadius: 'var(--radius-sm)',
+            borderRadius: 'var(--radius-tile)',
           }}
         >
           {error}

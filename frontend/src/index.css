@@ -549,6 +549,34 @@ h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.01em; }
 .pill-coral { background: var(--coral-soft); color: var(--coral); }
 .pill-violet { background: var(--violet-soft); color: var(--violet); }
 .pill-muted { background: rgba(122,132,159,0.14); color: var(--status-cancelado); }
+
+/* ── Abas em pílula (RH · Holerites, Agente, Relatórios) ── */
+.tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.tab:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.tab.active { background: var(--electric); color: #fff; }
 .dark .pill-amber { color: var(--amber); }
 
 /* ── Tabelas ── */

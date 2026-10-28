@@ -169,7 +169,7 @@ export default function SuprimentosDetailPage() {
               {timeline.map((step, i) => (
                 <div key={step.status} style={{ display: 'flex', alignItems: 'center', flex: i < timeline.length - 1 ? 1 : 'none' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <div style={{ width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, background: step.done ? 'var(--teal)' : 'var(--bg-card-hover)', color: step.done ? '#fff' : 'var(--text-secondary)', border: `2px solid ${step.done ? 'var(--teal)' : 'var(--border)'}` }}>
+                    <div style={{ width: 34, height: 34, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600, background: step.done ? 'var(--teal)' : 'var(--bg-card-hover)', color: step.done ? 'var(--on-navy)' : 'var(--text-secondary)', border: `2px solid ${step.done ? 'var(--teal)' : 'var(--border)'}` }}>
                       {step.done ? <Check size={16} /> : i + 1}
                     </div>
                     <span style={{ marginTop: 6, fontSize: 11, color: 'var(--text-secondary)', textAlign: 'center', width: 64, lineHeight: 1.3 }}>{step.label}</span>

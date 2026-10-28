@@ -49,10 +49,14 @@ export default function MapaBairros({ bairros }: { bairros: Bairro[] }) {
   }, [bairros]);
 
   const max = Math.max(1, ...pontos.map((p) => p.count));
+  // Leaflet pinta SVG por valor, não por classe: lê o token do tema no momento da renderização.
+  const cor = (typeof window !== 'undefined'
+    ? getComputedStyle(document.documentElement).getPropertyValue('--violet').trim()
+    : '') || 'var(--violet)';
 
   return (
     <div>
-      <div style={{ height: 320, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+      <div style={{ height: 320, borderRadius: 'var(--radius-card)', overflow: 'hidden', border: '1px solid var(--border)' }}>
         <MapContainer center={CENTER} zoom={12} style={{ height: '100%', width: '100%' }} scrollWheelZoom={false}>
           <TileLayer
             attribution='&copy; OpenStreetMap'
@@ -63,16 +67,16 @@ export default function MapaBairros({ bairros }: { bairros: Bairro[] }) {
               key={p.bairro}
               center={[p.lat, p.lng]}
               radius={8 + 20 * (p.count / max)}
-              pathOptions={{ color: '#7c3aed', fillColor: '#7c3aed', fillOpacity: 0.45, weight: 1 }}
+              pathOptions={{ color: cor, fillColor: cor, fillOpacity: 0.45, weight: 1 }}
             >
               <Popup><strong>{p.bairro}</strong><br />{p.count} lead(s)</Popup>
             </CircleMarker>
           ))}
         </MapContainer>
       </div>
-      {loading && <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: 6 }}>Localizando bairros no mapa…</p>}
+      {loading && <p style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>Localizando bairros no mapa…</p>}
       {!loading && naoLocalizados.length > 0 && (
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: 6 }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 6 }}>
           Não localizados no mapa: {naoLocalizados.join(', ')}
         </p>
       )}

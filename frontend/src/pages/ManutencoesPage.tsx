@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import api from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import PageHeader from '../components/PageHeader';
+import { Button, Card, Modal, Table } from '../components/ui';
 
 interface Maintenance {
   id: string;
@@ -27,29 +29,14 @@ const recurrenceLabel: Record<string, string> = {
 const statusLabel: Record<string, string> = {
   ACTIVE: 'Ativa', PAUSED: 'Pausada', DONE: 'Concluída', CANCELLED: 'Cancelada',
 };
-const statusColor: Record<string, { bg: string; color: string }> = {
-  ACTIVE: { bg: 'rgba(34,197,94,0.12)', color: '#16a34a' },
-  PAUSED: { bg: 'rgba(234,179,8,0.14)', color: '#ca8a04' },
-  DONE: { bg: 'rgba(100,116,139,0.14)', color: '#64748b' },
-  CANCELLED: { bg: 'rgba(239,68,68,0.12)', color: '#ef4444' },
+/** Tom da pílula de status (classes `.pill-*` do index.css). */
+const statusTom: Record<string, string> = {
+  ACTIVE: 'teal', PAUSED: 'amber', DONE: 'muted', CANCELLED: 'coral',
 };
 
 const emptyForm = {
   name: '', description: '', urgency: 'MEDIA', recurrence: 'NONE',
   nextRunAt: '', leadDays: '0', responsavelId: '',
-};
-
-const inputStyle: React.CSSProperties = {
-  width: '100%', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-  padding: '8px 12px', fontSize: '13px', background: 'var(--bg-primary)',
-  color: 'var(--text-primary)', outline: 'none', boxSizing: 'border-box',
-};
-const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: '11px', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '5px',
-};
-const thStyle: React.CSSProperties = {
-  padding: '10px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 600,
-  textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', whiteSpace: 'nowrap',
 };
 
 /** ISO (UTC) → valor para <input type="datetime-local"> em horário local. */
@@ -59,13 +46,13 @@ function isoToLocalInput(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function chip(text: string, c: { bg: string; color: string }) {
-  return (
-    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '20px', fontSize: '11px', fontWeight: 500, background: c.bg, color: c.color }}>
-      {text}
-    </span>
-  );
+function StatusPill({ status }: { status: string }) {
+  return <span className={`pill pill-${statusTom[status] ?? 'muted'}`}>{statusLabel[status] ?? status}</span>;
 }
+
+const linkBtn: React.CSSProperties = {
+  background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 0, fontWeight: 500, fontFamily: 'inherit',
+};
 
 function MaintenanceModal({
   editId, form, users, saving, error, onChange, onSubmit, onClose,
@@ -79,84 +66,69 @@ function MaintenanceModal({
   onSubmit: (e: { preventDefault(): void }) => void;
   onClose: () => void;
 }) {
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => { document.body.style.overflow = ''; document.removeEventListener('keydown', onKey); };
-  }, [onClose]);
-
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} onClick={onClose} aria-hidden="true" />
-      <div style={{ position: 'relative', width: '100%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-            {editId ? 'Editar Manutenção' : 'Nova Manutenção Programada'}
-          </h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px', display: 'flex' }} aria-label="Fechar">
-            <X size={18} />
-          </button>
+    <Modal
+      open
+      title={editId ? 'Editar manutenção' : 'Nova manutenção programada'}
+      onClose={onClose}
+      maxWidth={520}
+      footer={(
+        <>
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" form="form-manutencao" disabled={saving}>
+            {saving ? 'Salvando...' : editId ? 'Salvar alterações' : 'Criar manutenção'}
+          </Button>
+        </>
+      )}
+    >
+      <form id="form-manutencao" onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {error && (
+          <div className="pill pill-coral" style={{ whiteSpace: 'normal', padding: '10px 12px', fontSize: 13, borderRadius: 'var(--radius-tile)' }}>
+            {error}
+          </div>
+        )}
+
+        <div>
+          <label className="field-label">Nome *</label>
+          <input value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} required placeholder="Ex: Revisão do ar-condicionado" className="field" />
+        </div>
+        <div>
+          <label className="field-label">Descrição *</label>
+          <textarea value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} required rows={3} placeholder="O que deve ser feito" className="field" style={{ resize: 'none' }} />
         </div>
 
-        <form onSubmit={onSubmit} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {error && (
-            <div style={{ padding: '10px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-sm)', color: '#ef4444', fontSize: '13px' }}>
-              {error}
-            </div>
-          )}
-
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
-            <label style={labelStyle}>Nome *</label>
-            <input value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} required placeholder="Ex: Revisão do ar-condicionado" style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>Descrição *</label>
-            <textarea value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })} required rows={3} placeholder="O que deve ser feito" style={{ ...inputStyle, resize: 'none' }} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div>
-              <label style={labelStyle}>Urgência *</label>
-              <select value={form.urgency} onChange={(e) => onChange({ ...form, urgency: e.target.value })} style={inputStyle}>
-                {URGENCIES.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Recorrência *</label>
-              <select value={form.recurrence} onChange={(e) => onChange({ ...form, recurrence: e.target.value })} style={inputStyle}>
-                {RECURRENCES.map((r) => <option key={r} value={r}>{recurrenceLabel[r]}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Início (1ª ocorrência) *</label>
-              <input type="datetime-local" value={form.nextRunAt} onChange={(e) => onChange({ ...form, nextRunAt: e.target.value })} required style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}>Lembrete (dias antes)</label>
-              <input type="number" min={0} max={365} value={form.leadDays} onChange={(e) => onChange({ ...form, leadDays: e.target.value })} style={inputStyle} />
-            </div>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Responsável *</label>
-            <select value={form.responsavelId} onChange={(e) => onChange({ ...form, responsavelId: e.target.value })} required style={inputStyle}>
-              <option value="">Selecione...</option>
-              {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+            <label className="field-label">Urgência *</label>
+            <select value={form.urgency} onChange={(e) => onChange({ ...form, urgency: e.target.value })} className="field">
+              {URGENCIES.map((u) => <option key={u} value={u}>{u}</option>)}
             </select>
           </div>
-
-          <div style={{ display: 'flex', gap: '8px', paddingTop: '4px' }}>
-            <button type="submit" disabled={saving} style={{ flex: 1, padding: '8px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1 }}>
-              {saving ? 'Salvando...' : editId ? 'Salvar alterações' : 'Criar manutenção'}
-            </button>
-            <button type="button" onClick={onClose} style={{ padding: '8px 16px', background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
-              Cancelar
-            </button>
+          <div>
+            <label className="field-label">Recorrência *</label>
+            <select value={form.recurrence} onChange={(e) => onChange({ ...form, recurrence: e.target.value })} className="field">
+              {RECURRENCES.map((r) => <option key={r} value={r}>{recurrenceLabel[r]}</option>)}
+            </select>
           </div>
-        </form>
-      </div>
-    </div>
+          <div>
+            <label className="field-label">Início (1ª ocorrência) *</label>
+            <input type="datetime-local" value={form.nextRunAt} onChange={(e) => onChange({ ...form, nextRunAt: e.target.value })} required className="field" />
+          </div>
+          <div>
+            <label className="field-label">Lembrete (dias antes)</label>
+            <input type="number" min={0} max={365} value={form.leadDays} onChange={(e) => onChange({ ...form, leadDays: e.target.value })} className="field" />
+          </div>
+        </div>
+
+        <div>
+          <label className="field-label">Responsável *</label>
+          <select value={form.responsavelId} onChange={(e) => onChange({ ...form, responsavelId: e.target.value })} required className="field">
+            <option value="">Selecione...</option>
+            {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -242,86 +214,90 @@ export default function ManutencoesPage() {
   };
 
   const actions = (m: Maintenance) => (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-      <button onClick={() => openEdit(m)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '12px', padding: 0, fontWeight: 500 }}>Editar</button>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+      <button onClick={() => openEdit(m)} style={{ ...linkBtn, color: 'var(--electric)' }}>Editar</button>
       {(m.status === 'ACTIVE' || m.status === 'PAUSED') && (
-        <button onClick={() => toggleStatus(m)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: '12px', padding: 0 }}>
+        <button onClick={() => toggleStatus(m)} style={{ ...linkBtn, color: 'var(--text-secondary)', fontWeight: 400 }}>
           {m.status === 'PAUSED' ? 'Retomar' : 'Pausar'}
         </button>
       )}
-      <button onClick={() => runNow(m)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0d9488', fontSize: '12px', padding: 0, fontWeight: 500 }}>Gerar agora</button>
+      <button onClick={() => runNow(m)} style={{ ...linkBtn, color: 'var(--teal)' }}>Gerar agora</button>
       {isAdmin && (
-        <button onClick={() => remove(m)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '12px', padding: 0, fontWeight: 500 }}>Excluir</button>
+        <button onClick={() => remove(m)} style={{ ...linkBtn, color: 'var(--coral)' }}>Excluir</button>
       )}
     </div>
   );
 
+  const ativas = items.filter((m) => m.status === 'ACTIVE').length;
+  const fmtData = (iso: string) => new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+
   return (
-    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '16px' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Manutenções Programadas</h2>
-        <button onClick={openNew} style={{ padding: '7px 16px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer' }}>
-          + Nova Manutenção
-        </button>
-      </div>
+    <>
+      <PageHeader
+        title="Manutenções programadas"
+        subtitle={loading ? 'Carregando…' : `${items.length} manutenç${items.length === 1 ? 'ão' : 'ões'} cadastrada${items.length === 1 ? '' : 's'}, ${ativas} ativa${ativas === 1 ? '' : 's'}`}
+        actions={<Button variant="secondary" icon={<Plus size={16} />} onClick={openNew}>Nova manutenção</Button>}
+      />
 
-      {showForm && (
-        <MaintenanceModal editId={editId} form={form} users={users} saving={saving} error={error} onChange={setForm} onSubmit={handleSubmit} onClose={() => setShowForm(false)} />
-      )}
+      <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {showForm && (
+          <MaintenanceModal editId={editId} form={form} users={users} saving={saving} error={error} onChange={setForm} onSubmit={handleSubmit} onClose={() => setShowForm(false)} />
+        )}
 
-      {loading ? (
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Carregando...</p>
-      ) : items.length === 0 ? (
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhuma manutenção programada.</p>
-      ) : (
-        <>
-          {/* Desktop: tabela */}
-          <div className="hidden md:block" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-              <thead>
-                <tr style={{ background: 'var(--bg-card-hover)', borderBottom: '1px solid var(--border)' }}>
-                  <th style={thStyle}>Nome</th>
-                  <th style={thStyle}>Recorrência</th>
-                  <th style={thStyle}>Próxima</th>
-                  <th style={thStyle}>Responsável</th>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((m, i) => (
-                  <tr key={m.id} className="table-row" style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined, opacity: m.status === 'ACTIVE' ? 1 : 0.6 }}>
-                    <td style={{ padding: '10px 16px', fontWeight: 500, color: 'var(--text-primary)' }}>{m.name}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{recurrenceLabel[m.recurrence] ?? m.recurrence}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{new Date(m.nextRunAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{m.responsavel.name}</td>
-                    <td style={{ padding: '10px 16px' }}>{chip(statusLabel[m.status] ?? m.status, statusColor[m.status] ?? statusColor.DONE)}</td>
-                    <td style={{ padding: '10px 16px' }}>{actions(m)}</td>
+        {loading ? (
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando...</p>
+        ) : (
+          <>
+            {/* Desktop: tabela */}
+            <div className="hidden md:block">
+              <Table
+                isEmpty={items.length === 0}
+                empty="Nenhuma manutenção programada."
+                head={(
+                  <tr>
+                    <th>Nome</th>
+                    <th>Recorrência</th>
+                    <th>Próxima</th>
+                    <th>Responsável</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                )}
+              >
+                {items.map((m) => (
+                  <tr key={m.id} className="table-row" style={{ opacity: m.status === 'ACTIVE' ? 1 : 0.6 }}>
+                    <td style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{m.name}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{recurrenceLabel[m.recurrence] ?? m.recurrence}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{fmtData(m.nextRunAt)}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{m.responsavel.name}</td>
+                    <td><StatusPill status={m.status} /></td>
+                    <td>{actions(m)}</td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </Table>
+            </div>
 
-          {/* Mobile: cards */}
-          <div className="md:hidden space-y-3">
-            {items.map((m) => (
-              <div key={m.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px', opacity: m.status === 'ACTIVE' ? 1 : 0.7 }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '13px' }}>{m.name}</span>
-                  {chip(statusLabel[m.status] ?? m.status, statusColor[m.status] ?? statusColor.DONE)}
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>{recurrenceLabel[m.recurrence] ?? m.recurrence}</span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>{new Date(m.nextRunAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
-                </div>
-                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '0 0 10px' }}>Responsável: {m.responsavel.name}</p>
-                {actions(m)}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+            {/* Mobile: cards */}
+            <div className="md:hidden space-y-3">
+              {items.length === 0 && <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Nenhuma manutenção programada.</p>}
+              {items.map((m) => (
+                <Card key={m.id} style={{ padding: 14, opacity: m.status === 'ACTIVE' ? 1 : 0.7 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13 }}>{m.name}</span>
+                    <StatusPill status={m.status} />
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                    <span className="pill pill-muted">{recurrenceLabel[m.recurrence] ?? m.recurrence}</span>
+                    <span className="pill pill-muted">{fmtData(m.nextRunAt)}</span>
+                  </div>
+                  <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '0 0 10px' }}>Responsável: {m.responsavel.name}</p>
+                  {actions(m)}
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    </>
   );
 }

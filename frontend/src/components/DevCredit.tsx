@@ -13,8 +13,8 @@ interface Props {
 
 export default function DevCredit({ variant = 'onSurface' }: Props) {
   const onDark = variant === 'onDark';
-  const baseColor = onDark ? 'rgba(197,221,240,0.85)' : 'var(--text-secondary)';
-  const linkColor = onDark ? '#ffffff' : 'var(--accent)';
+  const baseColor = onDark ? 'var(--on-navy-muted)' : 'var(--text-secondary)';
+  const linkColor = onDark ? 'var(--on-navy)' : 'var(--electric)';
 
   return (
     <span style={{ color: baseColor, fontSize: '11px' }}>

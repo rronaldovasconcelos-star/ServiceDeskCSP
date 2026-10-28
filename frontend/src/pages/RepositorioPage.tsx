@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileStack, HardDrive, List, FolderTree, FileArchive, History, X, PenLine } from 'lucide-react';
+import { FileStack, HardDrive, List, FolderTree, FileArchive, History, PenLine, Search } from 'lucide-react';
 import api from '../lib/api';
 import FilesTreeView from '../components/FilesTreeView';
 import FileActionButtons from '../components/FileActionButtons';
 import FilePreviewModal from '../components/FilePreviewModal';
+import PageHeader from '../components/PageHeader';
+import { Button, Card, IconTile, Modal, Table } from '../components/ui';
 import { useSyncOnFocus } from '../hooks/useSyncOnFocus';
 import {
   formatBytes, downloadZip, replaceFile, fetchFileLogs, fetchCapabilities, actionLabel, SEM_CAPACIDADES,
@@ -11,37 +13,6 @@ import {
 } from '../lib/files';
 import { labelFor, SEGMENTOS, SERIES_BY_SEGMENTO, DISCIPLINAS, TIPOS_MATERIAL } from '../lib/taxonomy';
 import { useAuth } from '../context/AuthContext';
-
-const selectStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 'var(--radius-sm)',
-  padding: '6px 12px',
-  fontSize: '13px',
-  background: 'var(--bg-card)',
-  color: 'var(--text-primary)',
-  outline: 'none',
-};
-
-const thStyle: React.CSSProperties = {
-  padding: '10px 16px',
-  textAlign: 'left',
-  fontSize: '11px',
-  fontWeight: 600,
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
-  color: 'var(--text-secondary)',
-  whiteSpace: 'nowrap',
-};
-
-const iconBtnStyle: React.CSSProperties = {
-  background: 'transparent',
-  border: 'none',
-  cursor: 'pointer',
-  padding: '4px',
-  color: 'var(--text-secondary)',
-  display: 'inline-flex',
-  alignItems: 'center',
-};
 
 interface Metrics {
   totalFiles: number;
@@ -160,264 +131,226 @@ export default function RepositorioPage() {
     loadMetrics();
   }
 
-  const cardStyle: React.CSSProperties = {
-    background: 'var(--bg-card)',
-    border: '1px solid var(--border)',
-    borderRadius: 'var(--radius)',
-    padding: '16px',
-    boxShadow: 'var(--shadow)',
-    flex: '1 1 200px',
-  };
+  const temFiltro = Boolean(segmento || serie || disciplina || tipoMaterial || dataInicio || dataFim);
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', margin: '0 0 16px' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-          Repositório de Arquivos
-        </h2>
-        {canEdit && (
-          <button
-            onClick={() => setHistoryOpen(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer', whiteSpace: 'nowrap' }}
-          >
-            <History size={15} /> Histórico de alterações
-          </button>
+    <>
+      <PageHeader
+        title="Repositório de arquivos"
+        subtitle={metrics ? `${metrics.totalFiles} arquivo${metrics.totalFiles === 1 ? '' : 's'} · ${formatBytes(metrics.totalBytes)} em uso` : 'Carregando…'}
+        actions={(
+          <>
+            <div className="search-bar" role="search" style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.18)' }}>
+              <Search size={14} style={{ color: 'var(--on-navy-muted)', flexShrink: 0 }} aria-hidden="true" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome..." aria-label="Buscar arquivos" style={{ color: 'var(--on-navy)' }} />
+            </div>
+            {canEdit && (
+              <Button variant="onNavy" icon={<History size={15} />} onClick={() => setHistoryOpen(true)}>
+                Histórico de alterações
+              </Button>
+            )}
+          </>
         )}
-      </div>
+      />
 
-      {/* Métricas */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
-        <div style={cardStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '6px' }}>
-            <FileStack size={15} /> Total de Arquivos
+      <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Métricas */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <div className="kpi-card">
+            <IconTile tone="electric" size={44}><FileStack size={20} aria-hidden="true" /></IconTile>
+            <div>
+              <p className="kpi-label">Total de arquivos</p>
+              <p className="kpi-value">{metrics?.totalFiles ?? '—'}</p>
+            </div>
           </div>
-          <div style={{ fontSize: '26px', fontWeight: 700, color: 'var(--text-primary)' }}>
-            {metrics?.totalFiles ?? '—'}
+          <div className="kpi-card">
+            <IconTile tone="teal" size={44}><HardDrive size={20} aria-hidden="true" /></IconTile>
+            <div>
+              <p className="kpi-label">Armazenamento total</p>
+              <p className="kpi-value">{metrics ? formatBytes(metrics.totalBytes) : '—'}</p>
+            </div>
           </div>
         </div>
-        <div style={cardStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '6px' }}>
-            <HardDrive size={15} /> Armazenamento Total
-          </div>
-          <div style={{ fontSize: '26px', fontWeight: 700, color: 'var(--text-primary)' }}>
-            {metrics ? formatBytes(metrics.totalBytes) : '—'}
-          </div>
-        </div>
-      </div>
 
-      {/* Por professor */}
-      {metrics && metrics.byUser.length > 0 && (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)', marginBottom: '24px' }}>
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
-            Uso por Professor
-          </div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-card-hover)', borderBottom: '1px solid var(--border)' }}>
-                <th style={thStyle}>Professor</th>
-                <th style={thStyle}>Arquivos</th>
-                <th style={thStyle}>Espaço</th>
+        {/* Por professor */}
+        {metrics && metrics.byUser.length > 0 && (
+          <div>
+            <p className="section-label">Uso por professor</p>
+            <Table head={(
+              <tr>
+                <th>Professor</th>
+                <th>Arquivos</th>
+                <th>Espaço</th>
               </tr>
-            </thead>
-            <tbody>
-              {metrics.byUser.map((u, i) => (
-                <tr key={u.ownerId} style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined }}>
-                  <td style={{ padding: '10px 16px', color: 'var(--text-primary)' }}>
+            )}>
+              {metrics.byUser.map((u) => (
+                <tr key={u.ownerId}>
+                  <td>
                     {u.name}
-                    <span style={{ marginLeft: '8px', fontSize: '11px', color: 'var(--text-secondary)' }}>{u.email}</span>
+                    <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-secondary)' }}>{u.email}</span>
                   </td>
-                  <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{u.fileCount}</td>
-                  <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{formatBytes(u.totalBytes)}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{u.fileCount}</td>
+                  <td style={{ color: 'var(--text-secondary)' }}>{formatBytes(u.totalBytes)}</td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Filtros */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px', alignItems: 'center' }}>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar por nome..."
-          style={{ ...selectStyle, minWidth: '180px' }}
-        />
-        <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} style={selectStyle}>
-          <option value="">Todos os professores</option>
-          {professorOptions.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-        </select>
-        <select value={segmento} onChange={(e) => handleSegmento(e.target.value)} style={selectStyle}>
-          <option value="">Todos os segmentos</option>
-          {SEGMENTOS.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
-        </select>
-        <select value={serie} onChange={(e) => setSerie(e.target.value)} disabled={!segmento} style={selectStyle}>
-          <option value="">Todas as séries</option>
-          {serieOptions.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
-        </select>
-        <select value={disciplina} onChange={(e) => setDisciplina(e.target.value)} style={selectStyle}>
-          <option value="">Todas as disciplinas</option>
-          {DISCIPLINAS.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
-        </select>
-        <select value={tipoMaterial} onChange={(e) => setTipoMaterial(e.target.value)} style={selectStyle}>
-          <option value="">Todos os tipos</option>
-          {TIPOS_MATERIAL.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
-        </select>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>De</span>
-          <input
-            type="date"
-            value={dataInicio}
-            onChange={(e) => setDataInicio(e.target.value)}
-            style={{ ...selectStyle, colorScheme: 'dark' }}
-          />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Até</span>
-          <input
-            type="date"
-            value={dataFim}
-            onChange={(e) => setDataFim(e.target.value)}
-            style={{ ...selectStyle, colorScheme: 'dark' }}
-          />
-        </div>
-        {(segmento || serie || disciplina || tipoMaterial || dataInicio || dataFim) && (
-          <button
-            onClick={() => { setSegmento(''); setSerie(''); setDisciplina(''); setTipoMaterial(''); setDataInicio(''); setDataFim(''); }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-secondary)', padding: '6px 4px', textDecoration: 'underline' }}
-          >
-            Limpar filtros
-          </button>
+            </Table>
+          </div>
         )}
 
-        {/* Toggle lista / árvore */}
-        <div style={{ display: 'flex', marginLeft: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
-          {([['lista', List, 'Lista'], ['arvore', FolderTree, 'Árvore']] as const).map(([key, Icon, label]) => (
-            <button
-              key={key}
-              onClick={() => setView(key)}
-              title={label}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 10px',
-                border: 'none', cursor: 'pointer', fontSize: '12px',
-                background: view === key ? 'var(--bg-active)' : 'var(--bg-card)',
-                color: view === key ? 'var(--accent)' : 'var(--text-secondary)',
-              }}
-            >
-              <Icon size={14} /> {label}
-            </button>
-          ))}
-        </div>
-      </div>
+        {/* Filtros */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className="field" style={{ width: 'auto' }}>
+            <option value="">Todos os professores</option>
+            {professorOptions.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+          <select value={segmento} onChange={(e) => handleSegmento(e.target.value)} className="field" style={{ width: 'auto' }}>
+            <option value="">Todos os segmentos</option>
+            {SEGMENTOS.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+          </select>
+          <select value={serie} onChange={(e) => setSerie(e.target.value)} disabled={!segmento} className="field" style={{ width: 'auto' }}>
+            <option value="">Todas as séries</option>
+            {serieOptions.map((s) => <option key={s.code} value={s.code}>{s.label}</option>)}
+          </select>
+          <select value={disciplina} onChange={(e) => setDisciplina(e.target.value)} className="field" style={{ width: 'auto' }}>
+            <option value="">Todas as disciplinas</option>
+            {DISCIPLINAS.map((d) => <option key={d.code} value={d.code}>{d.label}</option>)}
+          </select>
+          <select value={tipoMaterial} onChange={(e) => setTipoMaterial(e.target.value)} className="field" style={{ width: 'auto' }}>
+            <option value="">Todos os tipos</option>
+            {TIPOS_MATERIAL.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
+          </select>
+          <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+            De{' '}
+            <input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} className="field" style={{ width: 'auto' }} />
+          </label>
+          <label style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+            Até{' '}
+            <input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} className="field" style={{ width: 'auto' }} />
+          </label>
+          {temFiltro && (
+            <Button variant="ghost" size="sm" onClick={() => { setSegmento(''); setSerie(''); setDisciplina(''); setTipoMaterial(''); setDataInicio(''); setDataFim(''); }}>
+              Limpar filtros
+            </Button>
+          )}
 
-      {/* Barra de ação em lote (visão lista) */}
-      {view === 'lista' && selected.size > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px', padding: '8px 12px', background: 'var(--bg-active)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
-          <span style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 600 }}>{selected.size} selecionado(s)</span>
-          <button
-            onClick={() => handleZip([...selected])}
-            disabled={zipping}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', border: 'none', borderRadius: 'var(--radius-sm)', background: 'var(--accent)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: zipping ? 'default' : 'pointer', opacity: zipping ? 0.7 : 1 }}
-          >
-            <FileArchive size={15} /> {zipping ? 'Gerando .zip...' : 'Baixar selecionados (.zip)'}
-          </button>
-          <button onClick={() => setSelected(new Set())} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-secondary)', textDecoration: 'underline' }}>
-            Limpar seleção
-          </button>
+          {/* Toggle lista / árvore */}
+          <div className="tabs" style={{ marginLeft: 'auto' }} role="tablist" aria-label="Modo de exibição">
+            {([['lista', List, 'Lista'], ['arvore', FolderTree, 'Árvore']] as const).map(([key, Icon, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={view === key}
+                onClick={() => setView(key)}
+                title={label}
+                className={`tab${view === key ? ' active' : ''}`}
+              >
+                <Icon size={14} /> {label}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
 
-      {loading ? (
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Carregando...</p>
-      ) : filteredFiles.length === 0 ? (
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhum arquivo encontrado.</p>
-      ) : view === 'arvore' ? (
-        <FilesTreeView files={filteredFiles} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} showOwner canEditOffice={canEditOffice} onPreview={setPreviewTarget} canReplace={canEdit} onReplace={setReplaceTarget} />
-      ) : (
-        <>
-          {/* Desktop: tabela */}
-          <div className="hidden md:block" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-              <thead>
-                <tr style={{ background: 'var(--bg-card-hover)', borderBottom: '1px solid var(--border)' }}>
-                  <th style={{ ...thStyle, width: '36px' }}>
+        {/* Barra de ação em lote (visão lista) */}
+        {view === 'lista' && selected.size > 0 && (
+          <Card style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: 'var(--electric-soft)', borderColor: 'transparent' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600 }}>{selected.size} selecionado(s)</span>
+            <Button size="sm" icon={<FileArchive size={15} />} onClick={() => handleZip([...selected])} disabled={zipping}>
+              {zipping ? 'Gerando .zip...' : 'Baixar selecionados (.zip)'}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Limpar seleção</Button>
+          </Card>
+        )}
+
+        {loading ? (
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Carregando...</p>
+        ) : filteredFiles.length === 0 ? (
+          <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Nenhum arquivo encontrado.</p>
+        ) : view === 'arvore' ? (
+          <FilesTreeView files={filteredFiles} canDelete={canDeleteFile} onDelete={handleDelete} onDownloadFolder={handleZip} showOwner canEditOffice={canEditOffice} onPreview={setPreviewTarget} canReplace={canEdit} onReplace={setReplaceTarget} />
+        ) : (
+          <>
+            {/* Desktop: tabela */}
+            <div className="hidden md:block">
+              <Table head={(
+                <tr>
+                  <th style={{ width: 36 }}>
                     <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Selecionar todos" style={{ cursor: 'pointer' }} />
                   </th>
-                  <th style={thStyle}>Nome</th>
-                  <th style={thStyle}>Professor</th>
-                  <th style={thStyle}>Série</th>
-                  <th style={thStyle}>Disciplina</th>
-                  <th style={thStyle}>Tipo</th>
-                  <th style={thStyle}>Tamanho</th>
-                  <th style={thStyle}>Data</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>Ações</th>
+                  <th>Nome</th>
+                  <th>Professor</th>
+                  <th>Série</th>
+                  <th>Disciplina</th>
+                  <th>Tipo</th>
+                  <th>Tamanho</th>
+                  <th>Data</th>
+                  <th style={{ textAlign: 'right' }}>Ações</th>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredFiles.map((f, i) => (
-                  <tr key={f.id} className="table-row" style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined }}>
-                    <td style={{ padding: '10px 16px' }}>
+              )}>
+                {filteredFiles.map((f) => (
+                  <tr key={f.id} className="table-row">
+                    <td>
                       <input type="checkbox" checked={selected.has(f.id)} onChange={() => toggleOne(f.id)} aria-label="Selecionar arquivo" style={{ cursor: 'pointer' }} />
                     </td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-primary)', fontWeight: 500 }}>{f.originalName}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{f.owner.name}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{labelFor('serie', f.serie)}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{labelFor('disciplina', f.disciplina)}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{labelFor('tipoMaterial', f.tipoMaterial)}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)' }}>{formatBytes(f.sizeBytes)}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }} title={f.lastEditedAt ? `Editado por ${f.lastEditedByName ?? '—'} em ${new Date(f.lastEditedAt).toLocaleString('pt-BR')}` : undefined}>
+                    <td style={{ fontWeight: 500 }}>{f.originalName}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{f.owner.name}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{labelFor('serie', f.serie)}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{labelFor('disciplina', f.disciplina)}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{labelFor('tipoMaterial', f.tipoMaterial)}</td>
+                    <td style={{ color: 'var(--text-secondary)' }}>{formatBytes(f.sizeBytes)}</td>
+                    <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }} title={f.lastEditedAt ? `Editado por ${f.lastEditedByName ?? '—'} em ${new Date(f.lastEditedAt).toLocaleString('pt-BR')}` : undefined}>
                       {new Date(f.uploadedAt).toLocaleDateString('pt-BR')}
-                      {f.lastEditedAt && <PenLine size={12} style={{ marginLeft: '6px', verticalAlign: '-2px', color: 'var(--accent)' }} aria-label="Editado on-line" />}
+                      {f.lastEditedAt && <PenLine size={12} style={{ marginLeft: 6, verticalAlign: '-2px', color: 'var(--electric)' }} aria-label="Editado on-line" />}
                     </td>
-                    <td style={{ padding: '10px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOffice={canEditOffice(f)} onPreview={setPreviewTarget} />
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </Table>
+            </div>
 
-          {/* Mobile: cards */}
-          <div className="md:hidden space-y-3">
-            {filteredFiles.map((f) => (
-              <div key={f.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', minWidth: 0 }}>
-                    <input type="checkbox" checked={selected.has(f.id)} onChange={() => toggleOne(f.id)} aria-label="Selecionar arquivo" style={{ cursor: 'pointer', marginTop: '2px' }} />
-                    <div style={{ minWidth: 0 }}>
-                      <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '13px', wordBreak: 'break-word', display: 'block' }}>{f.originalName}</span>
-                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{f.owner.name}</span>
+            {/* Mobile: cards */}
+            <div className="md:hidden space-y-3">
+              {filteredFiles.map((f) => (
+                <Card key={f.id} style={{ padding: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
+                      <input type="checkbox" checked={selected.has(f.id)} onChange={() => toggleOne(f.id)} aria-label="Selecionar arquivo" style={{ cursor: 'pointer', marginTop: 2 }} />
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: 13, wordBreak: 'break-word', display: 'block' }}>{f.originalName}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{f.owner.name}</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                      <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOffice={canEditOffice(f)} onPreview={setPreviewTarget} />
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                    <FileActionButtons f={f} canDelete={canDeleteFile(f)} onDelete={handleDelete} canReplace={canEdit} onReplace={setReplaceTarget} canEditOffice={canEditOffice(f)} onPreview={setPreviewTarget} />
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', fontSize: 11, color: 'var(--text-secondary)' }}>
+                    {f.serie && <span className="pill pill-muted">{labelFor('serie', f.serie)}</span>}
+                    {f.disciplina && <span className="pill pill-muted">{labelFor('disciplina', f.disciplina)}</span>}
+                    {f.tipoMaterial && <span className="pill pill-muted">{labelFor('tipoMaterial', f.tipoMaterial)}</span>}
+                    <span className="pill pill-muted">{formatBytes(f.sizeBytes)}</span>
+                    <span style={{ marginLeft: 'auto' }}>{new Date(f.uploadedAt).toLocaleDateString('pt-BR')}</span>
                   </div>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                  {f.serie && <span style={{ background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>{labelFor('serie', f.serie)}</span>}
-                  {f.disciplina && <span style={{ background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>{labelFor('disciplina', f.disciplina)}</span>}
-                  {f.tipoMaterial && <span style={{ background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>{labelFor('tipoMaterial', f.tipoMaterial)}</span>}
-                  <span style={{ background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: '20px' }}>{formatBytes(f.sizeBytes)}</span>
-                  <span style={{ marginLeft: 'auto' }}>{new Date(f.uploadedAt).toLocaleDateString('pt-BR')}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
 
-      {replaceTarget && (
-        <ReplaceModal
-          file={replaceTarget}
-          onClose={() => setReplaceTarget(null)}
-          onDone={() => { setReplaceTarget(null); loadFiles(); loadMetrics(); }}
-        />
-      )}
+        {replaceTarget && (
+          <ReplaceModal
+            file={replaceTarget}
+            onClose={() => setReplaceTarget(null)}
+            onDone={() => { setReplaceTarget(null); loadFiles(); loadMetrics(); }}
+          />
+        )}
 
-      {previewTarget && <FilePreviewModal file={previewTarget} onClose={() => setPreviewTarget(null)} />}
-      {historyOpen && <HistoryModal onClose={() => setHistoryOpen(false)} />}
-    </div>
+        {previewTarget && <FilePreviewModal file={previewTarget} onClose={() => setPreviewTarget(null)} />}
+        {historyOpen && <HistoryModal onClose={() => setHistoryOpen(false)} />}
+      </div>
+    </>
   );
 }
 
@@ -428,13 +361,6 @@ function ReplaceModal({ file, onClose, onDone }: { file: FileRecord; onClose: ()
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
-  }, [onClose]);
 
   async function submit() {
     if (!picked || busy) return;
@@ -456,47 +382,38 @@ function ReplaceModal({ file, onClose, onDone }: { file: FileRecord; onClose: ()
   ].filter(Boolean).join(' · ');
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)' }} />
-      <div style={{ position: 'relative', width: '100%', maxWidth: '440px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderBottom: '1px solid var(--border)' }}>
-          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>Substituir arquivo</h3>
-          <button onClick={onClose} style={iconBtnStyle} aria-label="Fechar"><X size={18} /></button>
+    <Modal
+      open
+      title="Substituir arquivo"
+      onClose={onClose}
+      maxWidth={440}
+      footer={(
+        <>
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button onClick={submit} disabled={!picked || busy}>{busy ? 'Substituindo...' : 'Substituir'}</Button>
+        </>
+      )}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          <div style={{ color: 'var(--text-primary)', fontWeight: 600, wordBreak: 'break-word' }}>{file.originalName}</div>
+          <div style={{ marginTop: 2 }}>{file.owner.name}{metaLine ? ` · ${metaLine}` : ''} · {formatBytes(file.sizeBytes)}</div>
         </div>
-        <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            <div style={{ color: 'var(--text-primary)', fontWeight: 600, wordBreak: 'break-word' }}>{file.originalName}</div>
-            <div style={{ marginTop: '2px' }}>{file.owner.name}{metaLine ? ` · ${metaLine}` : ''} · {formatBytes(file.sizeBytes)}</div>
-          </div>
 
-          <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)' }}>
-            A versão enviada <strong>substitui</strong> a atual mantendo a mesma classificação. A troca fica registrada no histórico.
-          </p>
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>
+          A versão enviada <strong>substitui</strong> a atual mantendo a mesma classificação. A troca fica registrada no histórico.
+        </p>
 
-          <input
-            ref={inputRef}
-            type="file"
-            onChange={(e) => setPicked(e.target.files?.[0] ?? null)}
-            style={{ fontSize: '13px', color: 'var(--text-primary)' }}
-          />
+        <input
+          ref={inputRef}
+          type="file"
+          onChange={(e) => setPicked(e.target.files?.[0] ?? null)}
+          style={{ fontSize: 13, color: 'var(--text-primary)' }}
+        />
 
-          {error && <div style={{ fontSize: '12px', color: '#ef4444' }}>{error}</div>}
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-            <button onClick={onClose} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-card)', color: 'var(--text-secondary)', fontSize: '13px', cursor: 'pointer' }}>
-              Cancelar
-            </button>
-            <button
-              onClick={submit}
-              disabled={!picked || busy}
-              style={{ padding: '8px 14px', border: 'none', borderRadius: 'var(--radius-sm)', background: 'var(--accent)', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: !picked || busy ? 'default' : 'pointer', opacity: !picked || busy ? 0.6 : 1 }}
-            >
-              {busy ? 'Substituindo...' : 'Substituir'}
-            </button>
-          </div>
-        </div>
+        {error && <div style={{ fontSize: 12, color: 'var(--coral)' }}>{error}</div>}
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -507,48 +424,37 @@ function HistoryModal({ onClose }: { onClose: () => void }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
     fetchFileLogs({ limit: 200 })
       .then(setLogs)
       .catch((e: any) => setError(e?.response?.data?.error ?? 'Falha ao carregar o histórico.'));
-    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
-  }, [onClose]);
+  }, []);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)' }} />
-      <div style={{ position: 'relative', width: '100%', maxWidth: '640px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px', borderBottom: '1px solid var(--border)' }}>
-          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>Histórico de alterações</h3>
-          <button onClick={onClose} style={iconBtnStyle} aria-label="Fechar"><X size={18} /></button>
-        </div>
-        <div style={{ padding: '8px 0', overflowY: 'auto' }}>
-          {error ? (
-            <p style={{ padding: '16px', fontSize: '13px', color: '#ef4444' }}>{error}</p>
-          ) : !logs ? (
-            <p style={{ padding: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>Carregando...</p>
-          ) : logs.length === 0 ? (
-            <p style={{ padding: '16px', fontSize: '13px', color: 'var(--text-secondary)' }}>Nenhuma alteração registrada ainda.</p>
-          ) : (
-            logs.map((l) => (
-              <div key={l.id} style={{ padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '13px', color: 'var(--text-primary)', fontWeight: 600, wordBreak: 'break-word' }}>{l.fileName}</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                  {actionLabel(l)} <strong>{l.actorName}</strong>{l.actorEmail ? ` (${l.actorEmail})` : ''}
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  <span>{new Date(l.createdAt).toLocaleString('pt-BR')}</span>
-                  {l.oldSize != null && l.newSize != null && (
-                    <span>{formatBytes(l.oldSize)} → {formatBytes(l.newSize)}</span>
-                  )}
-                </div>
+    <Modal open title="Histórico de alterações" onClose={onClose} maxWidth={640}>
+      <div style={{ margin: '0 -22px -22px' }}>
+        {error ? (
+          <p style={{ padding: 16, fontSize: 13, color: 'var(--coral)' }}>{error}</p>
+        ) : !logs ? (
+          <p style={{ padding: 16, fontSize: 13, color: 'var(--text-secondary)' }}>Carregando...</p>
+        ) : logs.length === 0 ? (
+          <p style={{ padding: 16, fontSize: 13, color: 'var(--text-secondary)' }}>Nenhuma alteração registrada ainda.</p>
+        ) : (
+          logs.map((l) => (
+            <div key={l.id} style={{ padding: '10px 22px', borderTop: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, wordBreak: 'break-word' }}>{l.fileName}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                {actionLabel(l)} <strong>{l.actorName}</strong>{l.actorEmail ? ` (${l.actorEmail})` : ''}
               </div>
-            ))
-          )}
-        </div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <span>{new Date(l.createdAt).toLocaleString('pt-BR')}</span>
+                {l.oldSize != null && l.newSize != null && (
+                  <span>{formatBytes(l.oldSize)} → {formatBytes(l.newSize)}</span>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }

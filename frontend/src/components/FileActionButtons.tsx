@@ -65,7 +65,7 @@ export default function FileActionButtons({ f, canDelete, onDelete, canReplace, 
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
       {erro && (
-        <span role="alert" aria-live="polite" style={{ fontSize: '12px', color: '#ef4444', marginRight: '6px', whiteSpace: 'normal', maxWidth: '260px', textAlign: 'left' }}>
+        <span role="alert" aria-live="polite" style={{ fontSize: '12px', color: 'var(--coral)', marginRight: '6px', whiteSpace: 'normal', maxWidth: '260px', textAlign: 'left' }}>
           {erro}
         </span>
       )}
@@ -81,7 +81,7 @@ export default function FileActionButtons({ f, canDelete, onDelete, canReplace, 
         <button
           onClick={abrirNoOffice}
           disabled={busy}
-          style={{ ...iconBtnStyle, color: 'var(--accent)', opacity: busy ? 0.5 : 1, cursor: busy ? 'default' : 'pointer' }}
+          style={{ ...iconBtnStyle, color: 'var(--electric)', opacity: busy ? 0.5 : 1, cursor: busy ? 'default' : 'pointer' }}
           title={tituloOffice}
           aria-label={tituloOffice}
         >
@@ -93,7 +93,7 @@ export default function FileActionButtons({ f, canDelete, onDelete, canReplace, 
         <button onClick={() => onReplace(f)} style={iconBtnStyle} title="Substituir arquivo" aria-label="Substituir"><Replace size={size} /></button>
       )}
       {canDelete && (
-        <button onClick={() => onDelete(f)} style={{ ...iconBtnStyle, color: '#ef4444' }} title="Excluir" aria-label="Excluir"><Trash2 size={size} /></button>
+        <button onClick={() => onDelete(f)} style={{ ...iconBtnStyle, color: 'var(--coral)' }} title="Excluir" aria-label="Excluir"><Trash2 size={size} /></button>
       )}
     </span>
   );

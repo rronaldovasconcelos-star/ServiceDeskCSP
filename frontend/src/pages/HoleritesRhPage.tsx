@@ -1,10 +1,12 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import {
-  BriefcaseBusiness, Upload, CloudDownload, RefreshCw, Users, History,
+  Upload, CloudDownload, RefreshCw, Users, History,
   AlertTriangle, CheckCircle2, Link2, Pencil, Save, X, Download, MessageSquareText, Trash2,
 } from 'lucide-react';
 import api from '../lib/api';
 import { formatarCentavos, formatarCompetencia, baixarHoleritePdf, type HoleriteResumo } from '../lib/holerites';
+import PageHeader from '../components/PageHeader';
+import { Button, Card, Table } from '../components/ui';
 
 // ---------- tipos ----------
 
@@ -93,32 +95,13 @@ type Aba = 'importar' | 'colaboradores' | 'mensagens' | 'importacoes';
 
 // ---------- estilos ----------
 
-const thStyle: React.CSSProperties = {
-  padding: '10px 14px', textAlign: 'left', fontSize: '11px', fontWeight: 600,
-  textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-secondary)', whiteSpace: 'nowrap',
-};
-const tdStyle: React.CSSProperties = { padding: '10px 14px', color: 'var(--text-primary)', verticalAlign: 'top' };
-const cardStyle: React.CSSProperties = {
-  background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-  boxShadow: 'var(--shadow)', padding: '16px', marginBottom: '16px',
-};
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '7px 10px', fontSize: '13px', background: 'var(--bg-primary)',
-  color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-};
-const btnPrimary: React.CSSProperties = {
-  padding: '7px 14px', background: 'var(--accent)', color: '#fff', border: 'none',
-  borderRadius: 'var(--radius-sm)', fontSize: '13px', fontWeight: 500, cursor: 'pointer',
-  display: 'inline-flex', alignItems: 'center', gap: '6px',
-};
-const btnGhost: React.CSSProperties = {
-  padding: '7px 12px', background: 'transparent', color: 'var(--text-secondary)',
-  border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: '13px',
-  fontWeight: 500, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px',
-};
+/* Tabelas, cards e botões vêm de components/ui; aqui só o que não tem componente. */
+const tdTop: React.CSSProperties = { verticalAlign: 'top' };
+const labelStyle: React.CSSProperties = { fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' };
+const cardTitle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '8px' };
 const btnLink: React.CSSProperties = {
-  background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: '12px',
-  padding: 0, fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '4px',
+  background: 'none', border: 'none', cursor: 'pointer', color: 'var(--electric)', fontSize: '12px',
+  padding: 0, fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'inherit',
 };
 
 function mensagemErro(err: unknown, padrao: string): string {
@@ -133,13 +116,13 @@ function mensagemErro(err: unknown, padrao: string): string {
 
 function Aviso({ tipo, children }: { tipo: 'erro' | 'ok' | 'atencao'; children: React.ReactNode }) {
   const cores = {
-    erro: ['rgba(239,68,68,0.1)', 'rgba(239,68,68,0.3)', '#ef4444'],
-    ok: ['rgba(34,197,94,0.1)', 'rgba(34,197,94,0.25)', '#16a34a'],
-    atencao: ['rgba(234,179,8,0.12)', 'rgba(234,179,8,0.3)', '#ca8a04'],
+    erro: ['var(--coral-soft)', 'var(--coral)'],
+    ok: ['var(--teal-soft)', 'var(--teal)'],
+    atencao: ['var(--amber-soft)', 'var(--amber)'],
   }[tipo];
   const Icone = tipo === 'erro' ? AlertTriangle : tipo === 'ok' ? CheckCircle2 : AlertTriangle;
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px 12px', background: cores[0], border: `1px solid ${cores[1]}`, borderRadius: 'var(--radius-sm)', color: cores[2], fontSize: '13px', marginBottom: '12px' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px 12px', background: cores[0], borderLeft: `3px solid ${cores[1]}`, borderRadius: 'var(--radius-tile)', color: 'var(--text-primary)', fontSize: '13px', marginBottom: '12px' }}>
       <Icone size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
       <div style={{ flex: 1 }}>{children}</div>
     </div>
@@ -169,40 +152,32 @@ export default function HoleritesRhPage() {
   const [aba, setAba] = useState<Aba>('importar');
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '16px' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <BriefcaseBusiness size={20} /> RH · Holerites
-        </h2>
-        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '4px 0 0' }}>
-          Importe o TXT exportado da folha (pelo Google Drive ou por upload), vincule cada colaborador ao login dele e o portal gera o PDF.
-          Em Mensagens, escreva o que deve sair no campo Observações do holerite.
-        </p>
-      </div>
+    <>
+      <PageHeader
+        title="RH · Holerites"
+        subtitle="Importe o TXT da folha, vincule cada colaborador ao login dele e o portal gera o PDF. Em Mensagens, o que sai no campo Observações."
+      />
 
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        {([
-          ['importar', 'Importar', Upload],
-          ['colaboradores', 'Colaboradores e vínculos', Users],
-          ['mensagens', 'Mensagens', MessageSquareText],
-          ['importacoes', 'Histórico', History],
-        ] as Array<[Aba, string, typeof Upload]>).map(([k, label, Icone]) => (
-          <button
-            key={k}
-            onClick={() => setAba(k)}
-            className="filter-btn"
-            style={{ ...(aba === k ? btnPrimary : btnGhost) }}
-          >
-            <Icone size={14} /> {label}
-          </button>
-        ))}
-      </div>
+      <div className="page-body" style={{ maxWidth: 1400 }}>
+        <div className="tabs" style={{ marginBottom: '16px' }}>
+          {([
+            ['importar', 'Importar', Upload],
+            ['colaboradores', 'Colaboradores e vínculos', Users],
+            ['mensagens', 'Mensagens', MessageSquareText],
+            ['importacoes', 'Histórico', History],
+          ] as Array<[Aba, string, typeof Upload]>).map(([k, label, Icone]) => (
+            <button key={k} type="button" onClick={() => setAba(k)} className={`tab${aba === k ? ' active' : ''}`}>
+              <Icone size={14} /> {label}
+            </button>
+          ))}
+        </div>
 
-      {aba === 'importar' && <AbaImportar irParaColaboradores={() => setAba('colaboradores')} />}
-      {aba === 'colaboradores' && <AbaColaboradores />}
-      {aba === 'mensagens' && <AbaMensagens />}
-      {aba === 'importacoes' && <AbaImportacoes />}
-    </div>
+        {aba === 'importar' && <AbaImportar irParaColaboradores={() => setAba('colaboradores')} />}
+        {aba === 'colaboradores' && <AbaColaboradores />}
+        {aba === 'mensagens' && <AbaMensagens />}
+        {aba === 'importacoes' && <AbaImportacoes />}
+      </div>
+    </>
   );
 }
 
@@ -269,20 +244,16 @@ function AbaImportar({ irParaColaboradores }: { irParaColaboradores: () => void 
   return (
     <>
       {/* Google Drive */}
-      <div style={cardStyle}>
+      <Card style={{ marginBottom: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h2 className="card-title" style={{ ...cardTitle, margin: 0 }}>
             <CloudDownload size={16} /> Pasta no Google Drive
-          </h3>
+          </h2>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={carregarDrive} disabled={driveLoading} style={btnGhost}><RefreshCw size={14} /> Atualizar</button>
-            <button
-              onClick={() => importarDrive()}
-              disabled={!drive?.configured || driveBusy !== null}
-              style={{ ...btnPrimary, opacity: !drive?.configured || driveBusy !== null ? 0.6 : 1 }}
-            >
-              <CloudDownload size={14} /> {driveBusy === 'todos' ? 'Importando...' : 'Importar novos'}
-            </button>
+            <Button variant="ghost" size="sm" icon={<RefreshCw size={14} />} onClick={carregarDrive} disabled={driveLoading}>Atualizar</Button>
+            <Button size="sm" icon={<CloudDownload size={14} />} onClick={() => importarDrive()} disabled={!drive?.configured || driveBusy !== null}>
+              {driveBusy === 'todos' ? 'Importando...' : 'Importar novos'}
+            </Button>
           </div>
         </div>
 
@@ -315,46 +286,45 @@ function AbaImportar({ irParaColaboradores }: { irParaColaboradores: () => void 
             {drive.arquivos.length === 0 ? (
               <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: 0 }}>Nenhum arquivo .txt na pasta.</p>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    <th style={thStyle}>Arquivo</th>
-                    <th style={thStyle}>Modificado</th>
-                    <th style={thStyle}>Situação</th>
-                    <th style={thStyle}></th>
+              <Table
+                head={(
+                  <tr>
+                    <th>Arquivo</th>
+                    <th>Modificado</th>
+                    <th>Situação</th>
+                    <th></th>
                   </tr>
-                </thead>
-                <tbody>
-                  {drive.arquivos.map((a) => (
-                    <tr key={a.id} style={{ borderTop: '1px solid var(--border)' }}>
-                      <td style={tdStyle}>{a.name}</td>
-                      <td style={{ ...tdStyle, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                        {a.modifiedTime ? new Date(a.modifiedTime).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
-                      </td>
-                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
-                        {a.importadoEm
-                          ? <span style={{ color: '#16a34a' }}>Importado em {new Date(a.importadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
-                          : <span style={{ color: '#ca8a04' }}>Pendente</span>}
-                      </td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>
-                        <button onClick={() => importarDrive(a.id)} disabled={driveBusy !== null} style={{ ...btnLink, opacity: driveBusy !== null ? 0.5 : 1 }}>
-                          <CloudDownload size={13} /> {a.importadoEm ? 'Reimportar' : 'Importar'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                )}
+              >
+                {drive.arquivos.map((a) => (
+                  <tr key={a.id}>
+                    <td>{a.name}</td>
+                    <td style={{ color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                      {a.modifiedTime ? new Date(a.modifiedTime).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      {a.importadoEm
+                        ? <span className="pill pill-teal">Importado em {new Date(a.importadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                        : <span className="pill pill-amber">Pendente</span>}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button onClick={() => importarDrive(a.id)} disabled={driveBusy !== null} style={{ ...btnLink, opacity: driveBusy !== null ? 0.5 : 1 }}>
+                        <CloudDownload size={13} /> {a.importadoEm ? 'Reimportar' : 'Importar'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </Table>
             )}
           </>
         )}
-      </div>
+      </Card>
 
       {/* Upload manual */}
-      <div style={cardStyle}>
-        <h3 style={{ margin: '0 0 10px', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <Card style={{ marginBottom: '16px' }}>
+        <h2 className="card-title" style={{ ...cardTitle, margin: '0 0 10px' }}>
           <Upload size={16} /> Enviar arquivo manualmente
-        </h3>
+        </h2>
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 10px' }}>
           Aceita o .txt exportado da folha. O arquivo é conferido inteiro antes de entrar: se alguma soma não bater, nada é gravado e o motivo aparece aqui.
           Reimportar a mesma competência substitui os holerites daquele mês.
@@ -367,13 +337,14 @@ function AbaImportar({ irParaColaboradores }: { irParaColaboradores: () => void 
             type="file"
             accept=".txt,text/plain"
             onChange={(e) => setArquivo(e.target.files?.[0] ?? null)}
-            style={{ ...inputStyle, width: 'auto', flex: 1, minWidth: '240px' }}
+            className="field"
+            style={{ width: 'auto', flex: 1, minWidth: '240px' }}
           />
-          <button onClick={enviar} disabled={!arquivo || enviando} style={{ ...btnPrimary, opacity: !arquivo || enviando ? 0.6 : 1 }}>
-            <Upload size={14} /> {enviando ? 'Importando...' : 'Importar'}
-          </button>
+          <Button size="sm" icon={<Upload size={14} />} onClick={enviar} disabled={!arquivo || enviando}>
+            {enviando ? 'Importando...' : 'Importar'}
+          </Button>
         </div>
-      </div>
+      </Card>
     </>
   );
 }
@@ -475,9 +446,10 @@ function AbaColaboradores() {
           placeholder="Buscar por nome, código ou login..."
           value={filtro}
           onChange={(e) => setFiltro(e.target.value)}
-          style={{ ...inputStyle, maxWidth: '360px' }}
+          className="field"
+          style={{ maxWidth: '360px' }}
         />
-        <button onClick={carregar} disabled={loading} style={btnGhost}><RefreshCw size={14} /> Atualizar</button>
+        <Button variant="ghost" size="sm" icon={<RefreshCw size={14} />} onClick={carregar} disabled={loading}>Atualizar</Button>
         <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{lista.length} colaborador(es)</span>
       </div>
 
@@ -486,34 +458,34 @@ function AbaColaboradores() {
       ) : lista.length === 0 ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhum colaborador ainda — eles aparecem aqui após a primeira importação.</p>
       ) : (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'auto', boxShadow: 'var(--shadow)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-card-hover)', borderBottom: '1px solid var(--border)' }}>
-                <th style={thStyle}>Código</th>
-                <th style={thStyle}>Nome (folha)</th>
-                <th style={thStyle}>Login no portal</th>
-                <th style={thStyle}>Holerites</th>
-                <th style={thStyle}>Dados do PDF</th>
-              </tr>
-            </thead>
-            <tbody>
+        <Table
+          head={(
+            <tr>
+              <th>Código</th>
+              <th>Nome (folha)</th>
+              <th>Login no portal</th>
+              <th>Holerites</th>
+              <th>Dados do PDF</th>
+            </tr>
+          )}
+        >
               {visiveis.map((c) => {
                 const emEdicao = editando === c.id;
                 const ocupado = busyId === c.id;
                 return (
                   <Fragment key={c.id}>
-                    <tr style={{ borderTop: '1px solid var(--border)' }}>
-                      <td style={{ ...tdStyle, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{c.codigo}</td>
-                      <td style={{ ...tdStyle, fontWeight: 500 }}>{c.nome}</td>
-                      <td style={{ ...tdStyle, minWidth: '240px' }}>
+                    <tr>
+                      <td style={{ ...tdTop, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{c.codigo}</td>
+                      <td style={{ ...tdTop, fontWeight: 500 }}>{c.nome}</td>
+                      <td style={{ ...tdTop, minWidth: '240px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Link2 size={13} style={{ color: c.userId ? '#16a34a' : '#ca8a04', flexShrink: 0 }} />
+                          <Link2 size={13} style={{ color: c.userId ? 'var(--teal)' : 'var(--amber)', flexShrink: 0 }} />
                           <select
                             value={c.userId ?? ''}
                             disabled={ocupado}
                             onChange={(e) => vincular(c, e.target.value)}
-                            style={{ ...inputStyle, padding: '5px 8px' }}
+                            className="field"
+                            style={{ padding: '5px 8px' }}
                           >
                             <option value="">— sem vínculo —</option>
                             {usuarios.map((u) => {
@@ -527,10 +499,10 @@ function AbaColaboradores() {
                           </select>
                         </div>
                         {c.user && !c.user.isActive && (
-                          <span style={{ fontSize: '11px', color: '#ca8a04' }}>Login desativado</span>
+                          <span className="pill pill-amber" style={{ marginTop: '4px' }}>Login desativado</span>
                         )}
                       </td>
-                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                      <td style={{ ...tdTop, whiteSpace: 'nowrap' }}>
                         {c.totalHolerites === 0 ? (
                           <span style={{ color: 'var(--text-secondary)' }}>nenhum</span>
                         ) : (
@@ -539,7 +511,7 @@ function AbaColaboradores() {
                           </button>
                         )}
                       </td>
-                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                      <td style={{ ...tdTop, whiteSpace: 'nowrap' }}>
                         {emEdicao ? (
                           <div style={{ display: 'flex', gap: '10px' }}>
                             <button onClick={() => salvarDados(c)} disabled={ocupado} style={btnLink}><Save size={13} /> Salvar</button>
@@ -568,9 +540,9 @@ function AbaColaboradores() {
                               ['cargoCodigo', 'Código do cargo', '0005'],
                               ['deptoCodigo', 'Código do depto.', '000005'],
                             ] as Array<[keyof typeof form, string, string]>).map(([campo, rotulo, ph]) => (
-                              <label key={campo} style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <label key={campo} style={labelStyle}>
                                 {rotulo}
-                                <input value={form[campo]} placeholder={ph} onChange={(e) => setForm({ ...form, [campo]: e.target.value })} style={inputStyle} />
+                                <input value={form[campo]} placeholder={ph} onChange={(e) => setForm({ ...form, [campo]: e.target.value })} className="field" />
                               </label>
                             ))}
                           </div>
@@ -588,13 +560,15 @@ function AbaColaboradores() {
                           ) : (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                               {holeritesDe[c.id].map((h) => (
-                                <button
+                                <Button
                                   key={h.id}
+                                  variant="ghost"
+                                  size="sm"
+                                  icon={<Download size={12} />}
                                   onClick={() => baixarHoleritePdf(h.id, `holerite_${h.competencia}.pdf`).catch(() => setErro('Falha ao baixar o PDF.'))}
-                                  style={{ ...btnGhost, fontSize: '12px' }}
                                 >
-                                  <Download size={12} /> {formatarCompetencia(h.competencia)} · {formatarCentavos(h.liquido)}
-                                </button>
+                                  {formatarCompetencia(h.competencia)} · {formatarCentavos(h.liquido)}
+                                </Button>
                               ))}
                             </div>
                           )}
@@ -604,9 +578,7 @@ function AbaColaboradores() {
                   </Fragment>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+        </Table>
       )}
     </>
   );
@@ -720,7 +692,7 @@ function AbaMensagens() {
   const podeSalvar = textoOk && (escopo === 'GERAL' || colaboradorId !== '') && !salvando;
 
   const contador = (t: string) => (
-    <span style={{ fontSize: '11px', color: t.length > LIMITE_MENSAGEM ? '#ef4444' : 'var(--text-secondary)' }}>
+    <span style={{ fontSize: '11px', color: t.length > LIMITE_MENSAGEM ? 'var(--coral)' : 'var(--text-secondary)' }}>
       {t.length}/{LIMITE_MENSAGEM}
     </span>
   );
@@ -731,19 +703,19 @@ function AbaMensagens() {
       {ok && <Aviso tipo="ok">{ok}</Aviso>}
 
       {/* Nova mensagem */}
-      <div style={cardStyle}>
-        <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <Card style={{ marginBottom: '16px' }}>
+        <h2 className="card-title" style={{ ...cardTitle, margin: '0 0 6px' }}>
           <MessageSquareText size={16} /> Nova mensagem
-        </h3>
+        </h2>
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 12px' }}>
           Sai no campo <strong>Observações</strong> do holerite, nas duas vias. <strong>Geral</strong> vale para todos os colaboradores;
           <strong> individual</strong>, só para o escolhido. Sem competência, vale para todos os meses.
           Até {LIMITE_MENSAGEM} caracteres por mensagem: a caixa do holerite é pequena, e o portal recusa o que não couber.
         </p>
 
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+        <div className="tabs" style={{ marginBottom: '12px' }}>
           {([['GERAL', 'Geral (todos)'], ['INDIVIDUAL', 'Individual']] as Array<[EscopoMensagem, string]>).map(([k, label]) => (
-            <button key={k} type="button" className="filter-btn" onClick={() => setEscopo(k)} style={escopo === k ? btnPrimary : btnGhost}>
+            <button key={k} type="button" className={`tab${escopo === k ? ' active' : ''}`} onClick={() => setEscopo(k)}>
               {label}
             </button>
           ))}
@@ -751,24 +723,24 @@ function AbaMensagens() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px', marginBottom: '10px' }}>
           {escopo === 'INDIVIDUAL' && (
-            <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <label style={labelStyle}>
               Colaborador
-              <select value={colaboradorId} onChange={(e) => setColaboradorId(e.target.value)} style={inputStyle}>
+              <select value={colaboradorId} onChange={(e) => setColaboradorId(e.target.value)} className="field">
                 <option value="">— escolha —</option>
                 {colaboradores.map((c) => <option key={c.id} value={c.id}>{c.codigo} · {c.nome}</option>)}
               </select>
             </label>
           )}
-          <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <label style={labelStyle}>
             Competência
-            <select value={competencia} onChange={(e) => setCompetencia(e.target.value)} style={inputStyle}>
+            <select value={competencia} onChange={(e) => setCompetencia(e.target.value)} className="field">
               <option value="">Todos os meses</option>
               {competencias.map((c) => <option key={c} value={c}>{formatarCompetencia(c)}</option>)}
             </select>
           </label>
         </div>
 
-        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <label style={labelStyle}>
           <span style={{ display: 'flex', justifyContent: 'space-between' }}>Mensagem {contador(texto)}</span>
           <textarea
             value={texto}
@@ -776,21 +748,22 @@ function AbaMensagens() {
             rows={3}
             placeholder="Ex.: Lembramos que o recesso escolar começa em 15/10. Dúvidas, procure o RH."
             onChange={(e) => setTexto(e.target.value)}
-            style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
+            className="field"
+            style={{ resize: 'vertical', fontFamily: 'inherit' }}
           />
         </label>
 
         <div style={{ marginTop: '10px' }}>
-          <button onClick={salvar} disabled={!podeSalvar} style={{ ...btnPrimary, opacity: podeSalvar ? 1 : 0.6 }}>
-            <Save size={14} /> {salvando ? 'Salvando...' : 'Salvar mensagem'}
-          </button>
+          <Button icon={<Save size={14} />} onClick={salvar} disabled={!podeSalvar}>
+            {salvando ? 'Salvando...' : 'Salvar mensagem'}
+          </Button>
         </div>
-      </div>
+      </Card>
 
       {/* Cadastradas */}
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
-        <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>Mensagens cadastradas</h3>
-        <button onClick={carregar} disabled={loading} style={btnGhost}><RefreshCw size={14} /> Atualizar</button>
+        <h2 className="card-title" style={{ margin: 0 }}>Mensagens cadastradas</h2>
+        <Button variant="ghost" size="sm" icon={<RefreshCw size={14} />} onClick={carregar} disabled={loading}>Atualizar</Button>
         <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{lista.length} mensagem(ns)</span>
       </div>
 
@@ -799,40 +772,39 @@ function AbaMensagens() {
       ) : lista.length === 0 ? (
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhuma mensagem. O que você escrever aqui sai no campo Observações do holerite.</p>
       ) : (
-        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'auto', boxShadow: 'var(--shadow)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-card-hover)', borderBottom: '1px solid var(--border)' }}>
-                <th style={thStyle}>Tipo</th>
-                <th style={thStyle}>Colaborador</th>
-                <th style={thStyle}>Competência</th>
-                <th style={thStyle}>Texto</th>
-                <th style={thStyle}>Por</th>
-                <th style={thStyle}></th>
-              </tr>
-            </thead>
-            <tbody>
+        <Table
+          head={(
+            <tr>
+              <th>Tipo</th>
+              <th>Colaborador</th>
+              <th>Competência</th>
+              <th>Texto</th>
+              <th>Por</th>
+              <th></th>
+            </tr>
+          )}
+        >
               {lista.map((m) => {
                 const emEdicao = editando === m.id;
                 const ocupado = busyId === m.id;
                 return (
                   <Fragment key={m.id}>
-                    <tr style={{ borderTop: '1px solid var(--border)' }}>
-                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '999px', background: m.escopo === 'GERAL' ? 'rgba(59,130,246,0.12)' : 'rgba(234,179,8,0.15)', color: m.escopo === 'GERAL' ? '#2563eb' : '#ca8a04' }}>
+                    <tr>
+                      <td style={{ ...tdTop, whiteSpace: 'nowrap' }}>
+                        <span className={`pill ${m.escopo === 'GERAL' ? 'pill-electric' : 'pill-amber'}`} style={{ fontWeight: 600 }}>
                           {m.escopo === 'GERAL' ? 'Geral' : 'Individual'}
                         </span>
                       </td>
-                      <td style={tdStyle}>{m.colaborador ? <>{m.colaborador.codigo} · {m.colaborador.nome}</> : <span style={{ color: 'var(--text-secondary)' }}>todos</span>}</td>
-                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                      <td style={tdTop}>{m.colaborador ? <>{m.colaborador.codigo} · {m.colaborador.nome}</> : <span style={{ color: 'var(--text-secondary)' }}>todos</span>}</td>
+                      <td style={{ ...tdTop, whiteSpace: 'nowrap' }}>
                         {emEdicao ? (
-                          <select value={edicao.competencia} onChange={(e) => setEdicao({ ...edicao, competencia: e.target.value })} style={{ ...inputStyle, padding: '5px 8px' }}>
+                          <select value={edicao.competencia} onChange={(e) => setEdicao({ ...edicao, competencia: e.target.value })} className="field" style={{ padding: '5px 8px' }}>
                             <option value="">Todos os meses</option>
                             {competencias.map((c) => <option key={c} value={c}>{formatarCompetencia(c)}</option>)}
                           </select>
                         ) : rotuloCompetencia(m.competencia)}
                       </td>
-                      <td style={{ ...tdStyle, minWidth: '280px' }}>
+                      <td style={{ ...tdTop, minWidth: '280px' }}>
                         {emEdicao ? (
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <textarea
@@ -840,17 +812,18 @@ function AbaMensagens() {
                               maxLength={LIMITE_MENSAGEM}
                               rows={2}
                               onChange={(e) => setEdicao({ ...edicao, texto: e.target.value })}
-                              style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
+                              className="field"
+                              style={{ resize: 'vertical', fontFamily: 'inherit' }}
                             />
                             {contador(edicao.texto)}
                           </div>
                         ) : m.texto}
                       </td>
-                      <td style={{ ...tdStyle, color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontSize: '12px' }}>
+                      <td style={{ ...tdTop, color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontSize: '12px' }}>
                         {m.atorNome}<br />
                         {new Date(m.updatedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
                       </td>
-                      <td style={{ ...tdStyle, whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      <td style={{ ...tdTop, whiteSpace: 'nowrap', textAlign: 'right' }}>
                         {emEdicao ? (
                           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                             <button onClick={() => salvarEdicao(m)} disabled={ocupado || !edicao.texto.trim()} style={btnLink}><Save size={13} /> Salvar</button>
@@ -859,13 +832,13 @@ function AbaMensagens() {
                         ) : confirmandoExclusao === m.id ? (
                           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', alignItems: 'center' }}>
                             <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Excluir?</span>
-                            <button onClick={() => excluir(m)} disabled={ocupado} style={{ ...btnLink, color: '#ef4444' }}>Sim</button>
+                            <button onClick={() => excluir(m)} disabled={ocupado} style={{ ...btnLink, color: 'var(--coral)' }}>Sim</button>
                             <button onClick={() => setConfirmandoExclusao(null)} style={{ ...btnLink, color: 'var(--text-secondary)' }}>Não</button>
                           </div>
                         ) : (
                           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                             <button onClick={() => abrirEdicao(m)} style={btnLink}><Pencil size={13} /> Editar</button>
-                            <button onClick={() => { setEditando(null); setConfirmandoExclusao(m.id); }} style={{ ...btnLink, color: '#ef4444' }}><Trash2 size={13} /> Excluir</button>
+                            <button onClick={() => { setEditando(null); setConfirmandoExclusao(m.id); }} style={{ ...btnLink, color: 'var(--coral)' }}><Trash2 size={13} /> Excluir</button>
                           </div>
                         )}
                       </td>
@@ -873,9 +846,7 @@ function AbaMensagens() {
                   </Fragment>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
+        </Table>
       )}
     </>
   );
@@ -900,35 +871,32 @@ function AbaImportacoes() {
   if (lista.length === 0) return <p style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>Nenhuma importação ainda.</p>;
 
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'auto', boxShadow: 'var(--shadow)' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-        <thead>
-          <tr style={{ background: 'var(--bg-card-hover)', borderBottom: '1px solid var(--border)' }}>
-            <th style={thStyle}>Quando</th>
-            <th style={thStyle}>Arquivo</th>
-            <th style={thStyle}>Origem</th>
-            <th style={thStyle}>Competências</th>
-            <th style={thStyle}>Holerites</th>
-            <th style={thStyle}>Novos</th>
-            <th style={thStyle}>Por</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lista.map((i) => (
-            <tr key={i.id} style={{ borderTop: '1px solid var(--border)' }}>
-              <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
-                {new Date(i.createdAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-              </td>
-              <td style={tdStyle}>{i.arquivo}</td>
-              <td style={tdStyle}>{i.origem === 'DRIVE' ? 'Google Drive' : 'Upload'}</td>
-              <td style={tdStyle}>{i.competencias.map(formatarCompetencia).join(', ')}</td>
-              <td style={tdStyle}>{i.totalHolerites}</td>
-              <td style={tdStyle}>{i.novosColaboradores}</td>
-              <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{i.atorNome}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Table
+      head={(
+        <tr>
+          <th>Quando</th>
+          <th>Arquivo</th>
+          <th>Origem</th>
+          <th>Competências</th>
+          <th>Holerites</th>
+          <th>Novos</th>
+          <th>Por</th>
+        </tr>
+      )}
+    >
+      {lista.map((i) => (
+        <tr key={i.id}>
+          <td style={{ whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
+            {new Date(i.createdAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+          </td>
+          <td>{i.arquivo}</td>
+          <td><span className={`pill ${i.origem === 'DRIVE' ? 'pill-teal' : 'pill-muted'}`}>{i.origem === 'DRIVE' ? 'Google Drive' : 'Upload'}</span></td>
+          <td>{i.competencias.map(formatarCompetencia).join(', ')}</td>
+          <td>{i.totalHolerites}</td>
+          <td>{i.novosColaboradores}</td>
+          <td style={{ color: 'var(--text-secondary)' }}>{i.atorNome}</td>
+        </tr>
+      ))}
+    </Table>
   );
 }

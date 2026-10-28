@@ -21,10 +21,10 @@ interface KanbanBoardProps {
 }
 
 const COLUMNS = [
-  { id: 'ABERTO',       label: 'Aberto',       color: 'var(--status-aberto)' },
-  { id: 'EM_ANDAMENTO', label: 'Em Andamento', color: 'var(--status-andamento)' },
-  { id: 'CONCLUIDO',    label: 'Concluído',    color: 'var(--status-concluido)' },
-  { id: 'CANCELADO',    label: 'Cancelado',    color: 'var(--status-cancelado)' },
+  { id: 'ABERTO',       label: 'Aberto',       color: 'var(--amber)',            pill: 'pill-amber' },
+  { id: 'EM_ANDAMENTO', label: 'Em Andamento', color: 'var(--electric)',         pill: 'pill-electric' },
+  { id: 'CONCLUIDO',    label: 'Concluído',    color: 'var(--teal)',             pill: 'pill-teal' },
+  { id: 'CANCELADO',    label: 'Cancelado',    color: 'var(--status-cancelado)', pill: 'pill-muted' },
 ];
 
 /* Colunas de histórico (não-ativas): mostram só os N mais recentes
@@ -41,29 +41,29 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
 
 /* ── Cor da borda esquerda por prioridade ── */
 const URGENCY_BORDER: Record<string, string> = {
-  URGENTE: 'var(--prio-alta)',
-  ALTA:    'var(--prio-alta)',
-  MEDIA:   'var(--prio-media)',
-  BAIXA:   'var(--prio-baixa)',
+  URGENTE: 'var(--coral)',
+  ALTA:    'var(--coral)',
+  MEDIA:   'var(--amber)',
+  BAIXA:   'var(--teal)',
 };
 
-/* ── Pills de urgência ── */
-const URGENCY_PILL: Record<string, { bg: string; color: string }> = {
-  URGENTE: { bg: 'rgba(239,68,68,0.15)',  color: '#ef4444' },
-  ALTA:    { bg: 'rgba(239,68,68,0.12)',  color: '#ef4444' },
-  MEDIA:   { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b' },
-  BAIXA:   { bg: 'rgba(34,197,94,0.12)',  color: '#22c55e' },
+/* ── Pills de urgência (classes `.pill-*` do index.css) ── */
+const URGENCY_PILL: Record<string, string> = {
+  URGENTE: 'pill-coral',
+  ALTA:    'pill-coral',
+  MEDIA:   'pill-amber',
+  BAIXA:   'pill-teal',
 };
 const URGENCY_LABEL: Record<string, string> = {
   BAIXA: 'Baixa', MEDIA: 'Média', ALTA: 'Alta', URGENTE: 'Urgente',
 };
 
 /* ── Pills de categoria ── */
-const CATEGORY_PILL: Record<string, { bg: string; color: string }> = {
-  TI:          { bg: 'rgba(77,142,240,0.15)',  color: 'var(--accent)' },
-  SUPRIMENTOS: { bg: 'rgba(168,85,247,0.15)',  color: '#a855f7' },
+const CATEGORY_PILL: Record<string, string> = {
+  TI:          'pill-electric',
+  SUPRIMENTOS: 'pill-violet',
 };
-const DEFAULT_PILL = { bg: 'rgba(148,163,184,0.15)', color: 'var(--text-secondary)' };
+const DEFAULT_PILL = 'pill-muted';
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -82,8 +82,8 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
     ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: 50 }
     : {};
 
-  const urgencyStyle  = URGENCY_PILL[ticket.urgency]  ?? { bg: 'rgba(148,163,184,0.15)', color: 'var(--text-secondary)' };
-  const categoryStyle = CATEGORY_PILL[ticket.category] ?? DEFAULT_PILL;
+  const urgencyPill  = URGENCY_PILL[ticket.urgency]  ?? DEFAULT_PILL;
+  const categoryPill = CATEGORY_PILL[ticket.category] ?? DEFAULT_PILL;
   const leftBorder    = URGENCY_BORDER[ticket.urgency] ?? 'var(--border)';
 
   return (
@@ -122,16 +122,10 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
 
         {/* Pills: categoria + urgência */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
-          <span
-            className="pill"
-            style={{ background: categoryStyle.bg, color: categoryStyle.color }}
-          >
+          <span className={`pill ${categoryPill}`}>
             {ticket.category}
           </span>
-          <span
-            className="pill"
-            style={{ background: urgencyStyle.bg, color: urgencyStyle.color }}
-          >
+          <span className={`pill ${urgencyPill}`}>
             {URGENCY_LABEL[ticket.urgency] ?? ticket.urgency}
           </span>
         </div>
@@ -141,7 +135,7 @@ function TicketCard({ ticket }: { ticket: Ticket }) {
           {ticket.requester.name}
         </p>
         {ticket.assignee && (
-          <p style={{ color: 'var(--accent)', fontSize: '11px', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <p style={{ color: 'var(--electric)', fontSize: '11px', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             → {ticket.assignee.name}
           </p>
         )}
@@ -184,30 +178,12 @@ function KanbanColumn({ col, tickets }: { col: typeof COLUMNS[number]; tickets: 
 
         {/* Chip "+N ocultos" no topo — admin vê sem rolar */}
         {hasOverflow && !expanded && (
-          <span
-            style={{
-              background: 'rgba(245,158,11,0.15)',
-              color: '#f59e0b',
-              fontSize: '11px',
-              fontWeight: 700,
-              padding: '1px 7px',
-              borderRadius: 12,
-            }}
-          >
+          <span className="pill pill-amber" style={{ fontWeight: 700, padding: '1px 7px' }}>
             +{hiddenCount}
           </span>
         )}
 
-        <span
-          style={{
-            background: `${col.color}22`,
-            color: col.color,
-            fontSize: '11px',
-            fontWeight: 600,
-            padding: '1px 7px',
-            borderRadius: 12,
-          }}
-        >
+        <span className={`pill ${col.pill}`} style={{ fontWeight: 600, padding: '1px 7px' }}>
           {tickets.length}
         </span>
 

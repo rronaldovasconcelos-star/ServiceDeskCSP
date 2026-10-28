@@ -35,8 +35,8 @@ export default function FilePreviewModal({ file, onClose }: { file: FileRecord; 
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)' }} />
-      <div style={{ position: 'relative', width: 'min(1100px, 96vw)', height: '90vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(16,22,44,0.7)' }} />
+      <div style={{ position: 'relative', width: 'min(1100px, 96vw)', height: '90vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-card)', boxShadow: 'var(--shadow-navy)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={file.originalName}>{file.originalName}</div>
@@ -45,11 +45,11 @@ export default function FilePreviewModal({ file, onClose }: { file: FileRecord; 
           <button onClick={() => downloadFile(file.id, file.originalName)} style={iconBtnStyle} title="Baixar" aria-label="Baixar"><Download size={18} /></button>
           <button onClick={onClose} style={iconBtnStyle} title="Fechar" aria-label="Fechar"><X size={18} /></button>
         </div>
-        <div style={{ flex: 1, minHeight: 0, background: '#1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ flex: 1, minHeight: 0, background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {erro ? (
-            <p style={{ fontSize: '13px', color: '#ef4444', padding: '16px' }}>{erro}</p>
+            <p style={{ fontSize: '13px', color: 'var(--coral)', padding: '16px' }}>{erro}</p>
           ) : !url ? (
-            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', padding: '16px' }}>Carregando arquivo...</p>
+            <p style={{ fontSize: '13px', color: 'var(--on-navy-muted)', padding: '16px' }}>Carregando arquivo...</p>
           ) : ehImagem ? (
             <img src={url} alt={file.originalName} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
           ) : (

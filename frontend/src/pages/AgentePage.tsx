@@ -10,6 +10,8 @@ import {
 import api, { setKey, hasKey, clearKey, rag as ragApi, report as reportApi, FORM_LINK } from '../lib/lizApi';
 import MapaBairros from '../components/MapaBairros';
 import ErrorBoundary from '../components/ErrorBoundary';
+import PageHeader from '../components/PageHeader';
+import { Button, Card, IconTile } from '../components/ui';
 
 interface RagPending { id: number; colaborador: string; categoria: string; pergunta: string; resposta: string; created_at: string }
 
@@ -71,10 +73,11 @@ const INTEREST_LABEL: Record<NonNullable<Lead['leadInterest']>, string> = {
   proximo_ano: 'Próximo ano',
 };
 
-const INTEREST_COLOR: Record<NonNullable<Lead['leadInterest']>, { bg: string; fg: string }> = {
-  imediato: { bg: 'rgba(34,197,94,0.12)', fg: '#86efac' },
-  proximo_semestre: { bg: 'rgba(234,179,8,0.12)', fg: '#fde047' },
-  proximo_ano: { bg: 'rgba(96,165,250,0.12)', fg: '#93c5fd' },
+// Tom da pílula (classes .pill-* do index.css): quanto mais perto a matrícula, mais quente.
+const INTEREST_TONE: Record<NonNullable<Lead['leadInterest']>, 'teal' | 'amber' | 'electric'> = {
+  imediato: 'teal',
+  proximo_semestre: 'amber',
+  proximo_ano: 'electric',
 };
 
 // Formata telefone BR (ex 553195478946 → +55 31 9547-8946) de forma tolerante.
@@ -99,10 +102,10 @@ const STATE_LABEL: Record<ConnState, string> = {
 };
 
 const STATE_COLOR: Record<ConnState, string> = {
-  open: 'var(--status-concluido)',
-  connecting: 'var(--status-andamento)',
-  close: 'var(--prio-alta)',
-  unknown: 'var(--text-muted)',
+  open: 'var(--teal)',
+  connecting: 'var(--electric)',
+  close: 'var(--coral)',
+  unknown: 'var(--text-secondary)',
 };
 
 const MODELS = ['gpt-4o', 'gpt-4o-mini', 'llama-3.3-70b-versatile'];
@@ -485,17 +488,10 @@ export default function AgentePage() {
     return () => clearInterval(id);
   }, [tab, connState, fetchConnection]);
 
-  const card = { background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.06)' };
   const textareaStyle: React.CSSProperties = {
-    width: '100%',
     minHeight: 360,
-    background: 'var(--bg-primary)',
-    color: 'var(--text-primary)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    padding: 14,
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-    fontSize: '0.82rem',
+    fontSize: 12.5,
     lineHeight: 1.5,
     resize: 'vertical',
   };
@@ -515,763 +511,629 @@ export default function AgentePage() {
     { key: 'arquivos', label: 'Arquivos', icon: Paperclip },
   ];
 
+  const muted: React.CSSProperties = { color: 'var(--text-secondary)', fontSize: 13 };
+  const small: React.CSSProperties = { color: 'var(--text-secondary)', fontSize: 12 };
+  const inner: React.CSSProperties = { background: 'var(--bg-primary)', borderRadius: 'var(--radius-tile)', padding: 12 };
+  const enterKey = () => { if (keyInput.trim()) { setKey(keyInput); setAuthed(true); window.location.reload(); } };
+
   if (!authed) {
     return (
-      <div style={{ maxWidth: 420, margin: '4rem auto', padding: '2rem 1rem' }}>
-        <div className="rounded-xl p-6" style={card}>
-          <div className="flex items-center gap-3 mb-4">
-            <KeyRound size={24} style={{ color: 'var(--accent)' }} />
-            <h1 style={{ color: 'var(--text-primary)', fontSize: '1.1rem', fontWeight: 700 }}>Gestão da Liz</h1>
-          </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 16 }}>
-            Informe a chave de acesso do painel para gerenciar a assistente.
-          </p>
-          {authMsg && (
-            <p className="rounded-lg p-3 mb-3" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#fca5a5', fontSize: '0.82rem' }}>
-              {authMsg}
+      <>
+        <PageHeader title="Agente IA" subtitle="Liz · assistente do WhatsApp" />
+        <div className="page-body">
+          <Card raised style={{ maxWidth: 420, margin: '32px auto 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <IconTile tone="electric"><KeyRound size={18} /></IconTile>
+              <h2 className="card-title" style={{ margin: 0 }}>Gestão da Liz</h2>
+            </div>
+            <p style={{ ...muted, marginBottom: 16 }}>
+              Informe a chave de acesso do painel para gerenciar a assistente.
             </p>
-          )}
-          <input
-            type="password"
-            value={keyInput}
-            onChange={(e) => setKeyInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && keyInput.trim()) { setKey(keyInput); setAuthed(true); window.location.reload(); } }}
-            placeholder="Chave de acesso"
-            className="w-full rounded-lg px-3 py-2 mb-3 text-sm"
-            style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}
-          />
-          <button
-            onClick={() => { if (keyInput.trim()) { setKey(keyInput); setAuthed(true); window.location.reload(); } }}
-            className="w-full rounded-lg px-4 py-2 text-sm font-medium"
-            style={{ background: 'var(--accent)', color: '#fff' }}
-          >
-            Entrar
-          </button>
+            {authMsg && (
+              <p style={{ background: 'var(--coral-soft)', color: 'var(--coral)', borderRadius: 'var(--radius-tile)', padding: '10px 12px', fontSize: 12.5, marginBottom: 12 }}>
+                {authMsg}
+              </p>
+            )}
+            <input
+              type="password"
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') enterKey(); }}
+              placeholder="Chave de acesso"
+              className="field"
+              style={{ marginBottom: 12 }}
+            />
+            <Button onClick={enterKey} style={{ width: '100%', justifyContent: 'center' }}>Entrar</Button>
+          </Card>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div style={{ maxWidth: 860, margin: '0 auto', padding: '2rem 1rem' }}>
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <Bot size={28} style={{ color: 'var(--accent)' }} />
-        <div>
-          <h1 style={{ color: 'var(--text-primary)', fontSize: '1.4rem', fontWeight: 700, lineHeight: 1 }}>
-            Agente IA — Central de Comando
-          </h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: 4 }}>
-            Liz · assistente do WhatsApp · alterações entram em vigor na hora
-          </p>
-        </div>
-      </div>
+    <>
+      <PageHeader
+        title="Agente IA"
+        subtitle="Liz · assistente do WhatsApp · alterações entram em vigor na hora"
+        actions={<Button variant="onNavy" icon={<RefreshCw size={15} />} onClick={fetchStatus}>Atualizar status</Button>}
+      />
 
-      {/* Toast */}
-      {message && (
-        <div
-          className="mb-4 rounded-lg px-4 py-3 text-sm font-medium"
-          style={{
-            background: message.type === 'ok' ? '#14532d' : '#450a0a',
-            color: message.type === 'ok' ? '#86efac' : '#fca5a5',
-            border: `1px solid ${message.type === 'ok' ? '#166534' : '#7f1d1d'}`,
-          }}
-        >
-          {message.text}
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="flex gap-2 mb-5 flex-wrap">
-        {TABS.map(({ key, label, icon: Icon }) => {
-          const active = tab === key;
-          return (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition"
-              style={{
-                background: active ? 'var(--accent)' : 'var(--bg-card-hover)',
-                color: active ? '#fff' : 'var(--text-primary)',
-                border: '1px solid rgba(255,255,255,0.1)',
-              }}
-            >
-              <Icon size={15} />
-              {label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Status ── */}
-      {tab === 'status' && (
-        <div className="rounded-xl p-5" style={card}>
-          <div className="flex items-center justify-between mb-4">
-            <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Estado do agente</p>
-            <button
-              onClick={fetchStatus}
-              className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
-              style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}
-            >
-              <RefreshCw size={14} /> Atualizar
-            </button>
-          </div>
-          {status ? (
-            <div className="grid grid-cols-2 gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-              {[
-                { icon: Activity, label: 'Online há', value: formatUptime(status.uptimeSeconds) },
-                { icon: Bot, label: 'Conversas ativas', value: String(status.sessions) },
-                { icon: Cpu, label: 'Modelo', value: status.model },
-                { icon: Paperclip, label: 'Arquivos da IA', value: String(status.filesCount) },
-                { icon: FileText, label: 'Prompt editado em', value: formatDate(status.configUpdatedAt) },
-              ].map(({ icon: Icon, label, value }) => (
-                <div key={label} className="rounded-lg p-3" style={{ background: 'var(--bg-primary)' }}>
-                  <div className="flex items-center gap-2 mb-1" style={{ color: 'var(--text-muted)' }}>
-                    <Icon size={14} />
-                    <span style={{ fontSize: '0.75rem' }}>{label}</span>
-                  </div>
-                  <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.95rem' }}>{value}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              Não foi possível obter o status do agente. Verifique se o bot está online e configurado.
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* ── Leads ── */}
-      {tab === 'leads' && (
-        <div className="flex flex-col gap-4">
-          {/* Resumo + ações */}
-          <div className="rounded-xl p-5" style={card}>
-            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
-                {showAllContacts ? `Todos os contatos (${leads.length})` : `Leads qualificados (${qualifiedCount})`}
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowAllContacts((v) => !v)}
-                  className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
-                  style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}
-                  title="Leads = com sinal real (interesse, visita, filho ou bairro). Contatos = todo mundo que escreveu."
-                >
-                  <Users size={14} /> {showAllContacts ? `Ver só leads (${qualifiedCount})` : `Ver todos os contatos (${leads.length})`}
-                </button>
-                <button
-                  onClick={exportLeadsCsv}
-                  disabled={visibleLeads.length === 0}
-                  className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
-                  style={{
-                    background: 'var(--bg-card-hover)', color: 'var(--text-primary)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    opacity: visibleLeads.length === 0 ? 0.5 : 1, cursor: visibleLeads.length === 0 ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  <FileText size={14} /> Exportar CSV
-                </button>
-                <button
-                  onClick={fetchLeads}
-                  className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
-                  style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}
-                >
-                  {loading['leads'] ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Atualizar
-                </button>
-              </div>
-            </div>
-            {/* Contadores por interesse */}
-            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
-              {(['imediato', 'proximo_semestre', 'proximo_ano'] as const).map((k) => {
-                const count = leads.filter((l) => l.leadInterest === k).length;
-                const c = INTEREST_COLOR[k];
-                return (
-                  <div key={k} className="rounded-lg p-3" style={{ background: 'var(--bg-primary)' }}>
-                    <span style={{ fontSize: '0.72rem', color: c.fg, background: c.bg, padding: '2px 8px', borderRadius: 6 }}>
-                      {INTEREST_LABEL[k]}
-                    </span>
-                    <p style={{ color: 'var(--text-primary)', fontWeight: 700, fontSize: '1.4rem', marginTop: 8 }}>{count}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Lista de leads */}
-          <div className="rounded-xl p-5" style={card}>
-            {loading['leads'] && leads.length === 0 ? (
-              <div className="flex items-center gap-2" style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                <Loader2 size={15} className="animate-spin" /> Carregando leads…
-              </div>
-            ) : visibleLeads.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                {showAllContacts
-                  ? 'Nenhum contato ainda. Conforme os responsáveis conversarem com a Liz, eles aparecem aqui automaticamente.'
-                  : 'Nenhum lead qualificado ainda. Use "Ver todos os contatos" para ver quem já escreveu, ou aguarde a Liz coletar interesse/bairro/visita.'}
-              </p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {visibleLeads.map((l) => (
-                  <div key={l.phone} className="rounded-lg p-3" style={{ background: 'var(--bg-primary)' }}>
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.92rem' }}>
-                            {l.name || 'Sem nome'}
-                          </span>
-                          {l.leadInterest && (
-                            <span style={{
-                              fontSize: '0.68rem', color: INTEREST_COLOR[l.leadInterest].fg,
-                              background: INTEREST_COLOR[l.leadInterest].bg, padding: '2px 8px', borderRadius: 6,
-                            }}>
-                              {INTEREST_LABEL[l.leadInterest]}
-                            </span>
-                          )}
-                          {l.gradeInterest && (
-                            <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', background: 'var(--bg-card-hover)', padding: '2px 8px', borderRadius: 6 }}>
-                              {l.gradeInterest}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 mt-1.5 flex-wrap" style={{ color: 'var(--text-muted)', fontSize: '0.76rem' }}>
-                          <span className="flex items-center gap-1"><Phone size={12} /> {formatPhone(l.phone)}</span>
-                          {l.email && <span className="flex items-center gap-1"><Mail size={12} /> {l.email}</span>}
-                          {l.children.length > 0 && (
-                            <span>👦 {l.children.map((c) => `${c.name}${c.age ? ` (${c.age})` : ''}`).join(', ')}</span>
-                          )}
-                        </div>
-                        {l.lastVisit && (
-                          <div className="flex items-center gap-1 mt-1.5" style={{ color: 'var(--status-concluido)', fontSize: '0.76rem' }}>
-                            <CalendarCheck size={12} /> Visita: {l.lastVisit.date} às {l.lastVisit.time}
-                          </div>
-                        )}
-                      </div>
-                      <a
-                        href={`https://wa.me/${l.phone.replace(/\D/g, '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-lg px-3 py-1.5 text-sm flex items-center gap-1.5 flex-shrink-0"
-                        style={{ background: 'rgba(34,197,94,0.12)', color: '#86efac', border: '1px solid rgba(34,197,94,0.25)' }}
-                      >
-                        <Smartphone size={13} /> WhatsApp
-                      </a>
-                    </div>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.68rem', marginTop: 8 }}>
-                      Atualizado: {formatDate(l.updatedAt)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Conexão WhatsApp ── */}
-      {tab === 'conexao' && (
-        <div className="flex flex-col gap-4">
-          {/* Card de status da conexão */}
+      <div className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Toast */}
+        {message && (
           <div
-            className="rounded-xl p-5 flex items-center justify-between"
-            style={card}
+            role="status"
+            style={{
+              background: message.type === 'ok' ? 'var(--teal-soft)' : 'var(--coral-soft)',
+              color: message.type === 'ok' ? 'var(--teal)' : 'var(--coral)',
+              borderRadius: 'var(--radius-tile)',
+              padding: '10px 14px',
+              fontSize: 13,
+              fontWeight: 500,
+            }}
           >
-            <div className="flex items-center gap-3">
-              <div
-                style={{
-                  width: 14, height: 14, borderRadius: '50%',
-                  background: STATE_COLOR[connState], boxShadow: `0 0 8px ${STATE_COLOR[connState]}`,
-                }}
-              />
-              <div>
-                <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{STATE_LABEL[connState]}</p>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-                  {connState === 'open' ? (connPhone ?? 'Carregando…') : 'Sem número ativo'}
-                </p>
-              </div>
-            </div>
-            {connState === 'open'
-              ? <Wifi size={22} style={{ color: STATE_COLOR.open }} />
-              : <WifiOff size={22} style={{ color: STATE_COLOR[connState] }} />}
-          </div>
-
-          {/* Botões de ação */}
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={fetchConnection}
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition"
-              style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}
-            >
-              <RefreshCw size={15} /> Atualizar status
-            </button>
-
-            <button
-              onClick={genQr}
-              disabled={loading['qr'] || connState === 'open'}
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition"
-              style={{
-                background: connState === 'open' ? 'rgba(77,142,240,0.1)' : 'var(--accent)',
-                color: connState === 'open' ? 'var(--text-muted)' : '#fff',
-                cursor: connState === 'open' ? 'not-allowed' : 'pointer',
-                opacity: connState === 'open' ? 0.5 : 1,
-              }}
-            >
-              {loading['qr'] ? <Loader2 size={15} className="animate-spin" /> : <QrCode size={15} />}
-              {connState === 'open' ? 'Já conectado' : 'Gerar QR Code'}
-            </button>
-
-            <button
-              onClick={restartConn}
-              disabled={loading['restart']}
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition"
-              style={{ background: '#78350f', color: '#fcd34d', border: '1px solid #92400e' }}
-            >
-              {loading['restart'] ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
-              Reiniciar conexão
-            </button>
-
-            <button
-              onClick={disconnectConn}
-              disabled={loading['disconnect'] || connState !== 'open'}
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition"
-              style={{
-                background: connState === 'open' ? '#450a0a' : 'rgba(239,68,68,0.1)',
-                color: connState === 'open' ? '#fca5a5' : 'var(--text-muted)',
-                border: '1px solid #7f1d1d',
-                cursor: connState !== 'open' ? 'not-allowed' : 'pointer',
-                opacity: connState !== 'open' ? 0.5 : 1,
-              }}
-            >
-              {loading['disconnect'] ? <Loader2 size={15} className="animate-spin" /> : <LogOut size={15} />}
-              Desconectar
-            </button>
-          </div>
-
-          {/* QR Code */}
-          {qrcode && (
-            <div className="rounded-xl p-6 flex flex-col items-center gap-4" style={card}>
-              <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Aponte o WhatsApp para o QR Code</p>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', textAlign: 'center' }}>
-                No celular: WhatsApp → Dispositivos conectados → Conectar dispositivo
-              </p>
-              <div className="rounded-xl overflow-hidden" style={{ background: '#fff', padding: 12 }}>
-                <img src={qrcode} alt="QR Code WhatsApp" style={{ width: 220, height: 220, display: 'block' }} />
-              </div>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                O QR expira em ~60 segundos. Se expirar, clique em "Gerar QR Code" novamente.
-              </p>
-            </div>
-          )}
-
-          {/* Ajuda conectado */}
-          {connState === 'open' && !qrcode && (
-            <div className="rounded-xl p-4" style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)' }}>
-              <p style={{ color: '#86efac', fontSize: '0.85rem' }}>
-                <strong>Tudo certo!</strong> A Liz está atendendo pelo número {connPhone ?? '–'}.
-                Use <strong>Reiniciar conexão</strong> se houver falha no envio sem trocar de número.
-                Use <strong>Desconectar</strong> apenas para trocar de número — será necessário escanear um novo QR Code.
-              </p>
-            </div>
-          )}
-
-          {/* Ajuda desconectado */}
-          {connState !== 'open' && !qrcode && connState !== 'unknown' && (
-            <div className="rounded-xl p-4" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)' }}>
-              <p style={{ color: '#fca5a5', fontSize: '0.85rem' }}>
-                <strong>Liz desconectada.</strong> Clique em <strong>Gerar QR Code</strong> e escaneie com o celular do número que deve atender.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Prompt ── */}
-      {tab === 'prompt' && (
-        <div className="rounded-xl p-5" style={card}>
-          <div className="mb-3">
-            <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>System prompt da Liz</p>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 4 }}>
-              Define a personalidade e as regras. Mantenha os marcadores{' '}
-              <code style={{ color: 'var(--accent)' }}>{'{{DATETIME}}'}</code>,{' '}
-              <code style={{ color: 'var(--accent)' }}>{'{{PHONE}}'}</code>,{' '}
-              <code style={{ color: 'var(--accent)' }}>{'{{WHATSAPP_NAME}}'}</code> e{' '}
-              <code style={{ color: 'var(--accent)' }}>{'{{MEMORY}}'}</code>.
-            </p>
-          </div>
-          <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} style={textareaStyle} />
-
-          <div className="flex items-center gap-3 mt-4 flex-wrap">
-            <div className="flex items-center gap-2">
-              <Cpu size={15} style={{ color: 'var(--text-muted)' }} />
-              <select
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                className="rounded-lg px-3 py-2 text-sm"
-                style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}
-              >
-                {[...new Set([model, ...MODELS])].filter(Boolean).map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
-            <button
-              onClick={savePrompt}
-              disabled={loading['prompt']}
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium"
-              style={{ background: 'var(--accent)', color: '#fff', marginLeft: 'auto' }}
-            >
-              {loading['prompt'] ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-              Salvar prompt
-            </button>
-          </div>
-          {config && (
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginTop: 8 }}>
-              Última edição: {formatDate(config.updatedAt)}
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* ── Contexto extra ── */}
-      {tab === 'contexto' && (
-        <div className="rounded-xl p-5" style={card}>
-          <div className="mb-3">
-            <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Contexto adicional</p>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: 4 }}>
-              Informações temporárias injetadas no prompt — avisos sazonais, promoções, mudanças de horário,
-              campanhas de matrícula. Deixe em branco para não adicionar nada.
-            </p>
-          </div>
-          <textarea
-            value={extraContext}
-            onChange={(e) => setExtraContext(e.target.value)}
-            style={{ ...textareaStyle, minHeight: 220, fontFamily: 'inherit', fontSize: '0.9rem' }}
-            placeholder="Ex: Estamos em campanha de matrícula 2026 — informe que há 10% de desconto até 30/06."
-          />
-          <button
-            onClick={saveContext}
-            disabled={loading['contexto']}
-            className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium mt-4"
-            style={{ background: 'var(--accent)', color: '#fff' }}
-          >
-            {loading['contexto'] ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-            Salvar contexto
-          </button>
-        </div>
-      )}
-
-      {/* ── Arquivos ── */}
-      {tab === 'arquivos' && (
-        <div className="flex flex-col gap-4">
-          {/* Upload */}
-          <div className="rounded-xl p-5" style={card}>
-            <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 4 }}>Novo arquivo</p>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: 12 }}>
-              PDF, imagem ou folder que a Liz poderá enviar nas conversas. A descrição diz a ela quando usar.
-            </p>
-            {/* Input nativo escondido — acionado pela área clicável abaixo */}
-            <input
-              ref={fileInput}
-              type="file"
-              onChange={(e) => setPendingFile(e.target.files?.[0] ?? null)}
-              style={{ display: 'none' }}
-            />
-            <button
-              type="button"
-              onClick={() => fileInput.current?.click()}
-              className="flex flex-col items-center justify-center gap-2 w-full rounded-lg mb-3 transition"
-              style={{
-                background: 'var(--bg-primary)',
-                border: `2px dashed ${pendingFile ? 'var(--accent)' : 'rgba(255,255,255,0.2)'}`,
-                padding: '24px 16px',
-                cursor: 'pointer',
-                color: 'var(--text-secondary)',
-              }}
-            >
-              <Upload size={22} style={{ color: 'var(--accent)' }} />
-              {pendingFile ? (
-                <>
-                  <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem' }}>
-                    {pendingFile.name}
-                  </span>
-                  <span style={{ fontSize: '0.75rem' }}>
-                    {formatBytes(pendingFile.size)} · clique para trocar
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: '0.9rem' }}>
-                    Clique para escolher um arquivo
-                  </span>
-                  <span style={{ fontSize: '0.75rem' }}>PDF, imagem, vídeo ou documento</span>
-                </>
-              )}
-            </button>
-            <input
-              type="text"
-              value={pendingDesc}
-              onChange={(e) => setPendingDesc(e.target.value)}
-              placeholder="Descrição — ex: Tabela de valores 2026, enviar quando perguntarem sobre mensalidade"
-              className="block w-full rounded-lg px-3 py-2 text-sm mb-3"
-              style={{ background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}
-            />
-            <button
-              onClick={uploadFile}
-              disabled={!pendingFile || loading['upload']}
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium"
-              style={{ background: 'var(--accent)', color: '#fff', opacity: !pendingFile ? 0.5 : 1, cursor: !pendingFile ? 'not-allowed' : 'pointer' }}
-            >
-              {loading['upload'] ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-              Enviar arquivo
-            </button>
-          </div>
-
-          {/* Lista */}
-          <div className="rounded-xl p-5" style={card}>
-            <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 12 }}>
-              Arquivos cadastrados ({files.length})
-            </p>
-            {files.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                Nenhum arquivo ainda. Use a área acima para enviar o primeiro.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {files.map((f) => (
-                  <div
-                    key={f.id}
-                    className="flex items-center gap-3 rounded-lg p-3"
-                    style={{ background: 'var(--bg-primary)' }}
-                  >
-                    <FileText size={18} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-                    <div className="min-w-0 flex-1">
-                      <p style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: '0.88rem' }} className="truncate">
-                        {f.originalName}
-                      </p>
-                      <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }} className="truncate">
-                        {f.description || 'sem descrição'} · {formatBytes(f.sizeBytes)}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => removeFile(f.id)}
-                      disabled={loading[`del-${f.id}`]}
-                      className="rounded-lg p-2"
-                      style={{ background: 'rgba(239,68,68,0.1)', color: '#fca5a5', border: '1px solid #7f1d1d' }}
-                      aria-label="Remover arquivo"
-                    >
-                      {loading[`del-${f.id}`] ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── Conhecimento (RAG) ── */}
-      {tab === 'rag' && (
-        <>
-        {/* Coleta de conhecimento (link da landing) */}
-        <div className="rounded-xl p-5 mb-4" style={card}>
-          <p className="flex items-center gap-2" style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 6 }}><Users size={16} /> Coleta de conhecimento</p>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: 10 }}>Envie este link para os colaboradores preencherem as informações da escola. As respostas chegam aqui em <b>Pendentes</b> para sua aprovação.</p>
-          <div className="flex items-center gap-2 flex-wrap">
-            <input readOnly value={FORM_LINK} className="rounded-lg px-3 py-2 text-sm" style={{ flex: 1, minWidth: 220, background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }} />
-            <button onClick={() => { navigator.clipboard.writeText(FORM_LINK); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
-              className="rounded-lg px-4 py-2 text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>
-              {copied ? 'Copiado!' : 'Copiar link'}
-            </button>
-          </div>
-        </div>
-
-        {/* Pendentes de revisão */}
-        {pending.length > 0 && (
-          <div className="rounded-xl p-5 mb-4" style={card}>
-            <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 10 }}>📥 Pendentes de revisão ({pending.length})</p>
-            <div className="space-y-2">
-              {pending.map((p) => (
-                <div key={p.id} className="rounded-lg p-3" style={{ background: 'var(--bg-card-hover)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 4 }}>{p.colaborador} · {p.categoria}</div>
-                  <div style={{ color: 'var(--text-primary)', fontSize: '0.82rem' }}><b>{p.pergunta}</b></div>
-                  <div style={{ color: 'var(--text-primary)', fontSize: '0.82rem', marginTop: 2 }}>{p.resposta}</div>
-                  <div className="flex gap-2 mt-2">
-                    <button onClick={() => approvePending(p.id)} disabled={loading[`pa-${p.id}`]}
-                      className="rounded-lg px-3 py-1 text-xs font-medium" style={{ background: 'rgba(34,197,94,0.15)', color: '#86efac', border: '1px solid rgba(34,197,94,0.3)' }}>
-                      {loading[`pa-${p.id}`] ? '...' : '✓ Aprovar'}
-                    </button>
-                    <button onClick={() => rejectPending(p.id)} disabled={loading[`pr-${p.id}`]}
-                      className="rounded-lg px-3 py-1 text-xs font-medium" style={{ background: 'rgba(239,68,68,0.12)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)' }}>
-                      {loading[`pr-${p.id}`] ? '...' : '✕ Rejeitar'}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {message.text}
           </div>
         )}
 
-        <div className="rounded-xl p-5" style={card}>
-          <div className="flex items-center justify-between mb-4">
-            <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Base de conhecimento (RAG)</p>
-            <button onClick={fetchRag} className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
-              style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <RefreshCw size={14} /> Atualizar
+        {/* Abas */}
+        <div className="tabs">
+          {TABS.map(({ key, label, icon: Icon }) => (
+            <button key={key} type="button" className={`tab${tab === key ? ' active' : ''}`} onClick={() => setTab(key)}>
+              <Icon size={15} />
+              {label}
             </button>
-          </div>
+          ))}
+        </div>
 
-          {/* adicionar texto */}
-          <div className="mb-4">
-            <textarea value={ragText} onChange={(e) => setRagText(e.target.value)} rows={3}
-              placeholder="Escreva um novo conhecimento/FAQ que a Liz deve saber…"
-              className="w-full rounded-lg px-3 py-2 text-sm mb-2"
-              style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }} />
-            <div className="flex items-center gap-2 flex-wrap">
-              <input value={ragCat} onChange={(e) => setRagCat(e.target.value)} placeholder="categoria"
-                className="rounded-lg px-3 py-1.5 text-sm" style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)', width: 140 }} />
-              <button onClick={addRag} disabled={loading.ragAdd || !ragText.trim()}
-                className="flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-medium" style={{ background: 'var(--accent)', color: '#fff', opacity: loading.ragAdd ? 0.6 : 1 }}>
-                {loading.ragAdd ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />} Adicionar
-              </button>
-              <label className="flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-medium cursor-pointer"
-                style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                {loading.ragPdf ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Upload PDF
-                <input type="file" accept="application/pdf" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPdfRag(f); e.target.value = ''; }} />
-              </label>
-            </div>
-          </div>
-
-          {/* lista */}
-          {loading.rag ? (
-            <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}><Loader2 size={16} className="animate-spin" /> Carregando…</div>
-          ) : (
-            <div className="space-y-2">
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{ragChunks.length} trechos indexados</p>
-              {ragChunks.map((c) => (
-                <div key={c.id} className="rounded-lg p-3 flex items-start justify-between gap-3" style={{ background: 'var(--bg-card-hover)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <span className="rounded px-2 py-0.5 text-xs" style={{ background: 'rgba(124,58,237,0.15)', color: '#c4b5fd' }}>{c.categoria}</span>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', marginLeft: 8 }}>{c.fonte}</span>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '0.82rem', marginTop: 4 }}>{c.texto}</p>
+        {/* ── Status ── */}
+        {tab === 'status' && (
+          status ? (
+            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+              {([
+                { icon: Activity, label: 'Online há', value: formatUptime(status.uptimeSeconds), tone: 'teal' },
+                { icon: Bot, label: 'Conversas ativas', value: String(status.sessions), tone: 'electric' },
+                { icon: Cpu, label: 'Modelo', value: status.model, tone: 'violet' },
+                { icon: Paperclip, label: 'Arquivos da IA', value: String(status.filesCount), tone: 'amber' },
+                { icon: FileText, label: 'Prompt editado em', value: formatDate(status.configUpdatedAt), tone: 'electric' },
+              ] as const).map(({ icon: Icon, label, value, tone }) => (
+                <div key={label} className="kpi-card">
+                  <IconTile tone={tone} size={44}><Icon size={20} aria-hidden="true" /></IconTile>
+                  <div className="min-w-0">
+                    <p className="kpi-label">{label}</p>
+                    <p className="kpi-value" style={{ fontSize: 18, wordBreak: 'break-word' }}>{value}</p>
                   </div>
-                  <button onClick={() => removeRag(c.id)} disabled={loading[`ragDel-${c.id}`]} title="Remover"
-                    style={{ color: 'var(--prio-alta)', flexShrink: 0 }}>
-                    {loading[`ragDel-${c.id}`] ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                  </button>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-        </>
-      )}
+          ) : (
+            <Card>
+              <p style={muted}>Não foi possível obter o status do agente. Verifique se o bot está online e configurado.</p>
+            </Card>
+          )
+        )}
 
-      {/* ── Relatório ── */}
-      {tab === 'relatorio' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Relatório comercial</p>
-            <button onClick={fetchReport} className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
-              style={{ background: 'var(--bg-card-hover)', color: 'var(--text-primary)', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <RefreshCw size={14} /> Atualizar
-            </button>
-          </div>
-
-          {loading.relatorio && <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}><Loader2 size={16} className="animate-spin" /> Carregando…</div>}
-
-          {reportData && (
-            <>
-              {/* KPIs */}
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { l: 'Leads', v: reportData.totais.leads },
-                  { l: 'Visitas agendadas', v: reportData.totais.visitasAgendadas },
-                  { l: 'Crianças', v: reportData.totais.comFilho },
-                ].map((k) => (
-                  <div key={k.l} className="rounded-xl p-4" style={card}>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{k.l}</p>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '1.6rem', fontWeight: 700 }}>{k.v}</p>
-                  </div>
-                ))}
+        {/* ── Leads ── */}
+        {tab === 'leads' && (
+          <>
+            <Card>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                <h2 className="card-title" style={{ margin: 0 }}>
+                  {showAllContacts ? `Todos os contatos (${leads.length})` : `Leads qualificados (${qualifiedCount})`}
+                </h2>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Button
+                    variant="ghost" size="sm" icon={<Users size={14} />}
+                    onClick={() => setShowAllContacts((v) => !v)}
+                    title="Leads = com sinal real (interesse, visita, filho ou bairro). Contatos = todo mundo que escreveu."
+                  >
+                    {showAllContacts ? `Ver só leads (${qualifiedCount})` : `Ver todos os contatos (${leads.length})`}
+                  </Button>
+                  <Button variant="ghost" size="sm" icon={<FileText size={14} />} onClick={exportLeadsCsv} disabled={visibleLeads.length === 0}>
+                    Exportar CSV
+                  </Button>
+                  <Button
+                    variant="ghost" size="sm"
+                    icon={loading['leads'] ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+                    onClick={fetchLeads}
+                  >
+                    Atualizar
+                  </Button>
+                </div>
               </div>
-
-              {/* Heatmap dia x hora */}
-              <div className="rounded-xl p-5" style={card}>
-                <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 12 }}>Mapa de calor — quando chegam mensagens</p>
-                {(() => {
-                  const grid: Record<string, number> = {};
-                  let max = 1;
-                  reportData.heatmap.forEach((h) => { grid[`${h.dow}-${h.hour}`] = h.count; if (h.count > max) max = h.count; });
+              {/* Contadores por interesse */}
+              <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+                {(['imediato', 'proximo_semestre', 'proximo_ano'] as const).map((k) => {
+                  const count = leads.filter((l) => l.leadInterest === k).length;
                   return (
-                    <div style={{ overflowX: 'auto' }}>
-                      <table style={{ borderCollapse: 'collapse' }}>
-                        <thead><tr><th></th>{Array.from({ length: 24 }, (_, h) => <th key={h} style={{ fontSize: 8, color: 'var(--text-muted)', padding: '0 1px', fontWeight: 400 }}>{h}</th>)}</tr></thead>
-                        <tbody>
-                          {DOW_LABEL.map((d, di) => (
-                            <tr key={di}>
-                              <td style={{ fontSize: 10, color: 'var(--text-muted)', paddingRight: 6 }}>{d}</td>
-                              {Array.from({ length: 24 }, (_, h) => {
-                                const c = grid[`${di}-${h}`] || 0;
-                                const op = c ? 0.15 + 0.85 * (c / max) : 0;
-                                return <td key={h} title={`${d} ${h}h: ${c}`} style={{ width: 15, height: 15, background: c ? `rgba(124,58,237,${op})` : 'rgba(255,255,255,0.04)', border: '1px solid rgba(0,0,0,0.2)' }} />;
-                              })}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div key={k} style={inner}>
+                      <span className={`pill pill-${INTEREST_TONE[k]}`}>{INTEREST_LABEL[k]}</span>
+                      <p style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 24, marginTop: 8, lineHeight: 1.1 }}>{count}</p>
                     </div>
                   );
-                })()}
+                })}
               </div>
+            </Card>
 
-              {/* Funil + bairros */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="rounded-xl p-5" style={card}>
-                  <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 12 }}>Leads por interesse</p>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={reportData.interesse}>
-                      <XAxis dataKey="interesse" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                      <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                      <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-                      <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                        {reportData.interesse.map((_, i) => <Cell key={i} fill="#7c3aed" />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+            {/* Lista de leads */}
+            <Card>
+              {loading['leads'] && leads.length === 0 ? (
+                <div style={{ ...muted, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Loader2 size={15} className="animate-spin" /> Carregando leads…
                 </div>
-                <div className="rounded-xl p-5" style={card}>
-                  <p style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 12 }}>Leads por etapa de ensino</p>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={reportData.etapas}>
-                      <XAxis dataKey="etapa" tick={{ fontSize: 9, fill: '#94a3b8' }} interval={0} />
-                      <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                      <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-                      <Bar dataKey="count" radius={[4, 4, 0, 0]} fill="#a855f7" />
-                    </BarChart>
-                  </ResponsiveContainer>
+              ) : visibleLeads.length === 0 ? (
+                <p style={muted}>
+                  {showAllContacts
+                    ? 'Nenhum contato ainda. Conforme os responsáveis conversarem com a Liz, eles aparecem aqui automaticamente.'
+                    : 'Nenhum lead qualificado ainda. Use "Ver todos os contatos" para ver quem já escreveu, ou aguarde a Liz coletar interesse/bairro/visita.'}
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {visibleLeads.map((l) => (
+                    <div key={l.phone} style={inner}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                        <div className="min-w-0">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 14 }}>
+                              {l.name || 'Sem nome'}
+                            </span>
+                            {l.leadInterest && (
+                              <span className={`pill pill-${INTEREST_TONE[l.leadInterest]}`}>{INTEREST_LABEL[l.leadInterest]}</span>
+                            )}
+                            {l.gradeInterest && <span className="pill pill-muted">{l.gradeInterest}</span>}
+                          </div>
+                          <div style={{ ...small, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 6 }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Phone size={12} /> {formatPhone(l.phone)}</span>
+                            {l.email && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Mail size={12} /> {l.email}</span>}
+                            {l.children.length > 0 && (
+                              <span>👦 {l.children.map((c) => `${c.name}${c.age ? ` (${c.age})` : ''}`).join(', ')}</span>
+                            )}
+                          </div>
+                          {l.lastVisit && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, color: 'var(--teal)', fontSize: 12 }}>
+                              <CalendarCheck size={12} /> Visita: {l.lastVisit.date} às {l.lastVisit.time}
+                            </div>
+                          )}
+                        </div>
+                        <a
+                          href={`https://wa.me/${l.phone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-secondary btn-sm"
+                          style={{ textDecoration: 'none', flexShrink: 0 }}
+                        >
+                          <Smartphone size={13} /> WhatsApp
+                        </a>
+                      </div>
+                      <p style={{ ...small, fontSize: 11, marginTop: 8 }}>Atualizado: {formatDate(l.updatedAt)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </>
+        )}
+
+        {/* ── Conexão WhatsApp ── */}
+        {tab === 'conexao' && (
+          <>
+            <Card style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
+                    background: STATE_COLOR[connState], boxShadow: `0 0 8px ${STATE_COLOR[connState]}`,
+                  }}
+                />
+                <div>
+                  <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{STATE_LABEL[connState]}</p>
+                  <p style={small}>{connState === 'open' ? (connPhone ?? 'Carregando…') : 'Sem número ativo'}</p>
                 </div>
               </div>
+              {connState === 'open'
+                ? <Wifi size={22} style={{ color: STATE_COLOR.open }} />
+                : <WifiOff size={22} style={{ color: STATE_COLOR[connState] }} />}
+            </Card>
 
-              {/* Bairros */}
-              <div className="rounded-xl p-5" style={card}>
-                <p className="flex items-center gap-2" style={{ color: 'var(--text-primary)', fontWeight: 600, marginBottom: 12 }}><MapPin size={16} /> Mapa de calor — leads por bairro/região</p>
-                {reportData.bairros.filter((b) => b.bairro && !b.bairro.startsWith('(')).length === 0 ? (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>Sem dados de bairro ainda — a Liz passou a coletar nas conversas.</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              <Button variant="ghost" icon={<RefreshCw size={15} />} onClick={fetchConnection}>Atualizar status</Button>
+              <Button
+                icon={loading['qr'] ? <Loader2 size={15} className="animate-spin" /> : <QrCode size={15} />}
+                onClick={genQr}
+                disabled={loading['qr'] || connState === 'open'}
+              >
+                {connState === 'open' ? 'Já conectado' : 'Gerar QR Code'}
+              </Button>
+              <Button
+                variant="ghost"
+                icon={loading['restart'] ? <Loader2 size={15} className="animate-spin" /> : <RotateCcw size={15} />}
+                onClick={restartConn}
+                disabled={loading['restart']}
+              >
+                Reiniciar conexão
+              </Button>
+              <Button
+                variant="danger"
+                icon={loading['disconnect'] ? <Loader2 size={15} className="animate-spin" /> : <LogOut size={15} />}
+                onClick={disconnectConn}
+                disabled={loading['disconnect'] || connState !== 'open'}
+              >
+                Desconectar
+              </Button>
+            </div>
+
+            {qrcode && (
+              <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, padding: 24 }}>
+                <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Aponte o WhatsApp para o QR Code</p>
+                <p style={{ ...muted, textAlign: 'center' }}>No celular: WhatsApp → Dispositivos conectados → Conectar dispositivo</p>
+                <div style={{ background: 'var(--on-navy)', padding: 12, borderRadius: 'var(--radius-tile)' }}>
+                  <img src={qrcode} alt="QR Code WhatsApp" style={{ width: 220, height: 220, display: 'block' }} />
+                </div>
+                <p style={small}>O QR expira em ~60 segundos. Se expirar, clique em "Gerar QR Code" novamente.</p>
+              </Card>
+            )}
+
+            {connState === 'open' && !qrcode && (
+              <div style={{ background: 'var(--teal-soft)', color: 'var(--text-primary)', borderRadius: 'var(--radius-card)', padding: 16, fontSize: 13 }}>
+                <strong style={{ color: 'var(--teal)' }}>Tudo certo!</strong> A Liz está atendendo pelo número {connPhone ?? '–'}.
+                Use <strong>Reiniciar conexão</strong> se houver falha no envio sem trocar de número.
+                Use <strong>Desconectar</strong> apenas para trocar de número — será necessário escanear um novo QR Code.
+              </div>
+            )}
+
+            {connState !== 'open' && !qrcode && connState !== 'unknown' && (
+              <div style={{ background: 'var(--coral-soft)', color: 'var(--text-primary)', borderRadius: 'var(--radius-card)', padding: 16, fontSize: 13 }}>
+                <strong style={{ color: 'var(--coral)' }}>Liz desconectada.</strong> Clique em <strong>Gerar QR Code</strong> e escaneie com o celular do número que deve atender.
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Prompt ── */}
+        {tab === 'prompt' && (
+          <Card title="System prompt da Liz">
+            <p style={{ ...small, marginTop: -8, marginBottom: 12 }}>
+              Define a personalidade e as regras. Mantenha os marcadores{' '}
+              <code style={{ color: 'var(--electric)' }}>{'{{DATETIME}}'}</code>,{' '}
+              <code style={{ color: 'var(--electric)' }}>{'{{PHONE}}'}</code>,{' '}
+              <code style={{ color: 'var(--electric)' }}>{'{{WHATSAPP_NAME}}'}</code> e{' '}
+              <code style={{ color: 'var(--electric)' }}>{'{{MEMORY}}'}</code>.
+            </p>
+            <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)} className="field" style={textareaStyle} />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Cpu size={15} style={{ color: 'var(--text-secondary)' }} />
+                <select value={model} onChange={(e) => setModel(e.target.value)} className="field" style={{ width: 'auto' }}>
+                  {[...new Set([model, ...MODELS])].filter(Boolean).map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <Button
+                icon={loading['prompt'] ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                onClick={savePrompt}
+                disabled={loading['prompt']}
+                style={{ marginLeft: 'auto' }}
+              >
+                Salvar prompt
+              </Button>
+            </div>
+            {config && <p style={{ ...small, fontSize: 11, marginTop: 8 }}>Última edição: {formatDate(config.updatedAt)}</p>}
+          </Card>
+        )}
+
+        {/* ── Contexto extra ── */}
+        {tab === 'contexto' && (
+          <Card title="Contexto adicional">
+            <p style={{ ...small, marginTop: -8, marginBottom: 12 }}>
+              Informações temporárias injetadas no prompt — avisos sazonais, promoções, mudanças de horário,
+              campanhas de matrícula. Deixe em branco para não adicionar nada.
+            </p>
+            <textarea
+              value={extraContext}
+              onChange={(e) => setExtraContext(e.target.value)}
+              className="field"
+              style={{ ...textareaStyle, minHeight: 220, fontFamily: 'inherit', fontSize: 13 }}
+              placeholder="Ex: Estamos em campanha de matrícula 2026 — informe que há 10% de desconto até 30/06."
+            />
+            <div style={{ marginTop: 14 }}>
+              <Button
+                icon={loading['contexto'] ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                onClick={saveContext}
+                disabled={loading['contexto']}
+              >
+                Salvar contexto
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {/* ── Arquivos ── */}
+        {tab === 'arquivos' && (
+          <>
+            <Card title="Novo arquivo">
+              <p style={{ ...small, marginTop: -8, marginBottom: 12 }}>
+                PDF, imagem ou folder que a Liz poderá enviar nas conversas. A descrição diz a ela quando usar.
+              </p>
+              {/* Input nativo escondido — acionado pela área clicável abaixo */}
+              <input
+                ref={fileInput}
+                type="file"
+                onChange={(e) => setPendingFile(e.target.files?.[0] ?? null)}
+                style={{ display: 'none' }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInput.current?.click()}
+                style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  width: '100%', marginBottom: 12,
+                  background: 'var(--bg-primary)',
+                  border: `2px dashed ${pendingFile ? 'var(--electric)' : 'var(--border)'}`,
+                  borderRadius: 'var(--radius-tile)',
+                  padding: '24px 16px',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)',
+                  font: 'inherit',
+                }}
+              >
+                <Upload size={22} style={{ color: 'var(--electric)' }} />
+                {pendingFile ? (
+                  <>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 14 }}>{pendingFile.name}</span>
+                    <span style={{ fontSize: 12 }}>{formatBytes(pendingFile.size)} · clique para trocar</span>
+                  </>
                 ) : (
-                  <ErrorBoundary fallback={
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                      Não foi possível carregar o mapa de bairros. Veja a lista abaixo:
-                      <br />{reportData.bairros.filter((b) => b.bairro && !b.bairro.startsWith('(')).map((b) => `${b.bairro} (${b.count})`).join(' · ')}
-                    </p>
-                  }>
-                    <MapaBairros bairros={reportData.bairros} />
-                  </ErrorBoundary>
+                  <>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 600, fontSize: 14 }}>Clique para escolher um arquivo</span>
+                    <span style={{ fontSize: 12 }}>PDF, imagem, vídeo ou documento</span>
+                  </>
                 )}
+              </button>
+              <input
+                type="text"
+                value={pendingDesc}
+                onChange={(e) => setPendingDesc(e.target.value)}
+                placeholder="Descrição — ex: Tabela de valores 2026, enviar quando perguntarem sobre mensalidade"
+                className="field"
+                style={{ marginBottom: 12 }}
+              />
+              <Button
+                icon={loading['upload'] ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+                onClick={uploadFile}
+                disabled={!pendingFile || loading['upload']}
+              >
+                Enviar arquivo
+              </Button>
+            </Card>
+
+            <Card title={`Arquivos cadastrados (${files.length})`}>
+              {files.length === 0 ? (
+                <p style={muted}>Nenhum arquivo ainda. Use a área acima para enviar o primeiro.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {files.map((f) => (
+                    <div key={f.id} style={{ ...inner, display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <IconTile tone="electric" size={36}><FileText size={16} /></IconTile>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate" style={{ color: 'var(--text-primary)', fontWeight: 500, fontSize: 13.5 }}>{f.originalName}</p>
+                        <p className="truncate" style={small}>{f.description || 'sem descrição'} · {formatBytes(f.sizeBytes)}</p>
+                      </div>
+                      <Button
+                        variant="ghost" size="sm"
+                        onClick={() => removeFile(f.id)}
+                        disabled={loading[`del-${f.id}`]}
+                        aria-label="Remover arquivo"
+                        style={{ color: 'var(--coral)', padding: 8 }}
+                      >
+                        {loading[`del-${f.id}`] ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </>
+        )}
+
+        {/* ── Conhecimento (RAG) ── */}
+        {tab === 'rag' && (
+          <>
+            <Card>
+              <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}><Users size={16} /> Coleta de conhecimento</h2>
+              <p style={{ ...muted, marginBottom: 10 }}>Envie este link para os colaboradores preencherem as informações da escola. As respostas chegam aqui em <b>Pendentes</b> para sua aprovação.</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <input readOnly value={FORM_LINK} className="field" style={{ flex: 1, minWidth: 220, width: 'auto' }} />
+                <Button onClick={() => { navigator.clipboard.writeText(FORM_LINK); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>
+                  {copied ? 'Copiado!' : 'Copiar link'}
+                </Button>
               </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
+            </Card>
+
+            {pending.length > 0 && (
+              <Card title={`📥 Pendentes de revisão (${pending.length})`}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {pending.map((p) => (
+                    <div key={p.id} style={inner}>
+                      <div style={{ ...small, marginBottom: 4 }}>{p.colaborador} · {p.categoria}</div>
+                      <div style={{ color: 'var(--text-primary)', fontSize: 13 }}><b>{p.pergunta}</b></div>
+                      <div style={{ color: 'var(--text-primary)', fontSize: 13, marginTop: 2 }}>{p.resposta}</div>
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                        <Button variant="secondary" size="sm" onClick={() => approvePending(p.id)} disabled={loading[`pa-${p.id}`]}>
+                          {loading[`pa-${p.id}`] ? '...' : '✓ Aprovar'}
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => rejectPending(p.id)} disabled={loading[`pr-${p.id}`]} style={{ color: 'var(--coral)' }}>
+                          {loading[`pr-${p.id}`] ? '...' : '✕ Rejeitar'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            <Card>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <h2 className="card-title" style={{ margin: 0 }}>Base de conhecimento (RAG)</h2>
+                <Button variant="ghost" size="sm" icon={<RefreshCw size={14} />} onClick={fetchRag}>Atualizar</Button>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <textarea
+                  value={ragText} onChange={(e) => setRagText(e.target.value)} rows={3}
+                  placeholder="Escreva um novo conhecimento/FAQ que a Liz deve saber…"
+                  className="field" style={{ marginBottom: 8, resize: 'vertical' }}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <input value={ragCat} onChange={(e) => setRagCat(e.target.value)} placeholder="categoria" className="field" style={{ width: 140 }} />
+                  <Button
+                    icon={loading.ragAdd ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+                    onClick={addRag} disabled={loading.ragAdd || !ragText.trim()}
+                  >
+                    Adicionar
+                  </Button>
+                  <label className="btn btn-ghost" style={{ cursor: 'pointer' }}>
+                    {loading.ragPdf ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />} Upload PDF
+                    <input type="file" accept="application/pdf" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPdfRag(f); e.target.value = ''; }} />
+                  </label>
+                </div>
+              </div>
+
+              {loading.rag ? (
+                <div style={{ ...muted, display: 'flex', alignItems: 'center', gap: 8 }}><Loader2 size={16} className="animate-spin" /> Carregando…</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <p style={small}>{ragChunks.length} trechos indexados</p>
+                  {ragChunks.map((c) => (
+                    <div key={c.id} style={{ ...inner, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <span className="pill pill-violet">{c.categoria}</span>
+                        <span style={{ ...small, marginLeft: 8 }}>{c.fonte}</span>
+                        <p style={{ color: 'var(--text-primary)', fontSize: 13, marginTop: 4 }}>{c.texto}</p>
+                      </div>
+                      <Button
+                        variant="ghost" size="sm" title="Remover" aria-label="Remover"
+                        onClick={() => removeRag(c.id)} disabled={loading[`ragDel-${c.id}`]}
+                        style={{ color: 'var(--coral)', padding: 6, flexShrink: 0 }}
+                      >
+                        {loading[`ragDel-${c.id}`] ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </>
+        )}
+
+        {/* ── Relatório ── */}
+        {tab === 'relatorio' && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <p className="section-label" style={{ margin: 0 }}>Relatório comercial</p>
+              <Button variant="ghost" size="sm" icon={<RefreshCw size={14} />} onClick={fetchReport}>Atualizar</Button>
+            </div>
+
+            {loading.relatorio && <div style={{ ...muted, display: 'flex', alignItems: 'center', gap: 8 }}><Loader2 size={16} className="animate-spin" /> Carregando…</div>}
+
+            {reportData && (
+              <>
+                <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                  {([
+                    { l: 'Leads', v: reportData.totais.leads, icon: Users, tone: 'electric' },
+                    { l: 'Visitas agendadas', v: reportData.totais.visitasAgendadas, icon: CalendarCheck, tone: 'teal' },
+                    { l: 'Crianças', v: reportData.totais.comFilho, icon: Sparkles, tone: 'amber' },
+                  ] as const).map(({ l, v, icon: Icon, tone }) => (
+                    <div key={l} className="kpi-card">
+                      <IconTile tone={tone} size={44}><Icon size={20} aria-hidden="true" /></IconTile>
+                      <div>
+                        <p className="kpi-label">{l}</p>
+                        <p className="kpi-value">{v}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <Card title="Mapa de calor — quando chegam mensagens">
+                  {(() => {
+                    const grid: Record<string, number> = {};
+                    let max = 1;
+                    reportData.heatmap.forEach((h) => { grid[`${h.dow}-${h.hour}`] = h.count; if (h.count > max) max = h.count; });
+                    return (
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ borderCollapse: 'separate', borderSpacing: 2 }}>
+                          <thead><tr><th></th>{Array.from({ length: 24 }, (_, h) => <th key={h} style={{ fontSize: 8, color: 'var(--text-secondary)', padding: '0 1px', fontWeight: 400 }}>{h}</th>)}</tr></thead>
+                          <tbody>
+                            {DOW_LABEL.map((d, di) => (
+                              <tr key={di}>
+                                <td style={{ fontSize: 10, color: 'var(--text-secondary)', paddingRight: 6 }}>{d}</td>
+                                {Array.from({ length: 24 }, (_, h) => {
+                                  const c = grid[`${di}-${h}`] || 0;
+                                  const op = c ? 0.15 + 0.85 * (c / max) : 0;
+                                  return (
+                                    <td
+                                      key={h}
+                                      title={`${d} ${h}h: ${c}`}
+                                      style={{ width: 15, height: 15, borderRadius: 3, background: c ? 'var(--electric)' : 'var(--border)', opacity: c ? op : 0.6 }}
+                                    />
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
+                </Card>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card title="Leads por interesse">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={reportData.interesse}>
+                        <XAxis dataKey="interesse" tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} />
+                        <Tooltip cursor={{ fill: 'var(--bg-card-hover)' }} />
+                        <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                          {reportData.interesse.map((_, i) => <Cell key={i} fill="var(--electric)" />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Card>
+                  <Card title="Leads por etapa de ensino">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={reportData.etapas}>
+                        <XAxis dataKey="etapa" tick={{ fontSize: 9, fill: 'var(--text-secondary)' }} interval={0} />
+                        <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'var(--text-secondary)' }} />
+                        <Tooltip cursor={{ fill: 'var(--bg-card-hover)' }} />
+                        <Bar dataKey="count" radius={[6, 6, 0, 0]} fill="var(--violet)" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Card>
+                </div>
+
+                <Card>
+                  <h2 className="card-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><MapPin size={16} /> Mapa de calor — leads por bairro/região</h2>
+                  {reportData.bairros.filter((b) => b.bairro && !b.bairro.startsWith('(')).length === 0 ? (
+                    <p style={muted}>Sem dados de bairro ainda — a Liz passou a coletar nas conversas.</p>
+                  ) : (
+                    <ErrorBoundary fallback={
+                      <p style={muted}>
+                        Não foi possível carregar o mapa de bairros. Veja a lista abaixo:
+                        <br />{reportData.bairros.filter((b) => b.bairro && !b.bairro.startsWith('(')).map((b) => `${b.bairro} (${b.count})`).join(' · ')}
+                      </p>
+                    }>
+                      <MapaBairros bairros={reportData.bairros} />
+                    </ErrorBoundary>
+                  )}
+                </Card>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </>
   );
 }

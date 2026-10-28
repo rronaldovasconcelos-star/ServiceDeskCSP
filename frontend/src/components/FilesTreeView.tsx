@@ -58,7 +58,7 @@ function collectIds(node: Node): string[] {
 export default function FilesTreeView({ files, onDownloadFolder, ...actions }: Props) {
   const tree = buildTree(files);
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', padding: '6px 4px' }}>
+    <div className="card" style={{ padding: '6px 4px' }}>
       {renderChildren(tree, 0, LEVELS, actions, onDownloadFolder)}
     </div>
   );

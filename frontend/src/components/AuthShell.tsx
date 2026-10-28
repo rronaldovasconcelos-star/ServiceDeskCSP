@@ -36,7 +36,7 @@ export default function AuthShell({ children }: Props) {
         <div className="relative z-10 hidden lg:block" style={{ maxWidth: 480 }}>
           <div
             className="flex items-center justify-center mb-8"
-            style={{ width: 180, height: 180, borderRadius: '50%', background: '#fff', boxShadow: 'var(--shadow-navy)' }}
+            style={{ width: 180, height: 180, borderRadius: '50%', background: 'var(--on-navy)', boxShadow: 'var(--shadow-navy)' }}
           >
             <img src="/logo-hd.png" alt="" aria-hidden="true" className="w-36 h-36 object-contain" />
           </div>
