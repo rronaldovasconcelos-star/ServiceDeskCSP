@@ -1,10 +1,8 @@
 /**
- * Crédito profissional do desenvolvedor (marca "Ronaldo Dev").
- * Link abre conversa no WhatsApp. Usado na tela de login e no rodapé do portal.
+ * Crédito profissional: "Desenvolvido por Orbit Lab", com link para o site da empresa.
+ * Usado na tela de login e no rodapé do portal.
  */
-const WHATSAPP_URL =
-  'https://wa.me/5531984367833?text=' +
-  encodeURIComponent('Olá Ronaldo! Vi seu trabalho na Central de Suporte do colégio.');
+const ORBITLAB_URL = 'https://orbitlab.com.br';
 
 interface Props {
   /** 'onDark' = sobre o navy (faixa de login); 'onSurface' = rodapé claro/escuro temático. */
@@ -20,14 +18,14 @@ export default function DevCredit({ variant = 'onSurface' }: Props) {
     <span className="text-[11px]" style={{ color: baseColor }}>
       Desenvolvido por{' '}
       <a
-        href={WHATSAPP_URL}
+        href={ORBITLAB_URL}
         target="_blank"
         rel="noopener noreferrer"
-        title="Falar com o desenvolvedor no WhatsApp"
+        title="Site da Orbit Lab"
         className="font-semibold no-underline hover:underline"
         style={{ color: linkColor }}
       >
-        Ronaldo Dev
+        Orbit Lab
       </a>
     </span>
   );
