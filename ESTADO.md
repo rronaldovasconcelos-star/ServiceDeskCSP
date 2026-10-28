@@ -25,7 +25,21 @@ hospedagem Hostinger.
   backend (após `prisma generate`) e do frontend em 0 erros, eslint nos 37 de baseline,
   `vite build` OK. No franc: `git pull` antes de continuar.
 
-## Onde parou (27/10/2026, noite, rrona) — REDESENHO VISUAL "Telehap" COMPLETO NO GIT, NÃO PUBLICADO
+## Onde parou (28/10/2026, 00h10, rrona) — REDESENHO VISUAL "Telehap" EM PRODUÇÃO
+
+**Publicado em 28/10/2026 ~00h05, provado pelo que o site serve:** `index.html` referencia
+`index-DFb6NHg5.js` + `index-8bZfXKiw.css` (= build local); o CSS tem Poppins, `--navy`,
+`page-hero` e `.tabs`; o JS tem a URL da API, o Client ID do Google, "Nova manutenção",
+"RH · Holerites" e "Abrir no"; `blob.svg` 200; `/repositorio` 200 (SPA); `api/health` 200.
+Backend não mudou. Quem vir o visual antigo: Ctrl+Shift+R.
+**Como saiu:** `deploy_hostinger.py` fez o build e o zip, mas o `HOSTINGER_API_TOKEN` do
+`.deploy.env` do rrona está EXPIRADO (401 Unauthenticated) → o mesmo zip foi publicado pelo
+MCP da Hostinger (`hosting_deployStaticWebsite`, credencial própria). Para voltar a usar o
+script: gerar token novo no hpanel e trocar no `.deploy.env`. O script só precisa da
+biblioteca padrão (qualquer Python serve); o Client ID vem de `frontend/.env` neste PC
+(exportar `VITE_GOOGLE_CLIENT_ID` antes de rodar, ou copiá-lo para o `.deploy.env`).
+
+## Estado anterior (27/10/2026, noite, rrona) — REDESENHO VISUAL "Telehap" COMPLETO NO GIT
 
 Pedido do Ronaldo: trocar a cara do portal pelo estilo do kit **Telehap – Call Center &
 Customer Support** (TemplateMonster 568094). Plano aprovado e salvo em
