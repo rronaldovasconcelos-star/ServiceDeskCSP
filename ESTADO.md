@@ -55,13 +55,22 @@ em produção continua com o visual antigo até o próximo `deploy_hostinger.py`
 
 **Guardas depois da fase 4:** `npx tsc --noEmit -p tsconfig.app.json` 0 erros; `npx eslint
 src` nos **37 problemas de baseline** (nenhum novo); `npx vite build` OK.
-**NÃO conferido no Chrome nesta rodada** (fases 1–3 foram; as páginas da fase 4 não).
+**Conferido no Chrome local em 27/10 à noite (rrona), as 8 páginas da fase 4:** Repositório,
+Usuários, Manutenções, Lembretes, Relatórios, RH · Holerites, WhatsApp e Agente. Em cada uma,
+auditoria por DOM (faixa navy presente, 0 tabela fora do `.table-wrap`, 0 botão sem `.btn/.tab`,
+0 hex inline, 0 input sem `.field`, sem estouro horizontal) + recorte visual nos dois temas;
+modal "Nova manutenção" aberto e fechado por Esc; console sem erro. Largura de celular (414 px)
+simulada por iframe na mesma aba: Manutenções vira cards; Repositório e Relatórios rolam a
+tabela dentro do card, página sem estouro. Nada precisou de ajuste.
+Armadilhas da conferência: o Chrome do rrona estava minimizado → `Page.captureScreenshot`
+estoura o tempo (restaurar a janela por `ShowWindow`); o monitor é 2560 px e a janela ignora
+`resize_window` (por isso o iframe); o admin do dev.db é `admin@santiagopaula.com.br` (typo
+histórico do `.env`) e a senha teve de ser regravada com bcrypt antes do login.
 
 **Próximos passos:**
-1. Abrir local e passar pelas páginas da fase 4 nos dois temas (claro/escuro), em
-   desktop e largura de celular: backend `PORT=3199` + `VITE_API_URL=http://localhost:3199/api
-   npx vite --port 5199` (admin local `admin@santapaula.com.br` / `Admin@123`; 5 chamados
-   de teste no dev.db). Ajustar o que destoar.
+1. (Feito) conferência visual local, ver acima. Receita para repetir: backend
+   `PORT=3199 WHATSAPP_PROVIDER=mock REMINDER_SCHEDULER_ENABLED=false STORAGE_PROVIDER=local
+   npx tsx src/server.ts` + `VITE_API_URL=http://localhost:3199/api npx vite --port 5199`.
 2. Publicar: `python deploy_hostinger.py` (só frontend; o backend não mudou nesta fase).
    Provar pelo bundle servido (hash + "Poppins"/`page-hero` no JS/CSS).
 3. Avisar os usuários do visual novo (hard refresh Ctrl+Shift+R se virem o antigo).
