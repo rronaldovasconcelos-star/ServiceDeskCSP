@@ -16,6 +16,14 @@ hospedagem Hostinger.
 - PC rrona: `Desktop\CSP - Colégio Santa Paula\ATENDIMENTO CSP` (tem o `.deploy.env`).
 - PC franc: `Desktop\ServiceDeskCSP` (clone de 22/09/2026; `.deploy.env` criado em
   23/09 com o token da Hostinger).
+- **27/10/2026 (noite, rrona): clone sincronizado com o GitHub.** O rrona tinha 3 commits
+  da migração para a Cloud API (30/07/2026: `CloudApiProvider`, `templates.ts`,
+  `bot.cloudWebhook.ts`, `docs/whatsapp-cloud-api.md`, ~1.400 linhas) que NUNCA haviam
+  subido — o histórico reescrito em 23/09 no franc nasceu sem eles. Foram rebaseados em
+  cima do `main` atual sem conflito e enviados (`4af4c9e`, `8c20543`, `4a85486`); backup
+  local em `backup/cloud-api-local-20261027`. Guardas no rrona depois disso: `tsc` do
+  backend (após `prisma generate`) e do frontend em 0 erros, eslint nos 37 de baseline,
+  `vite build` OK. No franc: `git pull` antes de continuar.
 
 ## Onde parou (27/10/2026, noite) — REDESENHO VISUAL "Telehap" (EM ANDAMENTO, NÃO PUBLICADO)
 
