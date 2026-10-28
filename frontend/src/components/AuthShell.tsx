@@ -13,14 +13,52 @@ const pontos = [
   { icon: ShieldCheck, texto: 'Acesso só para a equipe do colégio' },
 ];
 
+/** Pontos de confiança (usados na foto em telas largas e abaixo do card nas estreitas). */
+function Pontos() {
+  return (
+    <div className="auth-points">
+      {pontos.map(({ icon: Icon, texto }) => (
+        <div key={texto} className="auth-point">
+          <span className="icon-tile soft" aria-hidden="true"><Icon size={16} /></span>
+          <span>{texto}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
- * Casca das telas de entrada (login, cadastro, redefinir senha): faixa
- * azul-marinho com a marca no topo, card do formulário sobreposto à faixa e
- * três pontos de confiança abaixo. Sem forma decorativa — plano, como o resto.
+ * Casca das telas de entrada (login, cadastro, redefinir senha). Em telas largas,
+ * duas colunas: foto do colégio em alta à esquerda (com véu azul-marinho, marca e
+ * pontos de confiança) e o card do formulário à direita. Em telas estreitas, a faixa
+ * azul-marinho com a marca e o card sobreposto, como antes.
  */
 export default function AuthShell({ children }: Props) {
   return (
     <div className="auth-page">
+      <aside className="auth-photo" aria-hidden="true">
+        <picture>
+          <source type="image/webp" srcSet="/login-foto-m.webp 800w, /login-foto.webp 1400w" sizes="52vw" />
+          <img src="/login-foto.jpg" srcSet="/login-foto-m.jpg 800w, /login-foto.jpg 1400w" sizes="52vw" alt="" decoding="async" />
+        </picture>
+        <div className="auth-photo-veil" />
+        <div className="auth-photo-content">
+          <div className="auth-band-brand">
+            <img src="/logo.png" alt="" />
+            <div>
+              <p className="auth-band-name">Colégio Santa Paula</p>
+              <p className="auth-band-sub">Central de Suporte</p>
+            </div>
+          </div>
+          <div>
+            <h2 className="auth-photo-title">Suporte para quem faz a escola acontecer</h2>
+            <p className="auth-photo-sub">Abra chamados, peça suprimentos e acompanhe tudo em um só lugar.</p>
+            <Pontos />
+            <p className="mt-6"><DevCredit variant="onDark" /></p>
+          </div>
+        </div>
+      </aside>
+
       <header className="auth-band">
         <div className="auth-band-brand">
           <img src="/logo.png" alt="Colégio Santa Paula" />
@@ -29,23 +67,13 @@ export default function AuthShell({ children }: Props) {
             <p className="auth-band-sub">Central de Suporte</p>
           </div>
         </div>
-        <div className="hidden lg:block">
-          <DevCredit variant="onDark" />
-        </div>
       </header>
 
       <main className="auth-main">
         <div className="card card-raised auth-card">
           {children}
         </div>
-        <div className="auth-points">
-          {pontos.map(({ icon: Icon, texto }) => (
-            <div key={texto} className="auth-point">
-              <span className="icon-tile soft" aria-hidden="true"><Icon size={16} /></span>
-              <span>{texto}</span>
-            </div>
-          ))}
-        </div>
+        <Pontos />
         <p className="mt-5 text-center lg:hidden"><DevCredit variant="onSurface" /></p>
       </main>
     </div>

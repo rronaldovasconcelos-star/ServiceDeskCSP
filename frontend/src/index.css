@@ -1032,6 +1032,7 @@ select.field { padding-right: 32px; }
 
 /* ── Autenticação ── */
 .auth-page { min-height: 100vh; background: var(--bg); display: flex; flex-direction: column; }
+}
 .auth-band {
   background: var(--navy);
   color: var(--on-navy);
@@ -1063,6 +1064,29 @@ select.field { padding-right: 32px; }
 .auth-links a { font-weight: 500; text-decoration: none; }
 .auth-links a:hover { text-decoration: underline; }
 @media (max-width: 639px) { .auth-card { padding: 22px 18px 20px; } .auth-points { display: none; } }
+
+/* Foto em alta à esquerda (só em telas largas): a casca vira duas colunas. */
+.auth-photo { position: relative; display: none; overflow: hidden; background: var(--navy); }
+.auth-photo picture, .auth-photo picture img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 62% 38%; }
+.auth-photo-veil {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(20,36,59,0.28) 0%, rgba(20,36,59,0.42) 50%, rgba(20,36,59,0.90) 100%);
+}
+.auth-photo-content {
+  position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between;
+  padding: 32px 40px 28px; color: #fff;
+}
+.auth-photo-title { color: #fff; font-size: 30px; font-weight: 600; line-height: 1.15; max-width: 440px; margin: 0 0 8px; }
+.auth-photo-sub { font-size: 15px; color: rgba(255,255,255,0.82); max-width: 440px; margin: 0 0 22px; }
+.auth-photo .auth-points { margin: 0; justify-content: flex-start; max-width: none; flex-direction: column; gap: 10px; }
+.auth-photo .auth-point { color: rgba(255,255,255,0.92); font-size: 14px; }
+.auth-photo .auth-point .icon-tile { background: rgba(255,255,255,0.14); color: #fff; }
+@media (min-width: 1024px) {
+  .auth-page { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+  .auth-photo { display: block; min-height: 100vh; }
+  .auth-band { display: none; }
+  .auth-main { justify-content: center; margin-top: 0; padding: 40px 32px; }
+  .auth-main > .auth-points { display: none; }
 
 /* ── Utilitários ── */
 .muted { color: var(--text-2); }
