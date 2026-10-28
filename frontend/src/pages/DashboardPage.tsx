@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -6,12 +6,12 @@ import {
 import {
   Ticket, Clock, Activity, Timer,
   ShoppingCart, AlertCircle, CheckCircle, Package,
-  Search,
+  FileSpreadsheet, FileText, Info,
 } from 'lucide-react';
+import { isAxiosError } from 'axios';
 import api from '../lib/api';
-import KanbanBoard from '../components/KanbanBoard';
 import PageHeader from '../components/PageHeader';
-import { IconTile } from '../components/ui';
+import { Button, IconTile } from '../components/ui';
 
 type Tone = 'electric' | 'teal' | 'amber' | 'coral' | 'violet';
 
@@ -21,17 +21,6 @@ interface SupplyMetrics {
   approved: number;
   byStatus: Record<string, number>;
   byUrgency: Record<string, number>;
-}
-
-interface TicketItem {
-  id: string;
-  title: string;
-  category: string;
-  urgency: string;
-  status: string;
-  createdAt: string;
-  requester: { name: string };
-  assignee: { name: string } | null;
 }
 
 interface Metrics {
@@ -48,17 +37,17 @@ interface Metrics {
 /* ── Paleta de cores para gráficos (status) ── */
 const STATUS_COLORS: Record<string, string> = {
   'Aberto':       'var(--status-aberto)',
-  'Em Andamento': 'var(--status-andamento)',
+  'Em andamento': 'var(--status-andamento)',
   'Concluído':    'var(--status-concluido)',
   'Cancelado':    'var(--status-cancelado)',
 };
-const FALLBACK_COLORS = ['var(--electric)', 'var(--amber)', 'var(--teal)', 'var(--status-cancelado)', 'var(--violet)'];
+const FALLBACK_COLORS = ['var(--primary)', 'var(--warning)', 'var(--success)', 'var(--status-cancelado)', 'var(--violet)'];
 
 // Pendente, Aprovado, Comprado, Entregue, Cancelado — mesma ordem das pílulas.
-const SUPPLY_COLORS = ['var(--amber)', 'var(--electric)', 'var(--violet)', 'var(--teal)', 'var(--coral)'];
+const SUPPLY_COLORS = ['var(--warning)', 'var(--primary)', 'var(--violet)', 'var(--success)', 'var(--danger)'];
 
 const statusLabels: Record<string, string> = {
-  ABERTO: 'Aberto', EM_ANDAMENTO: 'Em Andamento', CONCLUIDO: 'Concluído', CANCELADO: 'Cancelado',
+  ABERTO: 'Aberto', EM_ANDAMENTO: 'Em andamento', CONCLUIDO: 'Concluído', CANCELADO: 'Cancelado',
 };
 const supplyStatusLabels: Record<string, string> = {
   PENDENTE: 'Pendente', APROVADO: 'Aprovado', COMPRADO: 'Comprado', ENTREGUE: 'Entregue', CANCELADO: 'Cancelado',
@@ -67,9 +56,9 @@ const supplyStatusLabels: Record<string, string> = {
 /* ── Skeleton de carregamento ── */
 function SkeletonKpi() {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" aria-busy="true">
       {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="skeleton rounded-lg" style={{ height: '96px' }} />
+        <div key={i} className="skeleton" style={{ height: '96px' }} />
       ))}
     </div>
   );
@@ -100,10 +89,10 @@ function KpiCard({ title, value, sub, tone, icon: Icon }: KpiCardProps) {
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: {value: number; name: string}[]; label?: string }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-tile)', padding: '8px 12px', boxShadow: 'var(--shadow)' }}>
-      {label && <p style={{ color: 'var(--text-secondary)', fontSize: '12px', margin: '0 0 4px' }}>{label}</p>}
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--radius-sm)', padding: '8px 12px', boxShadow: 'var(--shadow-md)' }}>
+      {label && <p style={{ color: 'var(--text-2)', fontSize: '12px', margin: '0 0 4px' }}>{label}</p>}
       {payload.map((p, i) => (
-        <p key={i} style={{ color: 'var(--text-primary)', fontSize: '13px', margin: 0 }}>
+        <p key={i} style={{ color: 'var(--text)', fontSize: '13px', margin: 0 }}>
           {p.name ? `${p.name}: ` : ''}<strong>{p.value}</strong>
         </p>
       ))}
@@ -111,42 +100,27 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
   );
 }
 
-/* ── Filtros rápidos do Kanban ── */
-const FILTER_OPTIONS = [
-  { label: 'Todos',        value: '',            color: 'var(--text-secondary)' },
-  { label: 'Aberto',       value: 'ABERTO',      color: 'var(--status-aberto)' },
-  { label: 'Em Andamento', value: 'EM_ANDAMENTO', color: 'var(--status-andamento)' },
-  { label: 'Concluído',    value: 'CONCLUIDO',   color: 'var(--status-concluido)' },
-  { label: 'Cancelado',    value: 'CANCELADO',   color: 'var(--status-cancelado)' },
-];
+type Estado = 'carregando' | 'ok' | 'semModulo' | 'erro';
 
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [tickets, setTickets] = useState<TicketItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [estado, setEstado] = useState<Estado>('carregando');
 
-  useEffect(() => {
-    Promise.all([
-      api.get('/reports/metrics'),
-      api.get('/tickets'),
-    ]).then(([metricsRes, ticketsRes]) => {
-      setMetrics(metricsRes.data);
-      setTickets(ticketsRes.data);
-    }).finally(() => setLoading(false));
+  /** Busca GET /reports/metrics; só altera estado nos callbacks (assíncrono). */
+  const buscar = useCallback(() => {
+    return api.get('/reports/metrics')
+      .then((res) => { setMetrics(res.data); setEstado('ok'); })
+      .catch((err: unknown) => {
+        if (isAxiosError(err) && err.response?.status === 403) setEstado('semModulo');
+        else setEstado('erro');
+      });
   }, []);
 
-  const handleStatusChange = async (ticketId: string, newStatus: string) => {
-    setTickets((prev) =>
-      prev.map((t) => t.id === ticketId ? { ...t, status: newStatus } : t)
-    );
-    try {
-      await api.patch(`/tickets/${ticketId}/status`, { status: newStatus });
-    } catch {
-      const res = await api.get('/tickets');
-      setTickets(res.data);
-    }
+  useEffect(() => { void buscar(); }, [buscar]);
+
+  const recarregar = () => {
+    setEstado('carregando');
+    void buscar();
   };
 
   const handleExport = async (path: string, filename: string) => {
@@ -159,15 +133,7 @@ export default function DashboardPage() {
     URL.revokeObjectURL(url);
   };
 
-  /* ── Filtragem de tickets para o Kanban ── */
-  const filteredTickets = tickets.filter((t) => {
-    const matchesSearch = !searchTerm ||
-      t.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.requester.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = !statusFilter || t.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const loading = estado === 'carregando';
 
   /* ── Dados dos gráficos ── */
   const byStatusData = metrics
@@ -183,227 +149,180 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader
-        title="Dashboard"
-        subtitle={metrics ? `${metrics.pending} chamado${metrics.pending === 1 ? '' : 's'} aguardando atendimento` : 'Visão geral dos chamados e pedidos'}
-        actions={(
+        title="Painel"
+        subtitle="Indicadores de chamados e suprimentos"
+        actions={estado === 'ok' ? (
           <>
-            <div className="search-bar" role="search" style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.18)' }}>
-              <Search size={14} style={{ color: 'var(--on-navy-muted)', flexShrink: 0 }} aria-hidden="true" />
-              <input
-                type="search"
-                placeholder="Buscar chamados..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                aria-label="Buscar chamados"
-                style={{ color: 'var(--on-navy)' }}
-              />
-            </div>
-            <button onClick={() => handleExport('/reports/export/csv', 'chamados.xlsx')} className="btn btn-secondary" aria-label="Exportar chamados em Excel">
+            <Button variant="secondary" icon={<FileSpreadsheet size={16} aria-hidden="true" />} onClick={() => handleExport('/reports/export/csv', 'chamados.xlsx')} aria-label="Exportar chamados em Excel">
               Exportar Excel
-            </button>
-            <button onClick={() => handleExport('/reports/export/pdf', 'chamados.pdf')} className="btn btn-on-navy" aria-label="Exportar chamados em PDF">
+            </Button>
+            <Button variant="secondary" icon={<FileText size={16} aria-hidden="true" />} onClick={() => handleExport('/reports/export/pdf', 'chamados.pdf')} aria-label="Exportar chamados em PDF">
               Exportar PDF
-            </button>
+            </Button>
           </>
-        )}
+        ) : undefined}
       />
 
-      {/* ══════════════ CONTEÚDO PRINCIPAL ══════════════ */}
       <main className="page-body" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
 
-        {/* ── Seção: KPIs de Chamados ── */}
-        <section aria-labelledby="section-kpi-chamados">
-          <p id="section-kpi-chamados" className="section-label">Chamados de Suporte</p>
-          {loading ? <SkeletonKpi /> : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <KpiCard
-                title="Total de Chamados"
-                value={metrics?.total ?? 0}
-                tone="electric"
-                icon={Ticket}
-              />
-              <KpiCard
-                title="Aguardando Atendimento"
-                value={metrics?.pending ?? 0}
-                tone="amber"
-                icon={Clock}
-              />
-              <KpiCard
-                title="Em Andamento"
-                value={metrics?.inProgress ?? 0}
-                tone="electric"
-                icon={Activity}
-              />
-              <KpiCard
-                title="Tempo Médio de Resolução"
-                value={metrics?.avgResolutionHours != null ? `${metrics.avgResolutionHours}h` : '—'}
-                sub="chamados concluídos"
-                tone="teal"
-                icon={Timer}
-              />
-            </div>
-          )}
-        </section>
-
-        {/* ── Seção: Gráficos de Chamados ── */}
-        {!loading && metrics && (
-          <section aria-labelledby="section-graficos-chamados">
-            <p id="section-graficos-chamados" className="section-label">Análise de Chamados</p>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="chart-card">
-                <h2 className="chart-title">Chamados por Status</h2>
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie data={byStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                      {byStatusData.map((entry, i) => (
-                        <Cell key={i} fill={STATUS_COLORS[entry.name] ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Legend
-                      formatter={(value) => <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{value}</span>}
-                    />
-                    <Tooltip content={<ChartTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="chart-card">
-                <h2 className="chart-title">Chamados por Categoria</h2>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={byCategoryData}>
-                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
-                    <YAxis tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} allowDecimals={false} />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="value" fill="var(--electric)" radius={[6, 6, 0, 0]} name="Chamados" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </section>
+        {estado === 'semModulo' && (
+          <div className="notice notice-info" role="status">
+            <Info size={16} aria-hidden="true" />
+            <div className="notice-body">Os indicadores usam o módulo Relatórios. Peça ao administrador para liberá-lo.</div>
+          </div>
         )}
 
-        {/* ── Seção: Quadro Kanban ── */}
-        <section aria-labelledby="section-kanban">
-          <p id="section-kanban" className="section-label">Quadro de Chamados</p>
+        {estado === 'erro' && (
+          <div className="notice notice-danger" role="alert">
+            <AlertCircle size={16} aria-hidden="true" />
+            <div className="notice-body">
+              Não foi possível carregar os indicadores.
+              <div className="notice-actions">
+                <button type="button" className="btn btn-secondary btn-sm" onClick={recarregar}>Tentar novamente</button>
+              </div>
+            </div>
+          </div>
+        )}
 
-          {/* Filtros rápidos */}
-          <div className="kanban-filters" role="group" aria-label="Filtrar por status">
-            {FILTER_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                className={`filter-btn${statusFilter === opt.value ? ' active' : ''}`}
-                onClick={() => setStatusFilter(opt.value)}
-                aria-pressed={statusFilter === opt.value}
-                style={statusFilter === opt.value ? {} : { borderColor: opt.color, color: opt.color }}
-              >
-                {opt.label}
-                {opt.value && metrics && (
-                  <span style={{ marginLeft: 4, opacity: 0.8 }}>
-                    ({metrics.byStatus[opt.value] ?? 0})
-                  </span>
+        {(loading || estado === 'ok') && (
+          <>
+            {/* ── Seção: KPIs de Chamados ── */}
+            <section aria-labelledby="section-kpi-chamados">
+              <div className="section-head">
+                <h2 id="section-kpi-chamados">Chamados de suporte</h2>
+              </div>
+              {loading ? <SkeletonKpi /> : metrics && (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <KpiCard title="Total de chamados" value={metrics.total} tone="teal" icon={Ticket} />
+                  <KpiCard title="Aguardando atendimento" value={metrics.pending} tone="amber" icon={Clock} />
+                  <KpiCard title="Em andamento" value={metrics.inProgress} tone="electric" icon={Activity} />
+                  <KpiCard
+                    title="Tempo médio de resolução"
+                    value={metrics.avgResolutionHours != null ? `${metrics.avgResolutionHours}h` : '—'}
+                    sub="chamados concluídos"
+                    tone="teal"
+                    icon={Timer}
+                  />
+                </div>
+              )}
+            </section>
+
+            {/* ── Seção: Gráficos de Chamados ── */}
+            {!loading && metrics && (
+              <section aria-labelledby="section-graficos-chamados">
+                <div className="section-head">
+                  <h2 id="section-graficos-chamados">Análise de chamados</h2>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="chart-card">
+                    <h3 className="chart-title">Chamados por status</h3>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie data={byStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                          {byStatusData.map((entry, i) => (
+                            <Cell key={i} fill={STATUS_COLORS[entry.name] ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Legend
+                          formatter={(value) => <span style={{ color: 'var(--text-2)', fontSize: '12px' }}>{value}</span>}
+                        />
+                        <Tooltip content={<ChartTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="chart-card">
+                    <h3 className="chart-title">Chamados por categoria</h3>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={byCategoryData}>
+                        <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--text-2)' }} />
+                        <YAxis tick={{ fontSize: 12, fill: 'var(--text-2)' }} allowDecimals={false} />
+                        <Tooltip content={<ChartTooltip />} />
+                        <Bar dataKey="value" fill="var(--primary)" radius={[6, 6, 0, 0]} name="Chamados" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* ── Seção: KPIs de Suprimentos ── */}
+            <section aria-labelledby="section-kpi-suprimentos">
+              <div className="section-head">
+                <h2 id="section-kpi-suprimentos">Pedidos de suprimentos</h2>
+                {!loading && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<FileSpreadsheet size={15} aria-hidden="true" />}
+                      onClick={() => handleExport('/reports/export/suprimentos/csv', 'suprimentos.xlsx')}
+                      aria-label="Exportar suprimentos em Excel"
+                    >
+                      Exportar Excel
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<FileText size={15} aria-hidden="true" />}
+                      onClick={() => handleExport('/reports/export/suprimentos/pdf', 'suprimentos.pdf')}
+                      aria-label="Exportar suprimentos em PDF"
+                    >
+                      Exportar PDF
+                    </Button>
+                  </div>
                 )}
-              </button>
-            ))}
-          </div>
-
-          {loading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="skeleton rounded-lg" style={{ height: '240px' }} />
-              ))}
-            </div>
-          ) : (
-            <KanbanBoard tickets={filteredTickets} onStatusChange={handleStatusChange} />
-          )}
-        </section>
-
-        {/* ── Seção: KPIs de Suprimentos ── */}
-        <section aria-labelledby="section-kpi-suprimentos">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
-            <p id="section-kpi-suprimentos" className="section-label" style={{ margin: 0 }}>Pedidos de Suprimentos</p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => handleExport('/reports/export/suprimentos/csv', 'suprimentos.xlsx')}
-                className="btn-export btn-export-csv"
-                aria-label="Exportar suprimentos em Excel"
-              >
-                Exportar Excel
-              </button>
-              <button
-                onClick={() => handleExport('/reports/export/suprimentos/pdf', 'suprimentos.pdf')}
-                className="btn-export btn-export-pdf"
-                aria-label="Exportar suprimentos em PDF"
-              >
-                Exportar PDF
-              </button>
-            </div>
-          </div>
-
-          {loading ? <SkeletonKpi /> : metrics && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <KpiCard
-                title="Total de Pedidos"
-                value={metrics.supply.total}
-                tone="violet"
-                icon={ShoppingCart}
-              />
-              <KpiCard
-                title="Pendentes de Aprovação"
-                value={metrics.supply.pending}
-                tone="amber"
-                icon={AlertCircle}
-              />
-              <KpiCard
-                title="Aprovados / Em Compra"
-                value={metrics.supply.approved}
-                tone="electric"
-                icon={CheckCircle}
-              />
-              <KpiCard
-                title="Entregues"
-                value={metrics.supply.byStatus['ENTREGUE'] ?? 0}
-                tone="teal"
-                icon={Package}
-              />
-            </div>
-          )}
-        </section>
-
-        {/* ── Seção: Gráficos de Suprimentos ── */}
-        {!loading && metrics && metrics.supply.total > 0 && (
-          <section aria-labelledby="section-graficos-suprimentos">
-            <p id="section-graficos-suprimentos" className="section-label">Análise de Suprimentos</p>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="chart-card">
-                <h2 className="chart-title">Pedidos por Status</h2>
-                <ResponsiveContainer width="100%" height={220}>
-                  <PieChart>
-                    <Pie data={supplyByStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
-                      {supplyByStatusData.map((_, i) => (
-                        <Cell key={i} fill={SUPPLY_COLORS[i % SUPPLY_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Legend
-                      formatter={(value) => <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>{value}</span>}
-                    />
-                    <Tooltip content={<ChartTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
               </div>
 
-              <div className="chart-card">
-                <h2 className="chart-title">Pedidos por Urgência</h2>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={Object.entries(metrics.supply.byUrgency).map(([k, v]) => ({ name: k, value: v }))}>
-                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
-                    <YAxis tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} allowDecimals={false} />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="value" fill="var(--violet)" radius={[6, 6, 0, 0]} name="Pedidos" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </section>
+              {loading ? <SkeletonKpi /> : metrics && (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <KpiCard title="Total de pedidos" value={metrics.supply.total} tone="violet" icon={ShoppingCart} />
+                  <KpiCard title="Pendentes de aprovação" value={metrics.supply.pending} tone="amber" icon={AlertCircle} />
+                  <KpiCard title="Aprovados / em compra" value={metrics.supply.approved} tone="electric" icon={CheckCircle} />
+                  <KpiCard title="Entregues" value={metrics.supply.byStatus['ENTREGUE'] ?? 0} tone="teal" icon={Package} />
+                </div>
+              )}
+            </section>
+
+            {/* ── Seção: Gráficos de Suprimentos ── */}
+            {!loading && metrics && metrics.supply.total > 0 && (
+              <section aria-labelledby="section-graficos-suprimentos">
+                <div className="section-head">
+                  <h2 id="section-graficos-suprimentos">Análise de suprimentos</h2>
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="chart-card">
+                    <h3 className="chart-title">Pedidos por status</h3>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie data={supplyByStatusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                          {supplyByStatusData.map((_, i) => (
+                            <Cell key={i} fill={SUPPLY_COLORS[i % SUPPLY_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Legend
+                          formatter={(value) => <span style={{ color: 'var(--text-2)', fontSize: '12px' }}>{value}</span>}
+                        />
+                        <Tooltip content={<ChartTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="chart-card">
+                    <h3 className="chart-title">Pedidos por urgência</h3>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={Object.entries(metrics.supply.byUrgency).map(([k, v]) => ({ name: k, value: v }))}>
+                        <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--text-2)' }} />
+                        <YAxis tick={{ fontSize: 12, fill: 'var(--text-2)' }} allowDecimals={false} />
+                        <Tooltip content={<ChartTooltip />} />
+                        <Bar dataKey="value" fill="var(--violet)" radius={[6, 6, 0, 0]} name="Pedidos" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </section>
+            )}
+          </>
         )}
       </main>
     </>

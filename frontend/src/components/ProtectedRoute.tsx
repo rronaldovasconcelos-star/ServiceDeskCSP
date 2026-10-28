@@ -15,9 +15,9 @@ export default function ProtectedRoute({ children, module, adminOnly, allowedRol
 
   if (loading) return <div className="flex items-center justify-center h-screen">Carregando...</div>;
   if (!user) return <Navigate to="/login" replace />;
-  if (module && !canAccess(user, module)) return <Navigate to="/tickets" replace />;
-  if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to="/tickets" replace />;
-  if (adminOnly && !allowedRoles && user.role !== 'ADMIN') return <Navigate to="/tickets" replace />;
+  if (module && !canAccess(user, module)) return <Navigate to="/" replace />;
+  if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to="/" replace />;
+  if (adminOnly && !allowedRoles && user.role !== 'ADMIN') return <Navigate to="/" replace />;
 
   return <>{children}</>;
 }

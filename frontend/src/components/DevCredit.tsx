@@ -4,29 +4,28 @@
  */
 const WHATSAPP_URL =
   'https://wa.me/5531984367833?text=' +
-  encodeURIComponent('Olá Ronaldo! Vi seu trabalho no Portal de Chamados.');
+  encodeURIComponent('Olá Ronaldo! Vi seu trabalho na Central de Suporte do colégio.');
 
 interface Props {
-  /** 'onDark' = sobre fundo escuro/gradiente (login); 'onSurface' = rodapé temático. */
+  /** 'onDark' = sobre o navy (faixa de login); 'onSurface' = rodapé claro/escuro temático. */
   variant?: 'onDark' | 'onSurface';
 }
 
 export default function DevCredit({ variant = 'onSurface' }: Props) {
   const onDark = variant === 'onDark';
-  const baseColor = onDark ? 'var(--on-navy-muted)' : 'var(--text-secondary)';
-  const linkColor = onDark ? 'var(--on-navy)' : 'var(--electric)';
+  const baseColor = onDark ? 'var(--on-navy-muted)' : 'var(--text-2)';
+  const linkColor = onDark ? 'var(--on-navy)' : 'var(--primary-ink)';
 
   return (
-    <span style={{ color: baseColor, fontSize: '11px' }}>
+    <span className="text-[11px]" style={{ color: baseColor }}>
       Desenvolvido por{' '}
       <a
         href={WHATSAPP_URL}
         target="_blank"
         rel="noopener noreferrer"
         title="Falar com o desenvolvedor no WhatsApp"
-        style={{ color: linkColor, fontWeight: 600, textDecoration: 'none' }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'underline'; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.textDecoration = 'none'; }}
+        className="font-semibold no-underline hover:underline"
+        style={{ color: linkColor }}
       >
         Ronaldo Dev
       </a>

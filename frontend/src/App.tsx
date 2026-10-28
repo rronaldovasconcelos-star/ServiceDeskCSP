@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import HomePage from './pages/HomePage';
 import DashboardPage from './pages/DashboardPage';
 import ReportsPage from './pages/ReportsPage';
 import TicketsPage from './pages/TicketsPage';
@@ -37,6 +38,14 @@ export default function App() {
           <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
           <Route
             path="/"
+            element={
+              <ProtectedRoute>
+                <Layout><HomePage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
             element={
               <ProtectedRoute module="dashboard">
                 <Layout><DashboardPage /></Layout>
