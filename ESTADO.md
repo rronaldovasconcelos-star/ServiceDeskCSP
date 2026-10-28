@@ -45,8 +45,14 @@ os scripts `setup-bot-webhook.ts`/`test-bot-local.ts`, as variáveis `BOT_*`, `A
 `agente-pessoal-net` do compose; `express.json()` voltou a ser simples (o rawBody era só para o HMAC
 da Meta). Migration `20261028150000_drop_bot_session` apaga a tabela `BotSession` (o `start.sh` roda
 `migrate deploy` ao subir). Guardas: tsc 0; testes DAV (HTTP), edição de arquivos e holerites todos
-verdes; migration aplicada no dev.db local. **O auto mode barrou o `update.py` nesta sessão** — rodar
-com `!` em sintaxe Bash e depois provar: `api/health` 200 e `/api/bot/webhook/x` 404.
+verdes; migration aplicada no dev.db local. **EM PRODUÇÃO desde 28/10 ~15h20** (ele rodou o `update.py` com `!`; a 1ª rodada FALHOU porque o
+script enviava por cima e as pastas apagadas continuavam no VPS → `update.py` agora apaga
+`backend/src`, `backend/scripts`, `frontend/src`, `frontend/public` antes de extrair e sai com erro
+se o servidor devolver ≠ 0, commit `8559a68`). Provado por HTTP: `api/health` 200;
+`/api/bot/webhook/x`, `/api/bot-bridge/x/ping`, `/api/agent/config` 404; `/api/whatsapp/status`
+401 (segue exigindo token). O build no VPS passou, logo as pastas antigas foram embora; a
+migration roda no `start.sh` e o container está saudável (leitura do log por SSH foi barrada
+pelo auto mode, então isso é inferido, não lido).
 
 **Próximos passos possíveis:** avisar os usuários do visual novo; conferir no celular dele.
 
