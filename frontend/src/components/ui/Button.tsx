@@ -5,9 +5,7 @@ type Variant =
   | 'primary'
   | 'secondary'
   | 'ghost'
-  | 'danger'
-  /** @deprecated use 'secondary' */
-  | 'onNavy';
+  | 'danger';
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
@@ -28,7 +26,6 @@ const classe: Record<Variant, string> = {
   secondary: 'btn-secondary',
   ghost: 'btn-ghost',
   danger: 'btn-danger',
-  onNavy: 'btn-secondary',
 };
 
 /** Botão do portal. primary = azul de ação; secondary = contorno; ghost = texto; danger = vermelho. */
