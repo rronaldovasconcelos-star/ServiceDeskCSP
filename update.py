@@ -75,7 +75,12 @@ sftp.close()
 print("  Upload OK")
 
 print("Aplicando no servidor...")
+# As pastas de código vão INTEIRAS no pacote, então são apagadas antes de extrair:
+# sem isso, arquivo removido do projeto continuava no VPS e quebrava o build
+# (28/10/2026: módulos do bot apagados localmente seguiram lá e o tsc falhou).
+SYNC_DIRS = ["backend/src", "backend/scripts", "frontend/src", "frontend/public"]
 cmd = (
+    "cd /root/servicedeskcsp && rm -rf " + " ".join(SYNC_DIRS) + " && "
     "tar -xzf /root/csp-deploy.tar.gz -C /root/servicedeskcsp --overwrite && "
     "cd /root/servicedeskcsp && "
     "cp .env.production .env && "
@@ -89,5 +94,9 @@ for line in out:
     if any(k in text for k in ["Built", "Started", "Running", "ERROR", "error", "WARN", "Step", ">>>"]):
         print(" ", text)
 
+# Falso verde é pior que vermelho: só diz "concluído" se o servidor devolveu 0.
+status = out.channel.recv_exit_status()
 client.close()
+if status != 0:
+    sys.exit(f"\nDEPLOY FALHOU no servidor (exit {status}). O container antigo continua no ar; veja os erros acima.")
 print("\nDeploy concluido! https://servicedeskcsp.com.br")
