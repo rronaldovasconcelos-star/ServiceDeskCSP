@@ -347,8 +347,12 @@ export async function openOfficeSession(
  * ter mudado, o arquivo pode ter sido excluído) — o token sozinho não basta.
  */
 export async function fileForOffice(payload: OfficeTokenPayload, deps: FileDeps = depsPadrao): Promise<FileDb> {
+  // O link vale 12h: confere a conta no banco a cada pedido do Office (conta
+  // desativada/apagada perde o acesso na hora; vale o perfil gravado agora).
+  const conta = await prisma.user.findUnique({ where: { id: payload.sub }, select: { role: true, isActive: true } });
+  if (!conta || !conta.isActive) throw new FileErro('Conta desativada. Entre no portal novamente.', 403);
   let file = await buscar(payload.fid);
-  const user: AuthPayload = { sub: payload.sub, email: payload.email, role: payload.role, name: payload.name };
+  const user: AuthPayload = { sub: payload.sub, email: payload.email, role: conta.role, name: payload.name };
   if (!canAccessFile(file, user)) throw new FileErro('Acesso negado', 403);
   if (isEditableStorage(deps.storage)) {
     try {

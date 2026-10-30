@@ -206,6 +206,39 @@ async function main() {
       assert.ok((await fsp.readFile(path.join(LOCAL_ROOT, key))).equals(novo));
     });
 
+    await teste('link do Office confere a conta no banco: GESTOR rebaixado a USER perde o arquivo alheio', async () => {
+      const urlGestor = `${base}${officeDavPath(issueOfficeToken(file.id, gestor), file.originalName)}`;
+      assert.equal((await req(urlGestor, 'PROPFIND')).status, 207, 'GESTOR lê enquanto é GESTOR');
+      await prisma.user.update({ where: { id: gestor.sub }, data: { role: 'USER' } });
+      try {
+        assert.equal((await req(urlGestor, 'GET')).status, 403, 'rebaixado: o perfil do token não vale mais');
+        assert.equal((await req(urlGestor, 'PUT', { body: Buffer.from('rebaixado') })).status, 403);
+        assert.ok((await fsp.readFile(path.join(LOCAL_ROOT, key))).equals(novo));
+      } finally {
+        await prisma.user.update({ where: { id: gestor.sub }, data: { role: 'GESTOR' } });
+      }
+    });
+
+    await teste('conta desativada ou apagada → 403 em todo o WebDAV, nada gravado; reativada volta a abrir', async () => {
+      await prisma.user.update({ where: { id: dono.sub }, data: { isActive: false } });
+      try {
+        for (const m of ['GET', 'PROPFIND', 'LOCK']) assert.equal((await req(urlArq, m)).status, 403, m);
+        assert.equal((await req(urlPasta, 'PROPFIND')).status, 403, 'pasta');
+        assert.equal((await req(urlArq, 'PUT', { body: Buffer.from('desativado') })).status, 403);
+        assert.ok((await fsp.readFile(path.join(LOCAL_ROOT, key))).equals(novo));
+      } finally {
+        await prisma.user.update({ where: { id: dono.sub }, data: { isActive: true } });
+      }
+      assert.equal((await req(urlArq, 'GET')).status, 200, 'reativada: o mesmo link volta a funcionar');
+
+      const fantasma = await criarUsuario('fantasma', 'ADMIN');
+      const urlFantasma = `${base}${officeDavPath(issueOfficeToken(file.id, fantasma), file.originalName)}`;
+      assert.equal((await req(urlFantasma, 'GET')).status, 200, 'ADMIN existente abre');
+      await prisma.user.delete({ where: { id: fantasma.sub } });
+      assert.equal((await req(urlFantasma, 'GET')).status, 403, 'apagada');
+      assert.equal((await req(urlFantasma, 'PUT', { body: Buffer.from('apagado') })).status, 403);
+    });
+
     await teste('edit-local (rota do portal) exige Bearer: 401 sem token; com token de login devolve o link ms-word', async () => {
       const sem = await req(`${base}/api/files/${file.id}/edit-local`, 'POST');
       assert.equal(sem.status, 401);
