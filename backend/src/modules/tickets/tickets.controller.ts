@@ -126,6 +126,14 @@ export async function changeStatus(req: Request, res: Response, next: NextFuncti
     const ticket = await prisma.ticket.findUnique({ where: { id: req.params.id as string } });
     if (!ticket) { res.status(404).json({ error: 'Chamado não encontrado' }); return; }
 
+    // Fora ADMIN/GESTOR, só o dono mexe no chamado — e só para cancelar.
+    const role = req.user!.role;
+    const isPrivileged = role === 'ADMIN' || role === 'GESTOR';
+    if (!isPrivileged && (ticket.requesterId !== req.user!.sub || status !== 'CANCELADO')) {
+      res.status(403).json({ error: 'Você só pode cancelar os seus próprios chamados.' });
+      return;
+    }
+
     const allowed = VALID_TRANSITIONS[ticket.status] ?? [];
     if (!allowed.includes(status)) {
       res.status(400).json({ error: `Transição inválida: ${ticket.status} → ${status}` });
@@ -133,8 +141,7 @@ export async function changeStatus(req: Request, res: Response, next: NextFuncti
     }
 
     // Aprovação/rejeição exige ADMIN ou GESTOR
-    const role = req.user!.role;
-    if (APPROVAL_TRANSITIONS.has(status) && role !== 'ADMIN' && role !== 'GESTOR') {
+    if (APPROVAL_TRANSITIONS.has(status) && !isPrivileged) {
       res.status(403).json({ error: 'Apenas administradores e gestores podem aprovar ou rejeitar chamados' });
       return;
     }

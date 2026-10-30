@@ -42,6 +42,19 @@ function toClient<T extends { modules: string }>(user: T): Omit<T, 'modules'> & 
   return { ...user, modules: parseModules(user.modules) };
 }
 
+/**
+ * Só ADMIN mexe em conta de ADMIN: quem tem o módulo "users" sem ser ADMIN gere
+ * apenas os demais (senão trocaria e-mail/senha do admin e entraria como ele).
+ * Responde 403 e devolve false quando barra.
+ */
+function barraContaAdmin(req: Request, res: Response, target: { role: string }): boolean {
+  if (target.role === 'ADMIN' && req.user?.role !== 'ADMIN') {
+    res.status(403).json({ error: 'Somente um administrador pode alterar a conta de outro administrador.' });
+    return false;
+  }
+  return true;
+}
+
 export async function listUsers(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const users = await prisma.user.findMany({ select, orderBy: { name: 'asc' } });
@@ -95,6 +108,7 @@ export async function updateUser(req: Request, res: Response, next: NextFunction
   try {
     const existing = await prisma.user.findUnique({ where: { id: req.params.id as string } });
     if (!existing) { res.status(404).json({ error: 'Usuário não encontrado' }); return; }
+    if (!barraContaAdmin(req, res, existing)) return;
     const data = updateSchema.parse(req.body);
     const update: Record<string, unknown> = { ...data };
     if (data.password) {
@@ -119,6 +133,7 @@ export async function toggleActive(req: Request, res: Response, next: NextFuncti
   try {
     const current = await prisma.user.findUnique({ where: { id: req.params.id as string } });
     if (!current) { res.status(404).json({ error: 'Usuário não encontrado' }); return; }
+    if (!barraContaAdmin(req, res, current)) return;
     const user = await prisma.user.update({
       where: { id: req.params.id as string },
       data: { isActive: !current.isActive },
@@ -148,6 +163,7 @@ export async function deleteUser(req: Request, res: Response, next: NextFunction
 
     const target = await prisma.user.findUnique({ where: { id } });
     if (!target) { res.status(404).json({ error: 'Usuário não encontrado' }); return; }
+    if (!barraContaAdmin(req, res, target)) return;
 
     // Salvaguarda 2: não excluir o último admin ativo.
     if (target.role === 'ADMIN') {
@@ -206,6 +222,7 @@ export async function forcePasswordReset(req: Request, res: Response, next: Next
     const id = req.params.id as string;
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) { res.status(404).json({ error: 'Usuário não encontrado' }); return; }
+    if (!barraContaAdmin(req, res, user)) return;
     if (!user.phone) {
       res.status(400).json({ error: 'Usuário não possui telefone cadastrado para receber o código.' });
       return;

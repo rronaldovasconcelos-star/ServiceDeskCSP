@@ -20,6 +20,16 @@ const app = express();
 // Atrás do Traefik/Coolify: confia no primeiro proxy para que req.ip reflita o
 // IP real do cliente (X-Forwarded-For), essencial para o rate-limit por IP.
 app.set('trust proxy', 1);
+app.disable('x-powered-by');
+
+// Cabeçalhos de segurança em toda resposta (a API só serve JSON/arquivos).
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  next();
+});
 
 // WebDAV do Office (Word/Excel/PowerPoint abrindo arquivos do repositório). Fica
 // ANTES do cors (que responderia todo OPTIONS como preflight, sem os cabeçalhos
@@ -35,19 +45,17 @@ app.options('/', (_req, res) => {
 
 // CORS: em produção restringe à allowlist (CORS_ALLOWED_ORIGINS); em dev libera
 // qualquer origem (localhost:5173 etc.). Requisições sem Origin (curl, health
-// check, apps nativos) são sempre permitidas.
-app.use(
-  cors({
-    origin(origin, callback) {
-      if (!origin || env.nodeEnv !== 'production' || env.corsOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Origem não permitida pelo CORS'));
-      }
-    },
-    credentials: true,
-  }),
-);
+// check, apps nativos) são sempre permitidas. Origem recusada → 403 (antes virava 500).
+const origemPermitida = (origin?: string) =>
+  !origin || env.nodeEnv !== 'production' || env.corsOrigins.includes(origin);
+app.use((req, res, next) => {
+  if (!origemPermitida(req.headers.origin)) {
+    res.status(403).json({ error: 'Origem não permitida' });
+    return;
+  }
+  next();
+});
+app.use(cors({ origin: (origin, callback) => callback(null, origemPermitida(origin)), credentials: true }));
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));

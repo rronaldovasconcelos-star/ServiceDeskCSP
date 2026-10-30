@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
+import { prisma } from '../lib/prisma.js';
+import { parseModules } from '../lib/modules.js';
 
 export interface AuthPayload {
   sub: string;
@@ -18,20 +20,39 @@ declare global {
   }
 }
 
-export function authenticate(req: Request, res: Response, next: NextFunction): void {
+/**
+ * Valida o JWT e confere a conta no banco a cada requisição: conta desativada
+ * ou apagada perde o acesso na hora, e perfil/módulos valem o que está gravado
+ * agora (não o que estava no token quando a pessoa entrou).
+ */
+export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
     res.status(401).json({ error: 'Token não fornecido' });
     return;
   }
 
+  let payload: AuthPayload;
   try {
-    const token = header.slice(7);
-    const payload = jwt.verify(token, env.jwtSecret) as AuthPayload;
-    req.user = payload;
-    next();
+    payload = jwt.verify(header.slice(7), env.jwtSecret) as AuthPayload;
   } catch {
     res.status(401).json({ error: 'Token inválido ou expirado' });
+    return;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: { email: true, role: true, name: true, modules: true, isActive: true },
+    });
+    if (!user || !user.isActive) {
+      res.status(401).json({ error: 'Sessão encerrada. Entre novamente.' });
+      return;
+    }
+    req.user = { sub: payload.sub, email: user.email, role: user.role, name: user.name, modules: parseModules(user.modules) };
+    next();
+  } catch (err) {
+    next(err);
   }
 }
 

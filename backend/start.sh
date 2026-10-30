@@ -19,20 +19,24 @@ node --input-type=module << 'EOF'
 import { prisma } from './dist/lib/prisma.js';
 import bcrypt from 'bcryptjs';
 
-// Admin
+// Admin — só com senha própria; nunca com a senha pública conhecida (Admin@123).
 const count = await prisma.user.count().catch(() => 0);
-if (count === 0) {
-  const hash = await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD || 'Admin@123', 10);
+const senhaAdmin = process.env.SEED_ADMIN_PASSWORD;
+const emailAdmin = process.env.SEED_ADMIN_EMAIL || 'admin@santapaula.com.br';
+if (count === 0 && (!senhaAdmin || senhaAdmin === 'Admin@123')) {
+  console.error('[seed] Banco sem usuários e SEED_ADMIN_PASSWORD ausente ou igual ao default inseguro: admin NÃO criado. Defina uma senha forte e reinicie.');
+} else if (count === 0) {
+  const hash = await bcrypt.hash(senhaAdmin, 10);
   await prisma.user.create({
     data: {
       name:  process.env.SEED_ADMIN_NAME  || 'Administrador',
-      email: process.env.SEED_ADMIN_EMAIL || 'admin@santiagopaula.com.br',
+      email: emailAdmin,
       passwordHash: hash,
       role: 'ADMIN',
       isActive: true,
     },
   });
-  console.log('[seed] Admin criado:', process.env.SEED_ADMIN_EMAIL || 'admin@santiagopaula.com.br');
+  console.log('[seed] Admin criado:', emailAdmin);
 } else {
   console.log('[seed] Admin já existe, ignorado.');
 }

@@ -10,6 +10,14 @@
   RewriteRule ^ index.html [L]
 </IfModule>
 
+# Segurança: só HTTPS (HSTS), sem farejar tipo, sem embutir o portal em site de fora
+<IfModule mod_headers.c>
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
 # Cache: assets com hash (immutable) por 1 ano; index.html sempre revalidado
 <IfModule mod_headers.c>
   <FilesMatch "\.(js|css|woff2?|ttf|eot|svg|png|jpe?g|gif|webp|ico)$">

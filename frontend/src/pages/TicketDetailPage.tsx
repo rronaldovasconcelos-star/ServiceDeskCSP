@@ -216,6 +216,8 @@ export default function TicketDetailPage() {
 
   const nextStatuses = TRANSITIONS[ticket.status] ?? [];
   const isApprovalStep = ticket.status === 'AGUARDANDO_APROVACAO';
+  // Fora ADMIN/GESTOR, o dono só pode cancelar o próprio chamado (mesma regra do backend).
+  const donoPodeCancelar = !isPrivileged && ticket.requester.id === user?.id && nextStatuses.includes('CANCELADO');
   const categoria = categoryLabel[ticket.category] ?? ticket.category;
 
   return (
@@ -329,6 +331,22 @@ export default function TicketDetailPage() {
               <Notice kind="warning">
                 Seu chamado está aguardando aprovação de um gestor ou administrador.
               </Notice>
+            )}
+
+            {donoPodeCancelar && (
+              <Card title="Ações">
+                <div className="stack">
+                  {acaoErro && <Notice kind="danger">{acaoErro}</Notice>}
+                  <Button
+                    variant={statusButtonVariant.CANCELADO ?? 'danger'}
+                    onClick={() => changeStatus('CANCELADO')}
+                    loading={mudandoStatus === 'CANCELADO'}
+                    disabled={mudandoStatus !== null}
+                  >
+                    Cancelar chamado
+                  </Button>
+                </div>
+              </Card>
             )}
 
             {isPrivileged && (

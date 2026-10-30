@@ -85,7 +85,8 @@ cmd = (
     "cd /root/servicedeskcsp && "
     "cp .env.production .env && "
     "find . -name '*.sh' -exec sed -i 's/\\r//' {} \\; && "
-    "docker compose up --build -d 2>&1"
+    # --remove-orphans derruba o csp-frontend antigo (saiu do compose em 30/10/2026).
+    "docker compose up --build -d --remove-orphans 2>&1"
 )
 _, out, _ = client.exec_command(cmd, timeout=300)
 
