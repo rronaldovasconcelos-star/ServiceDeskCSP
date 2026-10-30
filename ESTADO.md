@@ -37,7 +37,7 @@ tentativas). Achados abertos, esperando decisão dele:
 - D. `start.sh` cria `admin@santiagopaula.com.br` / `Admin@123` se o banco estiver vazio.
 - E. API sem cabeçalhos de segurança (`X-Powered-By` exposto), site sem HSTS; CORS recusado vira 500.
 - F. Container `csp-frontend` antigo ainda roda no VPS.
-Pendente de prova em produção: se a conta admin padrão ainda aceita `Admin@123` (barrado pelo auto mode).
+Provado em produção (30/10): `Admin@123` NÃO entra em `admin@santiagopaula.com.br` nem em `admin@santapaula.com.br` (401 nos dois).
 ## Onde parou (28/10/2026, 14h40, franc) — "CENTRAL DE SUPORTE" EM PRODUÇÃO
 
 **Publicado em 28/10/2026 ~14h35 com autorização dele ("pode por em produção"), provado pelo que o
