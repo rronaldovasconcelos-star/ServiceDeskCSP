@@ -398,3 +398,8 @@ npx tsx src/server.ts`, Vite 5199; contas de teste via `scripts/create-test-user
 teste@csp.local, USER usuario.teste@csp.local, GESTOR gestor.teste@csp.local c/ módulo dashboard).
 
 
+
+## 30/10/2026 (franc) — CSS: lista de celular duplicada no computador (commit `656d931`)
+
+Desde `c47132a` (28/10) uma `}` sobrando fechava a `@layer components` e o `@media (min-width:1024px)` da foto do login ficava aberto: `.stack/.row/.muted/.grid-auto/.detail-card` só valiam em ≥1024 px e sem camada (vencendo `md:hidden`). Corrigido e conferido no Chrome local (desktop e 414 px, login, botão Cancelar do dono). Deploy do frontend pendente.
+
