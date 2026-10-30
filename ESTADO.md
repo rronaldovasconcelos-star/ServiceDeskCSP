@@ -25,6 +25,19 @@ hospedagem Hostinger.
   backend (após `prisma generate`) e do frontend em 0 erros, eslint nos 37 de baseline,
   `vite build` OK. No franc: `git pull` antes de continuar.
 
+## 30/10/2026 (franc) — conferências OK e auditoria de segurança (aguardando decisão)
+
+Ronaldo confirmou: visual no celular OK e edição de arquivos OK. Auditoria do backend:
+já corrigidos no código (JWT_SECRET obrigatório em prod, CORS por allowlist — provado em
+produção, rate-limit 20/15 min no `/auth`, seed recusa `Admin@123` em prod, OTP com 5
+tentativas). Achados abertos, esperando decisão dele:
+- A. `PATCH /tickets/:id/status` não confere o dono do chamado (só aprovar/rejeitar exige ADMIN/GESTOR).
+- B. Quem tem o módulo `users` sem ser ADMIN pode trocar e-mail/senha, desativar ou apagar um ADMIN.
+- C. `authenticate` confia só no JWT: desativado/apagado/módulo retirado segue com acesso até 8 h.
+- D. `start.sh` cria `admin@santiagopaula.com.br` / `Admin@123` se o banco estiver vazio.
+- E. API sem cabeçalhos de segurança (`X-Powered-By` exposto), site sem HSTS; CORS recusado vira 500.
+- F. Container `csp-frontend` antigo ainda roda no VPS.
+Pendente de prova em produção: se a conta admin padrão ainda aceita `Admin@123` (barrado pelo auto mode).
 ## Onde parou (28/10/2026, 14h40, franc) — "CENTRAL DE SUPORTE" EM PRODUÇÃO
 
 **Publicado em 28/10/2026 ~14h35 com autorização dele ("pode por em produção"), provado pelo que o
