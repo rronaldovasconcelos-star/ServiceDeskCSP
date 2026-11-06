@@ -27,6 +27,8 @@ import HoleritesPage from './pages/HoleritesPage';
 import HoleritesRhPage from './pages/HoleritesRhPage';
 import BeneficiosPage from './pages/BeneficiosPage';
 import AgendamentoSalasPage from './pages/AgendamentoSalasPage';
+import AutorizacoesImagemPage from './pages/AutorizacoesImagemPage';
+import AutorizacoesImagemGestaoPage from './pages/AutorizacoesImagemGestaoPage';
 
 export default function App() {
   return (
@@ -202,6 +204,22 @@ export default function App() {
             element={
               <ProtectedRoute module="agendamento_salas">
                 <Layout><AgendamentoSalasPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/autorizacoes"
+            element={
+              <ProtectedRoute module="autorizacao_imagem">
+                <Layout><AutorizacoesImagemPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/autorizacoes/gestao"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN', 'GESTOR']}>
+                <Layout><AutorizacoesImagemGestaoPage /></Layout>
               </ProtectedRoute>
             }
           />

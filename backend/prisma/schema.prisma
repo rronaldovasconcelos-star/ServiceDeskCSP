@@ -281,6 +281,73 @@ model ReservaSala {
 }
 
 // ---------------------------------------------------------------------------
+// Autorização de Imagens (ver docs/novos-modulos-2026-11.md)
+// Referências a usuário são SOLTAS (sem FK) e acompanhadas de snapshot do nome:
+// documento assinado e histórico não podem sumir quando a conta é apagada.
+// ---------------------------------------------------------------------------
+
+// Modelo publicado pela gestão. É imutável: texto novo = documento novo, para
+// cada assinatura apontar para o arquivo exato que foi assinado.
+model AutorizacaoDocumento {
+  id               String   @id @default(cuid())
+  titulo           String
+  descricao        String?
+  arquivoNome      String
+  storageKey       String
+  sizeBytes        Int
+  sha256           String
+  publicadoPorId   String?
+  publicadoPorNome String   // snapshot
+  encerrado        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  envios  AutorizacaoEnvio[]
+  eventos AutorizacaoEvento[]
+}
+
+// Arquivo assinado devolvido pelo colaborador. Um novo envio só entra depois de
+// uma recusa; o recusado continua guardado.
+model AutorizacaoEnvio {
+  id               String    @id @default(cuid())
+  documentoId      String
+  usuarioId        String?
+  usuarioNome      String    // snapshot
+  usuarioEmail     String    // snapshot
+  arquivoNome      String
+  storageKey       String
+  sizeBytes        Int
+  sha256           String
+  dataDeclaradaPdf DateTime? // data escrita DENTRO do PDF pela assinatura (informativa, não é prova)
+  status           String    @default("AGUARDANDO") // AGUARDANDO | VALIDADO | RECUSADO
+  conferidoPorNome String?   // snapshot de quem validou/recusou
+  conferidoEm      DateTime?
+  motivoRecusa     String?
+  createdAt        DateTime  @default(now())
+
+  documento AutorizacaoDocumento @relation(fields: [documentoId], references: [id])
+
+  @@index([documentoId, usuarioId])
+}
+
+// Log só de acréscimo: BAIXOU_MODELO | ENVIOU_ASSINADO | BAIXOU_ASSINADO | VALIDOU | RECUSOU.
+model AutorizacaoEvento {
+  id          String   @id @default(cuid())
+  documentoId String
+  envioId     String?
+  tipo        String
+  atorId      String?
+  atorNome    String   // snapshot
+  atorEmail   String   // snapshot
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  documento AutorizacaoDocumento @relation(fields: [documentoId], references: [id])
+
+  @@index([documentoId, atorId])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
 // Holerites — folha de pagamento importada do TXT do Folpag (ver docs/holerites.md)
 // ---------------------------------------------------------------------------
 

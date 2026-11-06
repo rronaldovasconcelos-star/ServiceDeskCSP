@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   PlusCircle, Ticket, PackagePlus, Package, FolderOpen, Receipt, BookOpen,
   CalendarClock, Bell, HardDrive, BriefcaseBusiness, LayoutDashboard, BarChart3,
-  Users, DatabaseBackup, MessageSquare, HeartHandshake, DoorOpen,
+  Users, DatabaseBackup, MessageSquare, HeartHandshake, DoorOpen, FileSignature, ClipboardCheck,
 } from 'lucide-react';
 import { canAccess } from './modules';
 
@@ -14,6 +14,8 @@ export interface HomeService {
   icon: LucideIcon;
   /** Módulo exigido; sem ele, todo usuário autenticado vê o serviço. */
   module?: string;
+  /** Perfis que veem o serviço (ex.: gestão). Sem `roles` = não filtra por perfil. */
+  roles?: string[];
   /** Ação principal da página inicial. */
   primary?: boolean;
 }
@@ -38,11 +40,13 @@ export const HOME_SERVICES: HomeService[] = [
   { key: 'whatsapp', to: '/whatsapp', label: 'WhatsApp', description: 'Conexão e envios', icon: MessageSquare, module: 'whatsapp' },
   { key: 'beneficios', to: '/beneficios', label: 'Central de benefícios', description: 'Parcerias e vantagens para colaboradores', icon: HeartHandshake },
   { key: 'salas', to: '/salas', label: 'Agendamento de salas', description: 'Reserve Sala Maker, Laboratório, Biblioteca ou Sala de Reuniões', icon: DoorOpen, module: 'agendamento_salas' },
+  { key: 'autorizacoes', to: '/autorizacoes', label: 'Autorização de imagem', description: 'Baixe, assine pelo gov.br e envie o documento', icon: FileSignature, module: 'autorizacao_imagem' },
+  { key: 'autorizacoes-gestao', to: '/autorizacoes/gestao', label: 'Autorizações · Gestão', description: 'Publique o modelo e confira as assinaturas', icon: ClipboardCheck, roles: ['ADMIN', 'GESTOR'] },
 ];
 
 type AccessUser = { role?: string; modules?: string[] } | null | undefined;
 
 /** Serviços visíveis para o usuário: sem módulo exigido, ou com o módulo liberado. */
 export function servicesFor(user: AccessUser): HomeService[] {
-  return HOME_SERVICES.filter((s) => !s.module || canAccess(user, s.module));
+  return HOME_SERVICES.filter((s) => (!s.module || canAccess(user, s.module)) && (!s.roles || s.roles.includes(user?.role ?? '')));
 }

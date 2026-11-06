@@ -28,6 +28,8 @@ import {
   BriefcaseBusiness,
   HeartHandshake,
   DoorOpen,
+  FileSignature,
+  ClipboardCheck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -37,6 +39,8 @@ interface NavItem {
   icon: LucideIcon;
   /** Chave do módulo que controla o acesso. Sem `module` = todo usuário autenticado vê. Ver lib/modules.ts. */
   module?: string;
+  /** Perfis que veem o item (ex.: gestão). Sem `roles` = não filtra por perfil. */
+  roles?: string[];
 }
 
 interface NavGroup {
@@ -66,6 +70,8 @@ const navGroups: NavGroup[] = [
       { to: '/holerites', label: 'Meus holerites', icon: Receipt },
       { to: '/holerites/rh', label: 'RH · Holerites', icon: BriefcaseBusiness, module: 'rh' },
       { to: '/repositorio', label: 'Repositório', icon: HardDrive, module: 'repositorio' },
+      { to: '/autorizacoes', label: 'Autorização de imagem', icon: FileSignature, module: 'autorizacao_imagem' },
+      { to: '/autorizacoes/gestao', label: 'Autorizações · Gestão', icon: ClipboardCheck, roles: ['ADMIN', 'GESTOR'] },
     ],
   },
   {
@@ -147,7 +153,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const handleLogout = () => { logout(); navigate('/login', { replace: true }); };
 
   const gruposVisiveis = navGroups
-    .map((g) => ({ ...g, items: g.items.filter((item) => !item.module || canAccess(user, item.module)) }))
+    .map((g) => ({ ...g, items: g.items.filter((item) => (!item.module || canAccess(user, item.module)) && (!item.roles || item.roles.includes(user?.role ?? ''))) }))
     .filter((g) => g.items.length > 0);
 
   const todosItens = gruposVisiveis.flatMap((g) => g.items);

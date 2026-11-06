@@ -20,6 +20,7 @@ export const MODULES = [
   { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'rh', label: 'RH — Holerites (importar e vincular)' },
   { key: 'agendamento_salas', label: 'Agendamento de salas' },
+  { key: 'autorizacao_imagem', label: 'Autorização de imagem (deve assinar)' },
 ];
 
 type AccessUser = { role?: string; modules?: string[] } | null | undefined;
