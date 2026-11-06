@@ -1,6 +1,38 @@
 # ESTADO — Portal de Chamados (Service Desk CSP)
 
-Handoff entre PCs. Atualizado em 06/11/2026.
+Handoff entre PCs. Atualizado em 06/11/2026 (noite).
+
+## 06/11/2026 noite (rrona) — 3 MÓDULOS NOVOS NO `main`, AINDA NÃO PUBLICADOS
+
+Pedido da escola (`Desktop\Portal Service Desk\Demandas para o portal Service Desk.docx`):
+**Central de Benefícios**, **Agendamento de Salas** e **Autorização de Imagens**. Detalhe de
+cada um em `docs/novos-modulos-2026-11.md`. Decisões do Ronaldo: **sem e-mail** (a confirmação
+da reserva é só na tela); reserva direta com horário livre; assinatura = PDF com assinatura
+digital + conferência da gestão no validador; assina quem o admin marcar em Usuários.
+
+- Commits: `7dec60e` (benefícios), `adb5025` (salas), `13fc3a4` (autorizações), docs depois.
+  Tag de rollback: `pre-novos-modulos-20261106` (= `80ca2cf`, o que está em produção).
+- Provas locais: 7 suítes verdes (benefícios 20, agendamento 29, autorizações 27, DAV 13,
+  edição 26, holerites 46, segurança 19); cada guarda nova derrubada sozinha deixou o teste
+  vermelho (64 mutações); `tsc` back/front 0; eslint 18 (baseline); `vite build` OK; Chrome
+  local nos 2 temas, 414/360 px sem estouro, console limpo, com ADMIN, USER com e sem módulo.
+- **PRODUÇÃO NÃO FOI TOCADA no código.** O modo automático barrou o `update.py`. Já feito no
+  servidor: cópia do banco em `/root/backups-csp/dev.db.pre-novos-modulos-20261106` (344 KB).
+- **Falta, nesta ordem:** (1) backend: `update.py` (aplica 3 migrations novas no boot);
+  (2) provar `api/health` 200, rotas novas 401 sem token, gatilhos de `ReservaSala` no banco de
+  produção; (3) frontend: `deploy_hostinger.py` ou MCP `hosting_deployStaticWebsite`;
+  (4) teste real com o Ronaldo (reserva + cancelamento; ciclo de autorização com **PDF
+  assinado de verdade no gov.br** — a detecção só foi provada com PDF sintético).
+- Deploy pelo rrona agora funciona para o backend: `.deploy.env` ganhou
+  `CSP_VPS_KEY=C:/Users/rrona/.ssh/vps_key` (a mesma chave do `ssh vps`) e o
+  `.env.production` daqui é idêntico ao do servidor (hash conferido em 06/11). O `python` do
+  PATH é o venv do Hermes: usar outro Python com `paramiko`. O token da Hostinger do rrona
+  segue **expirado (401)**; o do franc valia em 28/10.
+- Armadilha medida: o git do rrona (`autocrlf=true`) reescreve os `.sql` com CRLF ao trocar de
+  branch. O Prisma 7 **não** quebra por isso (`migrate deploy` saiu 0 com 4 migrations
+  aplicadas em outro formato), mas os gatilhos do agendamento vivem num `.sql`: não editar.
+- Depois de publicar: marcar em Usuários quem usa `Agendamento de salas` e quem deve assinar
+  (`Autorização de imagem`); cadastrar os benefícios; o gestor publica o modelo real.
 
 **06/11/2026 (rrona):** Ronaldo confirmou que rodou o `update.py` depois do commit `5d7b1b4`
 (link do Word confere a conta no banco). É a palavra dele: o container não foi inspecionado e o
