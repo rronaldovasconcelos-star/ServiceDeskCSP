@@ -189,7 +189,8 @@ export default function TicketsPage() {
       />
 
       <main className="page-body">
-        <div className="toolbar">
+        {/* Alinha pelo topo: a busca tem dica embaixo e, pela base, a caixa subia acima dos selects. */}
+        <div className="toolbar items-start">
           <Field
             label="Buscar nesta lista"
             className="toolbar-grow"
