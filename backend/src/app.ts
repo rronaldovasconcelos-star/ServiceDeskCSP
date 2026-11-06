@@ -12,6 +12,7 @@ import maintenancesRouter from './modules/maintenances/maintenances.router.js';
 import remindersRouter from './modules/reminders/reminders.router.js';
 import backupRouter from './modules/backup/backup.router.js';
 import holeritesRouter from './modules/holerites/holerites.router.js';
+import beneficiosRouter from './modules/beneficios/beneficios.router.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { env } from './config/env.js';
 
@@ -71,6 +72,7 @@ app.use('/api/maintenances', maintenancesRouter);
 app.use('/api/reminders', remindersRouter);
 app.use('/api/backup', backupRouter);
 app.use('/api/holerites', holeritesRouter);
+app.use('/api/beneficios', beneficiosRouter);
 
 app.use(errorHandler);
 

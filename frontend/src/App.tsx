@@ -25,6 +25,7 @@ import RepositorioPage from './pages/RepositorioPage';
 import WhatsAppPage from './pages/WhatsAppPage';
 import HoleritesPage from './pages/HoleritesPage';
 import HoleritesRhPage from './pages/HoleritesRhPage';
+import BeneficiosPage from './pages/BeneficiosPage';
 
 export default function App() {
   return (
@@ -184,6 +185,14 @@ export default function App() {
             element={
               <ProtectedRoute module="whatsapp">
                 <Layout><WhatsAppPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/beneficios"
+            element={
+              <ProtectedRoute>
+                <Layout><BeneficiosPage /></Layout>
               </ProtectedRoute>
             }
           />

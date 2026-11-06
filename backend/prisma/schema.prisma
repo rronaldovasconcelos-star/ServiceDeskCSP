@@ -219,6 +219,29 @@ model MaterialReminder {
 }
 
 // ---------------------------------------------------------------------------
+// Central de Benefícios — parcerias da escola (ver docs/novos-modulos-2026-11.md)
+// ---------------------------------------------------------------------------
+
+// O logo mora no banco (até 1 MB): entra no backup e não consulta o Drive a
+// cada exibição. `criadoPorId` é referência solta — apagar o usuário não mexe aqui.
+model Beneficio {
+  id            String   @id @default(cuid())
+  nome          String
+  descricao     String
+  link          String?  // só http/https (validado no backend)
+  logo          Bytes?
+  logoMime      String?  // image/png | image/jpeg | image/webp, conferido pelo conteúdo
+  ativo         Boolean  @default(true)
+  ordem         Int      @default(0)
+  criadoPorId   String?
+  criadoPorNome String   // snapshot
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([ativo, ordem])
+}
+
+// ---------------------------------------------------------------------------
 // Holerites — folha de pagamento importada do TXT do Folpag (ver docs/holerites.md)
 // ---------------------------------------------------------------------------
 
