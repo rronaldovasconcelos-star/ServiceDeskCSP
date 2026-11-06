@@ -40,8 +40,12 @@ aparece só na tela e o portal continua sem enviar e-mail.
 - **Fuso:** o container roda em UTC. "Dia" e "hora" são calculados em
   `America/Sao_Paulo` de forma explícita no controller; o `TZ` global não foi mexido
   (mudaria o horário do backup).
-- Cancelar: quem reservou ou ADMIN, só enquanto a reserva não terminou. É lógico: o
-  registro fica como `CANCELADA`, com quem e quando, e some da agenda do dia.
+- **Acesso (decisão de 06/11, noite):** todo usuário logado vê a agenda de todos e reserva;
+  não há módulo. Alterar (sala, horário, finalidade) e cancelar: USER e GESTOR só a
+  própria reserva; ADMIN qualquer uma. Só enquanto a reserva não terminou.
+- Cancelar é lógico: o registro fica como `CANCELADA`, com quem e quando, e some da
+  agenda do dia. Alterar (`PUT /api/salas/reservas/:id`) passa pelas mesmas regras e pelo
+  mesmo gatilho de conflito.
 
 ## Autorização de Imagens
 
