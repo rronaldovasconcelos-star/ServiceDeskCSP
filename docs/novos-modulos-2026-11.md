@@ -8,7 +8,7 @@ aparece só na tela e o portal continua sem enviar e-mail.
 | Módulo | Quem usa | Quem administra | Rota do front | API |
 |---|---|---|---|---|
 | Central de Benefícios | todo usuário logado | ADMIN | `/beneficios` | `/api/beneficios` |
-| Agendamento de Salas | quem tem o módulo `agendamento_salas` | ADMIN marca em Usuários | `/salas` | `/api/salas` |
+| Agendamento de Salas | todo usuário logado | ADMIN (altera/cancela qualquer reserva) | `/salas` | `/api/salas` |
 | Autorização de Imagens | quem tem o módulo `autorizacao_imagem` | GESTOR e ADMIN | `/autorizacoes` e `/autorizacoes/gestao` | `/api/autorizacoes` |
 
 ## Central de Benefícios
@@ -90,7 +90,7 @@ porque o `backend/.env` local aponta para serviços de produção:
 ```powershell
 $env:WHATSAPP_PROVIDER='mock'; $env:STORAGE_PROVIDER='local'; $env:REMINDER_SCHEDULER_ENABLED='false'
 npx tsx scripts/testar-beneficios-http.ts    # 20 casos
-npx tsx scripts/testar-agendamento-http.ts   # 29 casos
+npx tsx scripts/testar-agendamento-http.ts   # 34 casos
 npx tsx scripts/testar-autorizacoes-http.ts  # 27 casos
 ```
 

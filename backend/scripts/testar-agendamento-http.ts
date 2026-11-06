@@ -4,10 +4,10 @@
  *
  *   npx tsx scripts/testar-agendamento-http.ts
  *
- * Guardas: só quem tem o módulo `agendamento_salas` (ou ADMIN) entra; a mesma
- * sala não aceita dois horários sobrepostos (nem em 20 pedidos simultâneos — a
- * trava mora no banco); nada no passado, fim depois do início, mesmo dia em
- * Brasília; só o dono ou ADMIN cancela.
+ * Regras (decisão de 06/11/2026): TODO usuário logado vê a agenda e reserva; a
+ * mesma sala não aceita dois horários sobrepostos (nem em 20 pedidos simultâneos
+ * — a trava mora no banco); nada no passado, fim depois do início, mesmo dia em
+ * Brasília; alterar e cancelar: o dono (USER ou GESTOR) só a própria, ADMIN qualquer.
  * Excesso: horários encostados valem, a mesma hora em outra sala vale, 20h–22h
  * de Brasília vale (cruza a meia-noite UTC), reservar de novo após cancelar vale,
  * e apagar o usuário não apaga o histórico.
@@ -25,7 +25,6 @@ const PREFIXO_EMAIL = 'teste-sala-';
 const PREFIXO = 'TESTE-SALA';
 const DIA = '2031-03-10';
 const OUTRO_DIA = '2031-03-11';
-const MODULO = 'agendamento_salas';
 
 /** Instante a partir de um horário de Brasília (UTC−3, sem horário de verão). */
 const br = (hora: string, dia = DIA) => `${dia}T${hora}:00-03:00`;
@@ -68,12 +67,11 @@ async function main() {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
 
-  const ana = await criarUsuario('ana', 'USER', [MODULO]);
-  const bia = await criarUsuario('bia', 'USER', [MODULO]);
-  const semModulo = await criarUsuario('sem-modulo', 'USER');
-  const gestorSem = await criarUsuario('gestor-sem', 'GESTOR');
+  const ana = await criarUsuario('ana', 'USER');
+  const bia = await criarUsuario('bia', 'USER');
+  const gestor = await criarUsuario('gestor', 'GESTOR');
   const admin = await criarUsuario('admin', 'ADMIN');
-  const descartavel = await criarUsuario('descartavel', 'USER', [MODULO]);
+  const descartavel = await criarUsuario('descartavel', 'USER');
 
   let salas: Sala[] = [];
   const sala = (nome: string) => salas.find((s) => s.nome === nome)!.id;
@@ -94,17 +92,14 @@ async function main() {
       salas = await r.json() as Sala[];
       assert.deepEqual(salas.map((s) => s.nome).sort(), ['Biblioteca', 'Laboratório de Ciências', 'Sala Maker', 'Sala de Reuniões']);
     });
-    await teste('sem o módulo NÃO vê nem reserva (403), mesmo sendo GESTOR', async () => {
-      assert.equal((await chamar(semModulo, 'GET', '/salas')).status, 403);
-      assert.equal((await chamar(semModulo, 'GET', `/salas/reservas?data=${DIA}`)).status, 403);
-      assert.equal((await reservar(semModulo, 'Biblioteca', br('08:00'), br('09:00'))).status, 403);
-      assert.equal((await reservar(gestorSem, 'Biblioteca', br('08:00'), br('09:00'))).status, 403);
-      assert.equal(await confirmadas('Biblioteca'), 0);
+    await teste('qualquer usuário logado vê a agenda, sem precisar de módulo', async () => {
+      assert.equal((await chamar(bia, 'GET', `/salas/reservas?data=${DIA}`)).status, 200);
+      assert.equal((await chamar(gestor, 'GET', `/salas/reservas?data=${DIA}`)).status, 200);
     });
 
     console.log('Reservar');
     let idAna = '';
-    await teste('com o módulo reserva (201), já confirmada', async () => {
+    await teste('USER reserva (201), já confirmada', async () => {
       const r = await reservar(ana, 'Sala Maker', br('10:00'), br('11:00'));
       assert.equal(r.status, 201);
       const b = await r.json() as Reserva;
@@ -112,8 +107,12 @@ async function main() {
       assert.equal(b.usuarioNome, `${PREFIXO} ana`);
       idAna = b.id;
     });
-    await teste('ADMIN reserva sem precisar do módulo (201)', async () => {
-      assert.equal((await reservar(admin, 'Sala de Reuniões', br('10:00'), br('11:00'))).status, 201);
+    let idGestor = '';
+    await teste('GESTOR e ADMIN também reservam (201)', async () => {
+      const r = await reservar(gestor, 'Sala de Reuniões', br('10:00'), br('11:00'));
+      assert.equal(r.status, 201);
+      idGestor = (await r.json() as Reserva).id;
+      assert.equal((await reservar(admin, 'Sala de Reuniões', br('14:00'), br('15:00'))).status, 201);
     });
     await teste('sobreposição na mesma sala → 409 dizendo o horário ocupado', async () => {
       const casos: Array<[string, string]> = [['10:00', '11:00'], ['09:30', '10:30'], ['10:30', '11:30'], ['10:15', '10:45'], ['09:00', '12:00']];
@@ -191,6 +190,38 @@ async function main() {
       assert.equal(await confirmadas('Laboratório de Ciências'), 1);
     });
 
+    console.log('Alterar');
+    const alterar = (conta: Conta, id: string, dados: Record<string, string>) => chamar(conta, 'PUT', `/salas/reservas/${id}`, dados);
+    await teste('outra pessoa NÃO altera a reserva alheia (403), nem GESTOR', async () => {
+      assert.equal((await alterar(bia, idAna, { finalidade: `${PREFIXO} invadida` })).status, 403);
+      assert.equal((await alterar(gestor, idAna, { finalidade: `${PREFIXO} invadida` })).status, 403);
+      assert.equal((await prisma.reservaSala.findUnique({ where: { id: idAna } }))!.finalidade, `${PREFIXO} aula`);
+    });
+    await teste('o dono altera finalidade e horário (200); GESTOR altera a própria', async () => {
+      const r = await alterar(ana, idAna, { finalidade: `${PREFIXO} aula alterada`, inicio: br('10:00'), fim: br('10:45') });
+      assert.equal(r.status, 200);
+      const b = await r.json() as Reserva;
+      assert.equal(b.fim, new Date(br('10:45')).toISOString());
+      assert.equal((await alterar(gestor, idGestor, { finalidade: `${PREFIXO} reunião da gestão` })).status, 200);
+    });
+    await teste('alterar para cima de outra reserva → 409 e nada muda', async () => {
+      const conflito = await alterar(ana, idAna, { inicio: br('09:30'), fim: br('10:30') });
+      assert.equal(conflito.status, 409);
+      assert.match((await conflito.json() as { error: string }).error, /09:00.*10:00/, 'deve dizer qual horário está ocupado');
+      const r = await prisma.reservaSala.findUnique({ where: { id: idAna } });
+      assert.equal(r!.inicio.toISOString(), new Date(br('10:00')).toISOString());
+    });
+    await teste('alterar para o passado, fim antes do início ou outro dia → 400', async () => {
+      assert.equal((await alterar(ana, idAna, { inicio: '2020-03-10T10:00:00-03:00', fim: '2020-03-10T11:00:00-03:00' })).status, 400);
+      assert.equal((await alterar(ana, idAna, { inicio: br('10:00'), fim: br('09:00') })).status, 400);
+      assert.equal((await alterar(ana, idAna, { inicio: br('23:00'), fim: br('01:00', OUTRO_DIA) })).status, 400);
+    });
+    await teste('mudar de sala vale se o horário estiver livre lá; ADMIN altera a de qualquer um', async () => {
+      assert.equal((await alterar(ana, idAna, { salaId: sala('Sala de Reuniões') })).status, 409, 'Reuniões 10h–11h é do gestor');
+      assert.equal((await alterar(admin, idGestor, { finalidade: `${PREFIXO} ajustada pelo admin` })).status, 200);
+      assert.equal((await alterar(ana, idAna, { salaId: 'nao-existe' })).status, 404);
+    });
+
     console.log('Agenda e cancelamento');
     await teste('a agenda do dia mostra as reservas e marca as minhas', async () => {
       const r = await chamar(ana, 'GET', `/salas/reservas?data=${DIA}`);
@@ -218,10 +249,9 @@ async function main() {
       assert.equal((await chamar(bia, 'POST', `/salas/reservas/${idAna}/cancelar`)).status, 403);
       assert.equal((await prisma.reservaSala.findUnique({ where: { id: idAna } }))!.status, 'CONFIRMADA');
     });
-    await teste('quem perdeu o módulo não cancela nem a própria (403)', async () => {
-      await prisma.user.update({ where: { id: ana.id }, data: { modules: '[]' } });
-      assert.equal((await chamar(ana, 'POST', `/salas/reservas/${idAna}/cancelar`)).status, 403);
-      await prisma.user.update({ where: { id: ana.id }, data: { modules: JSON.stringify([MODULO]) } });
+    await teste('GESTOR NÃO cancela a reserva alheia (403), mas cancela a própria (200)', async () => {
+      assert.equal((await chamar(gestor, 'POST', `/salas/reservas/${idAna}/cancelar`)).status, 403);
+      assert.equal((await chamar(gestor, 'POST', `/salas/reservas/${idGestor}/cancelar`)).status, 200);
     });
     await teste('o dono cancela (200); o registro fica como CANCELADA, com quem e quando', async () => {
       assert.equal((await chamar(ana, 'POST', `/salas/reservas/${idAna}/cancelar`)).status, 200);
@@ -230,8 +260,9 @@ async function main() {
       assert.equal(r!.canceladaPorNome, `${PREFIXO} ana`);
       assert.ok(r!.canceladaEm);
     });
-    await teste('cancelar de novo → 409', async () => {
+    await teste('cancelar de novo → 409; alterar uma cancelada → 409', async () => {
       assert.equal((await chamar(ana, 'POST', `/salas/reservas/${idAna}/cancelar`)).status, 409);
+      assert.equal((await alterar(ana, idAna, { finalidade: `${PREFIXO} ressuscitada` })).status, 409);
     });
     await teste('depois de cancelar, o horário volta a ficar livre para outra pessoa', async () => {
       assert.equal((await reservar(bia, 'Sala Maker', br('10:00'), br('11:00'))).status, 201);
@@ -254,6 +285,9 @@ async function main() {
         data: { salaId: sala('Biblioteca'), usuarioId: bia.id, usuarioNome: `${PREFIXO} bia`, usuarioEmail: 'x', finalidade: `${PREFIXO} velha`, inicio: new Date('2020-03-10T13:00:00Z'), fim: new Date('2020-03-10T14:00:00Z') },
       });
       assert.equal((await chamar(bia, 'POST', `/salas/reservas/${velha.id}/cancelar`)).status, 400);
+      const r = await alterar(bia, velha.id, { finalidade: `${PREFIXO} tarde demais` });
+      assert.equal(r.status, 400);
+      assert.match((await r.json() as { error: string }).error, /já terminou/);
     });
 
     console.log('Exclusão de usuário');

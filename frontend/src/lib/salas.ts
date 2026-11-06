@@ -36,6 +36,10 @@ export async function reservarSala(dados: { salaId: string; inicio: string; fim:
   return (await api.post<Reserva>('/salas/reservas', dados)).data;
 }
 
+export async function alterarReserva(id: string, dados: { salaId: string; inicio: string; fim: string; finalidade: string }): Promise<Reserva> {
+  return (await api.put<Reserva>(`/salas/reservas/${id}`, dados)).data;
+}
+
 export async function cancelarReserva(id: string): Promise<Reserva> {
   return (await api.post<Reserva>(`/salas/reservas/${id}/cancelar`)).data;
 }
@@ -45,6 +49,13 @@ export function hojeLocal(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** Separa um instante ISO em `aaaa-mm-dd` e `HH:mm` locais (valores dos campos do formulário). */
+export function dataEHora(iso: string): { data: string; hora: string } {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return { data: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, hora: `${p(d.getHours())}:${p(d.getMinutes())}` };
 }
 
 /** Junta data e hora dos campos do formulário num instante ISO (fuso do navegador). */

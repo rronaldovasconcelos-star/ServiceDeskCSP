@@ -202,7 +202,7 @@ export default function App() {
           <Route
             path="/salas"
             element={
-              <ProtectedRoute module="agendamento_salas">
+              <ProtectedRoute>
                 <Layout><AgendamentoSalasPage /></Layout>
               </ProtectedRoute>
             }

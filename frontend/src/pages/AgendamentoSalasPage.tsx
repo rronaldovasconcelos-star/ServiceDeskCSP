@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { CalendarCheck, CalendarX, DoorOpen } from 'lucide-react';
+import { CalendarCheck, CalendarX, DoorOpen, Pencil } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import PageHeader from '../components/PageHeader';
-import { Button, Card, EmptyState, Field, Notice, Table } from '../components/ui';
+import { Button, Card, EmptyState, Field, Modal, Notice, Table } from '../components/ui';
 import { mensagemDeErro } from '../lib/beneficios';
 import {
-  listarSalas, agendaDoDia, minhasReservas, reservarSala, cancelarReserva,
-  hojeLocal, instante, faixaHoraria, diaPorExtenso, type Reserva, type Sala,
+  listarSalas, agendaDoDia, minhasReservas, reservarSala, alterarReserva, cancelarReserva,
+  hojeLocal, instante, dataEHora, faixaHoraria, diaPorExtenso, type Reserva, type Sala,
 } from '../lib/salas';
+
+interface FormEdicao { salaId: string; data: string; horaInicio: string; horaFim: string; finalidade: string }
 
 export default function AgendamentoSalasPage() {
   const { user } = useAuth();
@@ -32,6 +34,12 @@ export default function AgendamentoSalasPage() {
   const [confirmacao, setConfirmacao] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pageError, setPageError] = useState('');
+
+  // Alterar reserva (modal)
+  const [editando, setEditando] = useState<Reserva | null>(null);
+  const [edicao, setEdicao] = useState<FormEdicao>({ salaId: '', data: '', horaInicio: '', horaFim: '', finalidade: '' });
+  const [edicaoError, setEdicaoError] = useState('');
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
 
   useEffect(() => {
     listarSalas()
@@ -101,11 +109,44 @@ export default function AgendamentoSalasPage() {
     }
   };
 
-  const podeCancelar = (r: Reserva) => r.status === 'CONFIRMADA' && new Date(r.fim).getTime() > agora && (r.minha || isAdmin);
-  const botaoCancelar = (r: Reserva) => podeCancelar(r) && (
-    <Button variant="ghost" size="sm" icon={<CalendarX size={14} />} onClick={() => cancelar(r)} loading={busyId === r.id}>
-      Cancelar<span className="sr-only"> reserva de {nomeDaSala(r.salaId)} das {faixaHoraria(r)}</span>
-    </Button>
+  const abrirEdicao = (r: Reserva) => {
+    const ini = dataEHora(r.inicio);
+    setEdicao({ salaId: r.salaId, data: ini.data, horaInicio: ini.hora, horaFim: dataEHora(r.fim).hora, finalidade: r.finalidade });
+    setEdicaoError('');
+    setEditando(r);
+  };
+  const salvarEdicao = async (e: { preventDefault(): void }) => {
+    e.preventDefault();
+    if (!editando) return;
+    const inicio = instante(edicao.data, edicao.horaInicio);
+    const fim = instante(edicao.data, edicao.horaFim);
+    if (!inicio || !fim) { setEdicaoError('Informe a data e os dois horários.'); return; }
+    if (fim <= inicio) { setEdicaoError('O horário de término precisa ser depois do início.'); return; }
+    setSalvandoEdicao(true);
+    setEdicaoError('');
+    try {
+      const r = await alterarReserva(editando.id, { salaId: edicao.salaId, inicio, fim, finalidade: edicao.finalidade });
+      setEditando(null);
+      setConfirmacao(`Reserva alterada: ${nomeDaSala(r.salaId)}, ${diaPorExtenso(r.inicio)}, das ${faixaHoraria(r)}.`);
+      setVersao((v) => v + 1);
+    } catch (err) {
+      setEdicaoError(mensagemDeErro(err, 'Não foi possível alterar a reserva.'));
+    } finally {
+      setSalvandoEdicao(false);
+    }
+  };
+
+  // Dono (usuário ou gestor) mexe só na própria reserva; ADMIN em qualquer uma.
+  const podeMexer = (r: Reserva) => r.status === 'CONFIRMADA' && new Date(r.fim).getTime() > agora && (r.minha || isAdmin);
+  const botoesDe = (r: Reserva) => podeMexer(r) && (
+    <div className="row flex-wrap">
+      <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => abrirEdicao(r)} disabled={busyId === r.id}>
+        Alterar<span className="sr-only"> reserva de {nomeDaSala(r.salaId)} das {faixaHoraria(r)}</span>
+      </Button>
+      <Button variant="ghost" size="sm" icon={<CalendarX size={14} />} onClick={() => cancelar(r)} loading={busyId === r.id}>
+        Cancelar<span className="sr-only"> reserva de {nomeDaSala(r.salaId)} das {faixaHoraria(r)}</span>
+      </Button>
+    </div>
   );
 
   const statusPill = (r: Reserva) => {
@@ -134,7 +175,7 @@ export default function AgendamentoSalasPage() {
     <>
       <PageHeader
         title="Agendamento de salas"
-        description="Reserve a Sala Maker, o Laboratório de Ciências, a Biblioteca ou a Sala de Reuniões"
+        description="Reserve a Sala Maker, o Laboratório de Ciências, a Biblioteca ou a Sala de Reuniões. Todos veem a agenda; cada um altera ou cancela a própria reserva."
       />
 
       <main className="page-body stack">
@@ -144,6 +185,52 @@ export default function AgendamentoSalasPage() {
           </Notice>
         )}
         {pageError && <Notice kind="danger" onClose={() => setPageError('')}>{pageError}</Notice>}
+
+        <Modal
+          open={editando !== null}
+          title="Alterar reserva"
+          onClose={() => setEditando(null)}
+          footer={(
+            <>
+              <Button variant="ghost" onClick={() => setEditando(null)}>Cancelar</Button>
+              <Button type="submit" variant="primary" form="form-edicao" loading={salvandoEdicao}>{salvandoEdicao ? 'Salvando...' : 'Salvar alterações'}</Button>
+            </>
+          )}
+        >
+          <form id="form-edicao" onSubmit={salvarEdicao} className="stack">
+            {edicaoError && <Notice kind="danger">{edicaoError}</Notice>}
+            {editando && !editando.minha && <Notice kind="info">Reserva de {editando.usuarioNome}.</Notice>}
+            <div className="form-grid-2">
+              <Field label="Sala" required>
+                {(ctl) => (
+                  <select {...ctl} value={edicao.salaId} onChange={(e) => setEdicao({ ...edicao, salaId: e.target.value })} required className="field" data-autofocus>
+                    {salas.map((s) => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                  </select>
+                )}
+              </Field>
+              <Field label="Dia" required>
+                {(ctl) => (
+                  <input {...ctl} type="date" value={edicao.data} min={hojeLocal()} onChange={(e) => setEdicao({ ...edicao, data: e.target.value })} required className="field" />
+                )}
+              </Field>
+              <Field label="Início" required>
+                {(ctl) => (
+                  <input {...ctl} type="time" value={edicao.horaInicio} onChange={(e) => setEdicao({ ...edicao, horaInicio: e.target.value })} required className="field" />
+                )}
+              </Field>
+              <Field label="Término" required>
+                {(ctl) => (
+                  <input {...ctl} type="time" value={edicao.horaFim} onChange={(e) => setEdicao({ ...edicao, horaFim: e.target.value })} required className="field" />
+                )}
+              </Field>
+            </div>
+            <Field label="Finalidade" required>
+              {(ctl) => (
+                <input {...ctl} value={edicao.finalidade} onChange={(e) => setEdicao({ ...edicao, finalidade: e.target.value })} required minLength={3} maxLength={200} className="field" />
+              )}
+            </Field>
+          </form>
+        </Modal>
 
         <Card title="Nova reserva">
           <form onSubmit={handleSubmit} className="stack">
@@ -213,7 +300,7 @@ export default function AgendamentoSalasPage() {
                             <p className="font-semibold tabular-nums">{faixaHoraria(r)}</p>
                             <p className="text-sm-2 break-words">{r.finalidade}</p>
                             <p className="muted text-sm-2">{r.minha ? 'Reservado por você' : `Reservado por ${r.usuarioNome}`}</p>
-                            <div>{botaoCancelar(r)}</div>
+                            {botoesDe(r)}
                           </li>
                         ))}
                       </ul>
@@ -248,7 +335,7 @@ export default function AgendamentoSalasPage() {
                       <td className="whitespace-nowrap tabular-nums">{faixaHoraria(r)}</td>
                       <td className="muted">{r.finalidade}</td>
                       <td>{statusPill(r)}</td>
-                      <td className="text-right">{botaoCancelar(r)}</td>
+                      <td>{botoesDe(r)}</td>
                     </tr>
                   ))}
                 </Table>
@@ -263,7 +350,7 @@ export default function AgendamentoSalasPage() {
                       <span className="pill pill-muted">{faixaHoraria(r)}</span>
                     </div>
                     <p className="ticket-card-sub mb-2">{r.finalidade}</p>
-                    {botaoCancelar(r)}
+                    {botoesDe(r)}
                   </div>
                 ))}
               </div>

@@ -31,7 +31,8 @@ digital + conferência da gestão no validador; assina quem o admin marcar em Us
 - Armadilha medida: o git do rrona (`autocrlf=true`) reescreve os `.sql` com CRLF ao trocar de
   branch. O Prisma 7 **não** quebra por isso (`migrate deploy` saiu 0 com 4 migrations
   aplicadas em outro formato), mas os gatilhos do agendamento vivem num `.sql`: não editar.
-- Depois de publicar: marcar em Usuários quem usa `Agendamento de salas` e quem deve assinar
+- **06/11 ~20h30, pedido dele no teste local:** salas sem módulo — todos veem a agenda e reservam; USER/GESTOR alteram e cancelam só a própria, ADMIN qualquer; ganhou PUT `/salas/reservas/:id` e modal Alterar (teste 34 casos, mutações mortas). Também corrigida a barra de filtros de Chamados (dica da busca desalinhava os selects).
+- Depois de publicar: marcar em Usuários quem deve assinar
   (`Autorização de imagem`); cadastrar os benefícios; o gestor publica o modelo real.
 
 **06/11/2026 (rrona):** Ronaldo confirmou que rodou o `update.py` depois do commit `5d7b1b4`

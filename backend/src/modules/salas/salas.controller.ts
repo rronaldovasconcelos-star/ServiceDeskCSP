@@ -20,6 +20,24 @@ const reservaSchema = z.object({
   fim: z.string().datetime({ offset: true }),
   finalidade: z.string().trim().min(3).max(200),
 });
+const alteracaoSchema = reservaSchema.partial();
+
+/** Regras de horário, iguais para criar e alterar. Devolve a mensagem de erro ou null. */
+function erroDeHorario(inicio: Date, fim: Date): string | null {
+  if (fim.getTime() <= inicio.getTime()) return 'O horário de término precisa ser depois do início.';
+  if (inicio.getTime() < Date.now()) return 'Não é possível reservar um horário que já passou.';
+  if (diaDe(inicio) !== diaDe(fim)) return 'A reserva precisa começar e terminar no mesmo dia.';
+  return null;
+}
+
+/** Reserva confirmada que cruza o intervalo na sala (ignorando `exceto`, a própria reserva ao alterar). */
+function conflitoEm(salaId: string, inicio: Date, fim: Date, exceto?: string) {
+  return prisma.reservaSala.findFirst({
+    where: { salaId, status: 'CONFIRMADA', inicio: { lt: fim }, fim: { gt: inicio }, ...(exceto ? { id: { not: exceto } } : {}) },
+    select: { inicio: true, fim: true, usuarioNome: true },
+    orderBy: { inicio: 'asc' },
+  });
+}
 
 const campos = {
   id: true, salaId: true, usuarioId: true, usuarioNome: true, inicio: true, fim: true, finalidade: true,
@@ -93,20 +111,15 @@ export async function reservar(req: Request, res: Response, next: NextFunction):
     const inicio = new Date(data.inicio);
     const fim = new Date(data.fim);
 
-    if (fim.getTime() <= inicio.getTime()) { res.status(400).json({ error: 'O horário de término precisa ser depois do início.' }); return; }
-    if (inicio.getTime() < Date.now()) { res.status(400).json({ error: 'Não é possível reservar um horário que já passou.' }); return; }
-    if (diaDe(inicio) !== diaDe(fim)) { res.status(400).json({ error: 'A reserva precisa começar e terminar no mesmo dia.' }); return; }
+    const erro = erroDeHorario(inicio, fim);
+    if (erro) { res.status(400).json({ error: erro }); return; }
 
     const sala = await prisma.sala.findFirst({ where: { id: data.salaId, ativa: true }, select: { id: true, nome: true } });
     if (!sala) { res.status(404).json({ error: 'Sala não encontrada' }); return; }
 
     // Checagem amigável: diz QUAL horário está ocupado. A garantia de verdade é o
     // gatilho do banco, que segura também dois pedidos chegando ao mesmo tempo.
-    const ocupada = await prisma.reservaSala.findFirst({
-      where: { salaId: sala.id, status: 'CONFIRMADA', inicio: { lt: fim }, fim: { gt: inicio } },
-      select: { inicio: true, fim: true, usuarioNome: true },
-      orderBy: { inicio: 'asc' },
-    });
+    const ocupada = await conflitoEm(sala.id, inicio, fim);
     if (ocupada) {
       res.status(409).json({ error: `${sala.nome} já está reservada das ${horaDe(ocupada.inicio)} às ${horaDe(ocupada.fim)} por ${ocupada.usuarioNome}.` });
       return;
@@ -126,6 +139,47 @@ export async function reservar(req: Request, res: Response, next: NextFunction):
         select: campos,
       });
       res.status(201).json(saida(reserva, req.user!.sub));
+    } catch (err) {
+      if (!ehConflitoDoBanco(err)) throw err;
+      res.status(409).json({ error: `${sala.nome} acabou de ser reservada por outra pessoa nesse horário. Escolha outro horário.` });
+    }
+  } catch (err) { next(err); }
+}
+
+/** Altera sala, horário ou finalidade. Dono (USER ou GESTOR) só a própria; ADMIN qualquer. */
+export async function alterar(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const id = String(req.params.id);
+    const data = alteracaoSchema.parse(req.body ?? {});
+    const atual = await prisma.reservaSala.findUnique({ where: { id } });
+    if (!atual) { res.status(404).json({ error: 'Reserva não encontrada' }); return; }
+
+    const dono = atual.usuarioId === req.user!.sub;
+    if (!dono && req.user!.role !== 'ADMIN') { res.status(403).json({ error: 'Só quem reservou ou um administrador pode alterar.' }); return; }
+    if (atual.status !== 'CONFIRMADA') { res.status(409).json({ error: 'Esta reserva foi cancelada e não pode ser alterada.' }); return; }
+    if (atual.fim.getTime() <= Date.now()) { res.status(400).json({ error: 'Esta reserva já terminou.' }); return; }
+
+    const inicio = data.inicio ? new Date(data.inicio) : atual.inicio;
+    const fim = data.fim ? new Date(data.fim) : atual.fim;
+    const erro = erroDeHorario(inicio, fim);
+    if (erro) { res.status(400).json({ error: erro }); return; }
+
+    const sala = await prisma.sala.findFirst({ where: { id: data.salaId ?? atual.salaId, ativa: true }, select: { id: true, nome: true } });
+    if (!sala) { res.status(404).json({ error: 'Sala não encontrada' }); return; }
+
+    const ocupada = await conflitoEm(sala.id, inicio, fim, id);
+    if (ocupada) {
+      res.status(409).json({ error: `${sala.nome} já está reservada das ${horaDe(ocupada.inicio)} às ${horaDe(ocupada.fim)} por ${ocupada.usuarioNome}.` });
+      return;
+    }
+
+    try {
+      const reserva = await prisma.reservaSala.update({
+        where: { id },
+        data: { salaId: sala.id, inicio, fim, ...(data.finalidade !== undefined ? { finalidade: data.finalidade } : {}) },
+        select: campos,
+      });
+      res.json(saida(reserva, req.user!.sub));
     } catch (err) {
       if (!ehConflitoDoBanco(err)) throw err;
       res.status(409).json({ error: `${sala.nome} acabou de ser reservada por outra pessoa nesse horário. Escolha outro horário.` });
