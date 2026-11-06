@@ -1,6 +1,13 @@
 # ESTADO — Portal de Chamados (Service Desk CSP)
 
-Handoff entre PCs. Atualizado em 27/10/2026 (noite).
+Handoff entre PCs. Atualizado em 06/11/2026.
+
+**06/11/2026 (rrona):** Ronaldo confirmou que rodou o `update.py` depois do commit `5d7b1b4`
+(link do Word confere a conta no banco). É a palavra dele: o container não foi inspecionado e o
+HTTP só mostra `api/health` 200. Sem trabalho em andamento; segue pendente a Cloud API (lado da
+Meta). Para publicar do rrona: o Python do PATH (3.11) não tem `paramiko` e não existe
+`~/.ssh/pdi_vps_ed25519` (o `update.py` aceita outra chave por `CSP_VPS_KEY`, rota não testada);
+o token da Hostinger daqui estava expirado em 28/10.
 
 ## O que é
 
