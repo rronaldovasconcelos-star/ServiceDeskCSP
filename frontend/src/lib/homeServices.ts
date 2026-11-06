@@ -28,6 +28,8 @@ export const HOME_SERVICES: HomeService[] = [
   { key: 'suprimentos', to: '/suprimentos', label: 'Pedidos de suprimentos', description: 'Veja o andamento dos seus pedidos', icon: Package },
   { key: 'arquivos', to: '/arquivos', label: 'Meus arquivos', description: 'Planejamentos, atividades e documentos no Drive', icon: FolderOpen },
   { key: 'holerites', to: '/holerites', label: 'Meus holerites', description: 'Baixe o seu demonstrativo mensal', icon: Receipt },
+  { key: 'salas', to: '/salas', label: 'Agendamento de salas', description: 'Reserve Sala Maker, Laboratório, Biblioteca ou Sala de Reuniões', icon: DoorOpen },
+  { key: 'beneficios', to: '/beneficios', label: 'Central de benefícios', description: 'Parcerias e vantagens para colaboradores', icon: HeartHandshake },
   { key: 'catalogo', to: '/suprimentos/catalogo', label: 'Catálogo', description: 'Itens disponíveis para pedido', icon: BookOpen, module: 'catalogo' },
   { key: 'manutencoes', to: '/manutencoes', label: 'Manutenções', description: 'Agenda de manutenções programadas', icon: CalendarClock, module: 'manutencoes' },
   { key: 'lembretes', to: '/lembretes', label: 'Lembretes', description: 'Avisos de material por WhatsApp', icon: Bell, module: 'lembretes' },
@@ -38,8 +40,6 @@ export const HOME_SERVICES: HomeService[] = [
   { key: 'users', to: '/users', label: 'Usuários', description: 'Contas, perfis e módulos', icon: Users, module: 'users' },
   { key: 'backups', to: '/backups', label: 'Backups', description: 'Cópias de segurança do portal', icon: DatabaseBackup, module: 'backups' },
   { key: 'whatsapp', to: '/whatsapp', label: 'WhatsApp', description: 'Conexão e envios', icon: MessageSquare, module: 'whatsapp' },
-  { key: 'beneficios', to: '/beneficios', label: 'Central de benefícios', description: 'Parcerias e vantagens para colaboradores', icon: HeartHandshake },
-  { key: 'salas', to: '/salas', label: 'Agendamento de salas', description: 'Reserve Sala Maker, Laboratório, Biblioteca ou Sala de Reuniões', icon: DoorOpen },
   { key: 'autorizacoes', to: '/autorizacoes', label: 'Autorização de imagem', description: 'Baixe, assine pelo gov.br e envie o documento', icon: FileSignature, module: 'autorizacao_imagem' },
   { key: 'autorizacoes-gestao', to: '/autorizacoes/gestao', label: 'Autorizações · Gestão', description: 'Publique o modelo e confira as assinaturas', icon: ClipboardCheck, roles: ['ADMIN', 'GESTOR'] },
 ];

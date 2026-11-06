@@ -25,7 +25,7 @@ interface TicketItem {
 }
 
 /** Quantos serviços aparecem antes de "Ver todos". */
-const SERVICOS_VISIVEIS = 6;
+const SERVICOS_VISIVEIS = 8;
 
 /** Filtros da fila da equipe (mesmos da antiga tela de Dashboard). */
 const FILTER_OPTIONS = [
