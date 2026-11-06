@@ -27,6 +27,7 @@ import {
   Receipt,
   BriefcaseBusiness,
   HeartHandshake,
+  DoorOpen,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -52,6 +53,7 @@ const navGroups: NavGroup[] = [
       { to: '/tickets', label: 'Chamados', icon: Ticket },
       { to: '/suprimentos', label: 'Suprimentos', icon: Package },
       { to: '/beneficios', label: 'Benefícios', icon: HeartHandshake },
+      { to: '/salas', label: 'Salas', icon: DoorOpen, module: 'agendamento_salas' },
       { to: '/suprimentos/catalogo', label: 'Catálogo', icon: BookOpen, module: 'catalogo' },
       { to: '/manutencoes', label: 'Manutenções', icon: CalendarClock, module: 'manutencoes' },
       { to: '/lembretes', label: 'Lembretes', icon: Bell, module: 'lembretes' },

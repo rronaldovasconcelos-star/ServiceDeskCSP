@@ -19,6 +19,7 @@ export const MODULES = [
   { key: 'backups', label: 'Backups' },
   { key: 'whatsapp', label: 'WhatsApp' },
   { key: 'rh', label: 'RH — Holerites (importar e vincular)' },
+  { key: 'agendamento_salas', label: 'Agendamento de salas' },
 ];
 
 type AccessUser = { role?: string; modules?: string[] } | null | undefined;

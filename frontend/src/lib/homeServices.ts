@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   PlusCircle, Ticket, PackagePlus, Package, FolderOpen, Receipt, BookOpen,
   CalendarClock, Bell, HardDrive, BriefcaseBusiness, LayoutDashboard, BarChart3,
-  Users, DatabaseBackup, MessageSquare, HeartHandshake,
+  Users, DatabaseBackup, MessageSquare, HeartHandshake, DoorOpen,
 } from 'lucide-react';
 import { canAccess } from './modules';
 
@@ -37,6 +37,7 @@ export const HOME_SERVICES: HomeService[] = [
   { key: 'backups', to: '/backups', label: 'Backups', description: 'Cópias de segurança do portal', icon: DatabaseBackup, module: 'backups' },
   { key: 'whatsapp', to: '/whatsapp', label: 'WhatsApp', description: 'Conexão e envios', icon: MessageSquare, module: 'whatsapp' },
   { key: 'beneficios', to: '/beneficios', label: 'Central de benefícios', description: 'Parcerias e vantagens para colaboradores', icon: HeartHandshake },
+  { key: 'salas', to: '/salas', label: 'Agendamento de salas', description: 'Reserve Sala Maker, Laboratório, Biblioteca ou Sala de Reuniões', icon: DoorOpen, module: 'agendamento_salas' },
 ];
 
 type AccessUser = { role?: string; modules?: string[] } | null | undefined;

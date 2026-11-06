@@ -26,6 +26,7 @@ import WhatsAppPage from './pages/WhatsAppPage';
 import HoleritesPage from './pages/HoleritesPage';
 import HoleritesRhPage from './pages/HoleritesRhPage';
 import BeneficiosPage from './pages/BeneficiosPage';
+import AgendamentoSalasPage from './pages/AgendamentoSalasPage';
 
 export default function App() {
   return (
@@ -193,6 +194,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Layout><BeneficiosPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/salas"
+            element={
+              <ProtectedRoute module="agendamento_salas">
+                <Layout><AgendamentoSalasPage /></Layout>
               </ProtectedRoute>
             }
           />

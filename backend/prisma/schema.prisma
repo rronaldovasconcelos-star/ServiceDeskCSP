@@ -242,6 +242,45 @@ model Beneficio {
 }
 
 // ---------------------------------------------------------------------------
+// Agendamento de Salas (ver docs/novos-modulos-2026-11.md)
+// ---------------------------------------------------------------------------
+
+model Sala {
+  id    String  @id @default(cuid())
+  nome  String  @unique
+  ativa Boolean @default(true)
+  ordem Int     @default(0)
+
+  reservas ReservaSala[]
+}
+
+// Reserva direta (já nasce CONFIRMADA). Cancelar é lógico: o registro fica.
+// ⚠️ A trava contra horários sobrepostos são dois GATILHOS do SQLite criados na
+// migration `add_agendamento_salas` (o Prisma não os enxerga). Se uma migration
+// futura recriar esta tabela, os gatilhos somem e precisam ser recriados nela —
+// scripts/testar-agendamento-http.ts confere que existem.
+// `usuarioId` é referência solta: apagar o usuário não apaga o histórico.
+model ReservaSala {
+  id               String    @id @default(cuid())
+  salaId           String
+  usuarioId        String?
+  usuarioNome      String    // snapshot
+  usuarioEmail     String    // snapshot
+  inicio           DateTime
+  fim              DateTime
+  finalidade       String
+  status           String    @default("CONFIRMADA") // CONFIRMADA | CANCELADA
+  canceladaEm      DateTime?
+  canceladaPorNome String?   // snapshot de quem cancelou
+  createdAt        DateTime  @default(now())
+
+  sala Sala @relation(fields: [salaId], references: [id])
+
+  @@index([salaId, inicio])
+  @@index([usuarioId])
+}
+
+// ---------------------------------------------------------------------------
 // Holerites — folha de pagamento importada do TXT do Folpag (ver docs/holerites.md)
 // ---------------------------------------------------------------------------
 
