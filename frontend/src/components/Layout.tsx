@@ -16,6 +16,7 @@ import {
   HardDrive,
   Users,
   LogOut,
+  KeyRound,
   Menu,
   X,
   Sun,
@@ -286,6 +287,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <p className="user-chip-name">{user?.name}</p>
               <p className="user-chip-sub">{user?.email}</p>
             </div>
+            <Link to="/alterar-senha" className="btn btn-ghost btn-sm" aria-label="Alterar senha" title="Alterar senha">
+              <KeyRound size={15} />
+              <span className="hidden md:inline">Senha</span>
+            </Link>
             <button
               type="button"
               className="btn btn-ghost btn-sm"

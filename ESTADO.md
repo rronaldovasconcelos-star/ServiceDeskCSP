@@ -46,8 +46,9 @@ digital + conferência da gestão no validador; assina quem o admin marcar em Us
   grava na hora e mostra UMA vez no aviso para o admin repassar; a antiga para de valer.
   "Esqueci minha senha" virou aviso "procure o administrador". Rotas públicas
   `request-password-reset`/`reset-password` e todo o OTP removidos do backend (a tabela
-  `VerificationCode` fica, vazia). Limite conhecido: **não há tela para o usuário trocar a
-  própria senha** — a provisória vale até o admin gerar outra.
+  `VerificationCode` fica, vazia). (f) tela **Alterar senha** (/alterar-senha, botão `Senha` no cabeçalho): exige a senha
+  atual (token roubado não troca), mínimo 6, diferente da atual; POST /auth/change-password;
+  suíte de cadastro com 22 casos.
 - Depois de publicar: marcar em Usuários quem deve assinar
   (`Autorização de imagem`); cadastrar os benefícios; o gestor publica o modelo real.
 

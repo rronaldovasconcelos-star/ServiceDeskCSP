@@ -29,6 +29,7 @@ import BeneficiosPage from './pages/BeneficiosPage';
 import AgendamentoSalasPage from './pages/AgendamentoSalasPage';
 import AutorizacoesImagemPage from './pages/AutorizacoesImagemPage';
 import AutorizacoesImagemGestaoPage from './pages/AutorizacoesImagemGestaoPage';
+import AlterarSenhaPage from './pages/AlterarSenhaPage';
 
 export default function App() {
   return (
@@ -220,6 +221,14 @@ export default function App() {
             element={
               <ProtectedRoute allowedRoles={['ADMIN', 'GESTOR']}>
                 <Layout><AutorizacoesImagemGestaoPage /></Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/alterar-senha"
+            element={
+              <ProtectedRoute>
+                <Layout><AlterarSenhaPage /></Layout>
               </ProtectedRoute>
             }
           />

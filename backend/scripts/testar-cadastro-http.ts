@@ -49,10 +49,13 @@ async function main() {
   const server = app.listen(0);
   await new Promise<void>((r) => server.once('listening', () => r()));
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api`;
+  // O /auth tem limite de 20 pedidos por IP em 15 min. A suíte passa disso, então
+  // cada bloco se apresenta com um IP diferente (o app confia em 1 proxy).
+  let ipDoBloco = '10.9.0.1';
   const chamar = (conta: Conta | null, method: string, rota: string, body?: unknown) =>
     fetch(`${base}${rota}`, {
       method,
-      headers: { 'Content-Type': 'application/json', ...(conta ? { Authorization: `Bearer ${conta.token}` } : {}) },
+      headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ipDoBloco, ...(conta ? { Authorization: `Bearer ${conta.token}` } : {}) },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   const erroDe = async (r: Response) => ((await r.json()) as { error?: string }).error ?? '';
@@ -114,6 +117,7 @@ async function main() {
       assert.match(await erroDe(r), /já cadastrado/);
     });
 
+    ipDoBloco = '10.9.0.2';
     console.log('Cadastro via Google (coleta do telefone)');
     const emailBia = `${PREFIXO_EMAIL}bia@gmail.com`;
     const bia = await prisma.user.create({
@@ -147,6 +151,7 @@ async function main() {
       assert.equal((await prisma.user.findUnique({ where: { id: admin.id } }))!.phone, '+5531999990000');
     });
 
+    ipDoBloco = '10.9.0.3';
     console.log('Senha provisória (admin)');
     await teste('as rotas públicas de redefinição por código não existem mais (404)', async () => {
       assert.equal((await chamar(null, 'POST', '/auth/request-password-reset', { email: emailAna })).status, 404);
@@ -174,10 +179,36 @@ async function main() {
       const u = (await prisma.user.findUnique({ where: { id: ana.id } }))!;
       assert.notEqual(u.passwordHash, senhaProvisoria, 'no banco só o hash');
     });
+    let provisoria = '';
     await teste('duas gerações seguidas dão senhas diferentes', async () => {
       const a = ((await (await chamar(admin, 'POST', `/users/${ana.id}/reset-password`)).json()) as { senhaProvisoria: string }).senhaProvisoria;
       const b = ((await (await chamar(admin, 'POST', `/users/${ana.id}/reset-password`)).json()) as { senhaProvisoria: string }).senhaProvisoria;
       assert.notEqual(a, b);
+      provisoria = b;
+    });
+
+    ipDoBloco = '10.9.0.4';
+    console.log('Alterar a própria senha (usuário logado)');
+    const tokenAna = jwt.sign({ sub: ana.id, email: ana.email, role: 'USER', name: ana.name, modules: [] }, env.jwtSecret, { expiresIn: '1h' });
+    const contaAna = { id: ana.id, token: tokenAna };
+    const trocar = (conta: Conta | null, senhaAtual: string, novaSenha: string) => chamar(conta, 'POST', '/auth/change-password', { senhaAtual, novaSenha });
+    await teste('sem token → 401', async () => {
+      assert.equal((await trocar(null, provisoria, 'Nova@12345')).status, 401);
+    });
+    await teste('senha atual errada → 400 e nada muda (token roubado não troca a senha)', async () => {
+      const r = await trocar(contaAna, 'errada-123', 'Nova@12345');
+      assert.equal(r.status, 400);
+      assert.match(await erroDe(r), /senha atual não confere/);
+      assert.equal((await chamar(null, 'POST', '/auth/login', { email: emailAna, password: provisoria })).status, 200);
+    });
+    await teste('nova senha curta → 400; igual à atual → 400', async () => {
+      assert.equal((await trocar(contaAna, provisoria, '123')).status, 400);
+      assert.equal((await trocar(contaAna, provisoria, provisoria)).status, 400);
+    });
+    await teste('troca válida → 200; a antiga para de valer e a nova entra', async () => {
+      assert.equal((await trocar(contaAna, provisoria, 'Nova@12345')).status, 200);
+      assert.equal((await chamar(null, 'POST', '/auth/login', { email: emailAna, password: provisoria })).status, 401);
+      assert.equal((await chamar(null, 'POST', '/auth/login', { email: emailAna, password: 'Nova@12345' })).status, 200);
     });
   } finally {
     await limpar();

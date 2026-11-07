@@ -154,6 +154,40 @@ export async function googleLogin(req: Request, res: Response, next: NextFunctio
   }
 }
 
+const changePasswordSchema = z.object({
+  senhaAtual: z.string().min(1),
+  novaSenha: z.string().min(6, 'A nova senha deve ter no mínimo 6 caracteres.'),
+});
+
+/**
+ * Troca da própria senha (usuário logado). Exige a senha atual, para um token
+ * roubado não servir para trocar a senha. Quem só entra pelo Google tem hash
+ * aleatório e nunca acerta a atual: a tela avisa que, nesse caso, não há senha.
+ */
+export async function changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { senhaAtual, novaSenha } = changePasswordSchema.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { id: req.user!.sub } });
+    if (!user) {
+      res.status(404).json({ error: 'Usuário não encontrado' });
+      return;
+    }
+    if (!(await bcrypt.compare(senhaAtual, user.passwordHash))) {
+      res.status(400).json({ error: 'A senha atual não confere.' });
+      return;
+    }
+    if (senhaAtual === novaSenha) {
+      res.status(400).json({ error: 'A nova senha precisa ser diferente da atual.' });
+      return;
+    }
+    const passwordHash = await bcrypt.hash(novaSenha, 10);
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+    res.json({ message: 'Senha alterada. Use a nova senha na próxima entrada.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getMe(req: Request, res: Response): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: req.user!.sub },

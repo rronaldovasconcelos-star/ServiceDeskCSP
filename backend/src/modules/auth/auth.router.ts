@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { login, googleLogin, setGooglePhone, getMe, register } from './auth.controller.js';
+import { login, googleLogin, setGooglePhone, getMe, register, changePassword } from './auth.controller.js';
 import { authenticate } from '../../middlewares/authenticate.js';
 import { rateLimit } from '../../middlewares/rateLimit.js';
 
@@ -19,5 +19,6 @@ router.post('/google', authLimiter, googleLogin);
 router.post('/google/phone', authLimiter, setGooglePhone);
 router.post('/register', authLimiter, register);
 router.get('/me', authenticate, getMe);
+router.post('/change-password', authLimiter, authenticate, changePassword);
 
 export default router;
