@@ -32,7 +32,10 @@ const PREFIXO = 'TESTE-AUT';
 const MODULO = 'autorizacao_imagem';
 
 const MODELO = Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n% Autorizacao de uso de imagem - modelo\n%%EOF\n', 'latin1');
-const ASSINATURA = "\n9 0 obj\n<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /ETSI.CAdES.detached /ByteRange [0 90 200 40] /M (D:20261106153000-03'00') /Contents <00> >>\nendobj\n%%EOF\n";
+// Mesma ordem do PDF assinado no gov.br (conferido em 06/11/2026): /M vem ANTES de um
+// /Contents com ~33 KB de hex, e /ByteRange só depois. Uma janela curta em volta do
+// /ByteRange não alcança o /M.
+const ASSINATURA = `\n9 0 obj\n<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /adbe.pkcs7.detached /M (D:20261106153000-03'00') /Reference [10 0 R] /Contents <${'30'.repeat(20_000)}> /ByteRange [0 90 200 40] >>\nendobj\n%%EOF\n`;
 const ASSINADO = Buffer.concat([MODELO, Buffer.from(ASSINATURA, 'latin1')]);
 const ASSINADO_2 = Buffer.concat([ASSINADO, Buffer.from('% segunda via\n', 'latin1')]);
 const SEM_ASSINATURA = Buffer.concat([MODELO, Buffer.from('% preenchido a mao e digitalizado\n', 'latin1')]);
