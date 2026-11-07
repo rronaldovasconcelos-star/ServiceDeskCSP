@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
+import { randomInt } from 'node:crypto';
 import { prisma } from '../../lib/prisma.js';
 import { storage } from '../../services/storage/index.js';
-import { issueResetOtp } from '../auth/auth.controller.js';
 import { parseModules, sanitizeModules } from '../../lib/modules.js';
 
 const createSchema = z.object({
@@ -212,10 +212,18 @@ export async function deleteUser(req: Request, res: Response, next: NextFunction
   }
 }
 
+// Sem caracteres parecidos (0/O, 1/l/I) para a senha ser ditada sem erro.
+const ALFABETO_SENHA = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+
+function senhaProvisoria(tamanho = 10): string {
+  return Array.from({ length: tamanho }, () => ALFABETO_SENHA[randomInt(ALFABETO_SENHA.length)]).join('');
+}
+
 /**
- * Força a redefinição de senha de um usuário (ação do admin):
- * dispara um código OTP de redefinição via WhatsApp. A senha antiga continua
- * válida até que o usuário conclua a troca em /redefinir-senha.
+ * Redefinição de senha pelo admin (decisão de 06/11/2026, enquanto não há
+ * WhatsApp): gera uma senha provisória, grava na hora e devolve UMA vez na
+ * resposta, para o admin repassar à pessoa. A senha antiga deixa de valer.
+ * Não fica em log nem no banco em texto claro.
  */
 export async function forcePasswordReset(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -223,20 +231,13 @@ export async function forcePasswordReset(req: Request, res: Response, next: Next
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) { res.status(404).json({ error: 'Usuário não encontrado' }); return; }
     if (!barraContaAdmin(req, res, user)) return;
-    if (!user.phone) {
-      res.status(400).json({ error: 'Usuário não possui telefone cadastrado para receber o código.' });
-      return;
-    }
 
-    try {
-      await issueResetOtp(user.id, user.phone, user.name);
-    } catch (err) {
-      console.error('[WhatsApp][RESET]', err instanceof Error ? err.message : err);
-      res.status(502).json({ error: 'Não foi possível enviar o código por WhatsApp.' });
-      return;
-    }
+    const senha = senhaProvisoria();
+    const passwordHash = await bcrypt.hash(senha, 10);
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
 
-    res.json({ message: 'Código de redefinição enviado por WhatsApp.' });
+    res.json({ senhaProvisoria: senha, message: `Senha provisória gerada para ${user.name}. Repasse à pessoa; ela só aparece agora.` });
   } catch (err) {
     next(err);
   }

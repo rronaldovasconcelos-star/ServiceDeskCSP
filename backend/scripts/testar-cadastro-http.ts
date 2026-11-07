@@ -146,6 +146,39 @@ async function main() {
       assert.equal(r.status, 409);
       assert.equal((await prisma.user.findUnique({ where: { id: admin.id } }))!.phone, '+5531999990000');
     });
+
+    console.log('Senha provisória (admin)');
+    await teste('as rotas públicas de redefinição por código não existem mais (404)', async () => {
+      assert.equal((await chamar(null, 'POST', '/auth/request-password-reset', { email: emailAna })).status, 404);
+      assert.equal((await chamar(null, 'POST', '/auth/reset-password', { email: emailAna, code: '000000', password: 'x' })).status, 404);
+    });
+    const ana = (await prisma.user.findUnique({ where: { email: emailAna } }))!;
+    await teste('sem token e GESTOR → 401/403; a senha da Ana continua a mesma', async () => {
+      const gestor = await prisma.user.create({
+        data: { name: `${PREFIXO} gestor`, email: `${PREFIXO_EMAIL}gestor@gmail.com`, passwordHash: 'x', role: 'GESTOR', isActive: true, modules: '[]' },
+      });
+      const tokenGestor = jwt.sign({ sub: gestor.id, email: gestor.email, role: 'GESTOR', name: gestor.name, modules: [] }, env.jwtSecret, { expiresIn: '1h' });
+      assert.equal((await chamar(null, 'POST', `/users/${ana.id}/reset-password`)).status, 401);
+      assert.equal((await chamar({ id: gestor.id, token: tokenGestor }, 'POST', `/users/${ana.id}/reset-password`)).status, 403);
+      assert.equal((await login(emailAna)).status, 200, 'a senha original ainda vale');
+    });
+    await teste('ADMIN gera a senha provisória: vem UMA vez na resposta, a antiga para de valer e a nova entra', async () => {
+      const r = await chamar(admin, 'POST', `/users/${ana.id}/reset-password`);
+      assert.equal(r.status, 200);
+      const { senhaProvisoria } = (await r.json()) as { senhaProvisoria: string };
+      assert.match(senhaProvisoria, /^[A-Za-z0-9]{10}$/);
+      assert.doesNotMatch(senhaProvisoria, /[0O1lI]/, 'sem caracteres parecidos');
+      assert.equal((await login(emailAna)).status, 401, 'a senha antiga precisa parar de valer');
+      const nova = await chamar(null, 'POST', '/auth/login', { email: emailAna, password: senhaProvisoria });
+      assert.equal(nova.status, 200);
+      const u = (await prisma.user.findUnique({ where: { id: ana.id } }))!;
+      assert.notEqual(u.passwordHash, senhaProvisoria, 'no banco só o hash');
+    });
+    await teste('duas gerações seguidas dão senhas diferentes', async () => {
+      const a = ((await (await chamar(admin, 'POST', `/users/${ana.id}/reset-password`)).json()) as { senhaProvisoria: string }).senhaProvisoria;
+      const b = ((await (await chamar(admin, 'POST', `/users/${ana.id}/reset-password`)).json()) as { senhaProvisoria: string }).senhaProvisoria;
+      assert.notEqual(a, b);
+    });
   } finally {
     await limpar();
     server.close();

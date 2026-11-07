@@ -2,16 +2,15 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { randomInt, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { env } from '../../config/env.js';
 import { normalizeBrazilPhone } from '../../lib/phone.js';
 import { parseModules } from '../../lib/modules.js';
-import { sendWhatsApp, sendWhatsAppStrict } from '../../services/whatsapp/index.js';
-import { tplAvisoPortal, tplCodigoAcesso } from '../../services/whatsapp/templates.js';
-import type { MessageInput } from '../../services/whatsapp/types.js';
+import { sendWhatsApp } from '../../services/whatsapp/index.js';
+import { tplAvisoPortal } from '../../services/whatsapp/templates.js';
 
 /** Emite o JWT do portal, embutindo os módulos liberados (vazio p/ ADMIN, que tem tudo). */
 function signToken(user: { id: string; email: string; role: string; name: string; modules: string }): string {
@@ -178,90 +177,6 @@ const registerSchema = z.object({
   password: z.string().min(6),
 });
 
-const OTP_LENGTH = 6;
-
-/**
- * Gera e persiste um código OTP (6 dígitos) para o usuário, garantindo um único
- * código ativo por vez. Não envia nada — devolve o código em texto plano para
- * que o chamador decida o canal/mensagem de entrega.
- */
-export async function generateOtp(userId: string, type: 'REGISTER' | 'RESET' = 'REGISTER'): Promise<string> {
-  const code = String(randomInt(0, 10 ** OTP_LENGTH)).padStart(OTP_LENGTH, '0');
-  const codeHash = await bcrypt.hash(code, 10);
-  const expiresAt = new Date(Date.now() + env.otpExpiresMinutes * 60_000);
-
-  // Remove códigos antigos e grava o novo (um código ativo por usuário).
-  await prisma.verificationCode.deleteMany({ where: { userId } });
-  await prisma.verificationCode.create({ data: { userId, codeHash, type, expiresAt } });
-
-  return code;
-}
-
-export type OtpCheck = 'OK' | 'NONE' | 'EXPIRED' | 'TOO_MANY' | 'WRONG';
-
-/**
- * Valida um código OTP digitado pelo usuário (sem expor req/res). Em caso de erro
- * de código incorreto, incrementa o contador de tentativas. Em sucesso, NÃO limpa
- * os códigos — o chamador decide o que fazer depois (marcar verificado, etc).
- */
-export async function verifyOtpCode(userId: string, code: string, type: 'REGISTER' | 'RESET' = 'REGISTER'): Promise<OtpCheck> {
-  const record = await prisma.verificationCode.findFirst({
-    where: { userId, type },
-    orderBy: { createdAt: 'desc' },
-  });
-  if (!record) return 'NONE';
-  if (record.expiresAt.getTime() < Date.now()) return 'EXPIRED';
-  if (record.attempts >= 5) return 'TOO_MANY';
-
-  const valid = await bcrypt.compare(code, record.codeHash);
-  if (!valid) {
-    await prisma.verificationCode.update({ where: { id: record.id }, data: { attempts: record.attempts + 1 } });
-    return 'WRONG';
-  }
-  return 'OK';
-}
-
-/**
- * Gera, persiste e envia um código OTP para o usuário. Lança erro se o envio falhar.
- * `type` distingue o OTP de cadastro ("REGISTER") do de redefinição de senha ("RESET").
- * `buildMessage` permite customizar o texto enviado por WhatsApp (default: cadastro).
- * `send` permite trocar o canal de envio (default: WhatsApp da instância de notificações).
- */
-async function issueOtp(
-  userId: string,
-  phone: string,
-  name: string,
-  type: 'REGISTER' | 'RESET' = 'REGISTER',
-  buildMessage?: (code: string, firstName: string) => string,
-  send: (phone: string, message: MessageInput) => Promise<void> = sendWhatsAppStrict,
-): Promise<void> {
-  const code = await generateOtp(userId, type);
-
-  const firstName = name.split(' ')[0] ?? name;
-  const text = buildMessage
-    ? buildMessage(code, firstName)
-    : `Olá, ${firstName}! Seu código de verificação do Portal CSP é: *${code}*\n\n` +
-      `Ele expira em ${env.otpExpiresMinutes} minutos. Se você não solicitou, ignore esta mensagem.`;
-  // Cadastro e redefinição compartilham o mesmo template aprovado (só o código e
-  // o prazo variam); o texto livre acima é o que sai pelo canal Baileys.
-  await send(phone, { ...tplCodigoAcesso(code, env.otpExpiresMinutes), text });
-}
-
-/** Mensagem WhatsApp do código de redefinição de senha. Exportada p/ uso pelo módulo de usuários. */
-export function resetOtpMessage(code: string, firstName: string): string {
-  return (
-    `Olá, ${firstName}! Foi solicitada a redefinição da sua senha no Portal CSP.\n\n` +
-    `Seu código é: *${code}*\n\n` +
-    `Acesse "Esqueci minha senha" no portal e informe este código. ` +
-    `Ele expira em ${env.otpExpiresMinutes} minutos. Se você não solicitou, ignore esta mensagem.`
-  );
-}
-
-/** Dispara um OTP de redefinição de senha. Exportada p/ uso pelo módulo de usuários (admin). */
-export async function issueResetOtp(userId: string, phone: string, name: string): Promise<void> {
-  await issueOtp(userId, phone, name, 'RESET', resetOtpMessage);
-}
-
 /** Avisa os admins ativos de um cadastro novo aguardando aprovação (fire-and-forget). */
 async function avisarAdminsDeCadastro(user: { name: string; email: string }): Promise<void> {
   const admins = await prisma.user.findMany({
@@ -379,118 +294,6 @@ export async function setGooglePhone(req: Request, res: Response, next: NextFunc
     await avisarAdminsDeCadastro(user);
 
     res.status(200).json({ message: MSG_CADASTRO_ENVIADO });
-  } catch (err) {
-    next(err);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Redefinição de senha via OTP por WhatsApp
-// ---------------------------------------------------------------------------
-
-const requestResetSchema = z.object({ email: z.string().email() });
-
-/**
- * Solicita um código de redefinição de senha (fluxo público "Esqueci minha senha").
- * Resposta sempre genérica para não revelar quais e-mails existem.
- */
-export async function requestPasswordReset(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const { email } = requestResetSchema.parse(req.body);
-    const genericMsg = 'Se houver uma conta com este e-mail, enviaremos um código por WhatsApp.';
-
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user || !user.phone) {
-      res.json({ message: genericMsg });
-      return;
-    }
-
-    // Rate-limit: bloqueia novo envio se o último código foi criado há menos de 60s.
-    const last = await prisma.verificationCode.findFirst({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (last && Date.now() - last.createdAt.getTime() < 60_000) {
-      const wait = Math.ceil((60_000 - (Date.now() - last.createdAt.getTime())) / 1000);
-      res.status(429).json({ error: `Aguarde ${wait}s para solicitar um novo código.` });
-      return;
-    }
-
-    try {
-      await issueResetOtp(user.id, user.phone, user.name);
-    } catch (err) {
-      console.error('[WhatsApp][RESET]', err instanceof Error ? err.message : err);
-      // Mantém resposta genérica para não vazar existência da conta.
-    }
-
-    res.json({ message: genericMsg });
-  } catch (err) {
-    next(err);
-  }
-}
-
-const resetPasswordSchema = z.object({
-  email: z.string().email(),
-  code: z.string().min(1),
-  password: z.string().min(6),
-});
-
-/** Conclui a redefinição: valida o código RESET e grava a nova senha. */
-export async function resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const { email, code, password } = resetPasswordSchema.parse(req.body);
-
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      res.status(400).json({ error: 'Código inválido ou expirado.' });
-      return;
-    }
-
-    const record = await prisma.verificationCode.findFirst({
-      where: { userId: user.id, type: 'RESET' },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (!record) {
-      res.status(400).json({ error: 'Nenhum código pendente. Solicite um novo código.' });
-      return;
-    }
-    if (record.expiresAt.getTime() < Date.now()) {
-      res.status(400).json({ error: 'Código expirado. Solicite um novo código.' });
-      return;
-    }
-    if (record.attempts >= 5) {
-      res.status(429).json({ error: 'Muitas tentativas. Solicite um novo código.' });
-      return;
-    }
-
-    const valid = await bcrypt.compare(code, record.codeHash);
-    if (!valid) {
-      await prisma.verificationCode.update({
-        where: { id: record.id },
-        data: { attempts: record.attempts + 1 },
-      });
-      res.status(400).json({ error: 'Código incorreto.' });
-      return;
-    }
-
-    // Sucesso: grava nova senha e limpa os códigos pendentes.
-    const passwordHash = await bcrypt.hash(password, 10);
-    await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
-    await prisma.verificationCode.deleteMany({ where: { userId: user.id } });
-
-    // Confirmação por WhatsApp (fire-and-forget).
-    const firstName = user.name.split(' ')[0] ?? user.name;
-    void sendWhatsApp(
-      user.phone,
-      tplAvisoPortal(
-        `✅ ${firstName}, sua senha do Portal CSP foi redefinida com sucesso.\n\n` +
-          `Se não foi você, entre em contato com o administrador imediatamente.`,
-        'Senha redefinida',
-        `${firstName}, sua senha foi redefinida. Se não foi você, avise o administrador imediatamente.`,
-      ),
-    );
-
-    res.json({ message: 'Senha redefinida com sucesso! Você já pode entrar.' });
   } catch (err) {
     next(err);
   }

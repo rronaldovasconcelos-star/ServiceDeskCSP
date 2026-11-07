@@ -229,15 +229,17 @@ export default function UsersPage() {
     load();
   };
 
+  // Sem WhatsApp (06/11/2026): o admin gera uma senha provisória e repassa à pessoa.
+  // Ela aparece uma única vez, no aviso abaixo; a senha antiga deixa de valer na hora.
   const resetPassword = async (u: User) => {
-    if (!confirm(`Enviar um código de redefinição de senha para ${u.name} via WhatsApp?\n\nA senha atual continua válida até o usuário concluir a troca.`)) return;
+    if (!confirm(`Gerar uma senha provisória para ${u.name}?\n\nA senha atual deixa de valer na hora. A nova aparece uma única vez, para você repassar à pessoa.`)) return;
     setNotice(null);
     try {
-      const res = await api.post(`/users/${u.id}/reset-password`);
-      setNotice({ kind: 'success', text: res.data?.message ?? `Código de redefinição enviado para ${u.name}.` });
+      const res = await api.post<{ senhaProvisoria: string }>(`/users/${u.id}/reset-password`);
+      setNotice({ kind: 'success', text: `Senha provisória de ${u.name}: ${res.data.senhaProvisoria} — anote e repasse; ela não aparece de novo.` });
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setNotice({ kind: 'danger', text: msg ?? 'Erro ao enviar o código de redefinição.' });
+      setNotice({ kind: 'danger', text: msg ?? 'Erro ao gerar a senha provisória.' });
     }
   };
 

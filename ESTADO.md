@@ -41,8 +41,13 @@ digital + conferência da gestão no validador; assina quem o admin marcar em Us
   WhatsApp** (pedido dele: a API ainda não está em uso): telefone continua obrigatório e fica
   guardado, conta nasce inativa e o ADMIN aprova em Usuários; vale para formulário e Google;
   rotas `/auth/verify-otp` e `/auth/resend-otp` removidas; suíte `testar-cadastro-http.ts`
-  (14 casos, 3 mutações vermelhas). **"Esqueci minha senha" e "Redefinir senha" (admin) ainda
-  dependem do OTP por WhatsApp** — decisão pendente dele.
+  (18 casos, 3 mutações vermelhas). (e) **Senha sem WhatsApp** (decisão dele 07/11 0h):
+  "Redefinir senha" em Usuários gera uma **senha provisória** (10 chars sem 0/O/1/l/I),
+  grava na hora e mostra UMA vez no aviso para o admin repassar; a antiga para de valer.
+  "Esqueci minha senha" virou aviso "procure o administrador". Rotas públicas
+  `request-password-reset`/`reset-password` e todo o OTP removidos do backend (a tabela
+  `VerificationCode` fica, vazia). Limite conhecido: **não há tela para o usuário trocar a
+  própria senha** — a provisória vale até o admin gerar outra.
 - Depois de publicar: marcar em Usuários quem deve assinar
   (`Autorização de imagem`); cadastrar os benefícios; o gestor publica o modelo real.
 
