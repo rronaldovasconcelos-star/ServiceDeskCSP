@@ -43,12 +43,9 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
       return;
     }
 
-    // Senha correta, mas conta ainda não liberada: dá mensagem específica.
+    // Senha correta, mas conta ainda não liberada pelo administrador.
     if (!user.isActive) {
-      const error = !user.phoneVerified
-        ? 'Verifique seu telefone para concluir o cadastro.'
-        : 'Conta aguardando aprovação do administrador.';
-      res.status(403).json({ error });
+      res.status(403).json({ error: 'Conta aguardando aprovação do administrador.' });
       return;
     }
 
@@ -114,11 +111,11 @@ export async function googleLogin(req: Request, res: Response, next: NextFunctio
     let user = await prisma.user.findUnique({ where: { email } });
 
     if (!user) {
-      // Primeiro acesso: cria conta inativa, ainda SEM telefone verificado.
-      // O WhatsApp é obrigatório (canal de notificações) e será coletado +
-      // verificado por OTP logo abaixo, via fluxo `need_phone`. A notificação
-      // aos admins acontece só após a verificação do OTP (em `verifyOtp`).
-      // Sem senha utilizável (hash aleatório); e-mail já verificado pelo Google.
+      // Primeiro acesso: cria conta inativa, ainda sem telefone. O telefone é
+      // obrigatório (fica guardado para os avisos quando o WhatsApp entrar) e é
+      // coletado logo abaixo, via fluxo `need_phone`; a notificação aos admins
+      // acontece em `setGooglePhone`. Sem senha utilizável (hash aleatório);
+      // e-mail já verificado pelo Google.
       const randomHash = await bcrypt.hash(randomBytes(32).toString('hex'), 10);
       user = await prisma.user.create({
         data: {
@@ -132,10 +129,9 @@ export async function googleLogin(req: Request, res: Response, next: NextFunctio
       });
     }
 
-    // Portão de WhatsApp: enquanto não houver telefone verificado, exige a coleta
-    // + verificação por OTP. Cobre cadastros novos e contas antigas (criadas via
-    // Google sem telefone), forçando o preenchimento no próximo login.
-    if (!user.phone || !user.phoneVerified) {
+    // Portão do telefone: enquanto não houver número, exige a coleta. Cobre
+    // cadastros novos e contas antigas criadas via Google sem telefone.
+    if (!user.phone) {
       res.json({ status: 'need_phone', userId: user.id, name: user.name });
       return;
     }
@@ -172,7 +168,7 @@ export async function getMe(req: Request, res: Response): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Auto-cadastro com verificação por WhatsApp (OTP)
+// Auto-cadastro (sem OTP; aprovação pelo ADMIN)
 // ---------------------------------------------------------------------------
 
 const registerSchema = z.object({
@@ -266,6 +262,33 @@ export async function issueResetOtp(userId: string, phone: string, name: string)
   await issueOtp(userId, phone, name, 'RESET', resetOtpMessage);
 }
 
+/** Avisa os admins ativos de um cadastro novo aguardando aprovação (fire-and-forget). */
+async function avisarAdminsDeCadastro(user: { name: string; email: string }): Promise<void> {
+  const admins = await prisma.user.findMany({
+    where: { role: 'ADMIN', isActive: true },
+    select: { phone: true },
+  });
+  for (const admin of admins) {
+    void sendWhatsApp(
+      admin.phone,
+      tplAvisoPortal(
+        `🔔 Novo cadastro aguardando aprovação no Portal CSP:\n` +
+          `*${user.name}* (${user.email})\n\nAcesse "Usuários" para aprovar.`,
+        'Novo cadastro aguardando aprovação',
+        `${user.name} (${user.email}) — aprove em "Usuários" no portal`,
+      ),
+    );
+  }
+}
+
+const MSG_CADASTRO_ENVIADO = 'Cadastro enviado. Aguarde a aprovação do administrador.';
+
+/**
+ * Auto-cadastro por formulário. Decisão de 06/11/2026: sem verificação por
+ * WhatsApp (a API ainda não está em uso); o telefone continua obrigatório e fica
+ * guardado para os avisos futuros. A conta nasce inativa e só entra depois que
+ * um ADMIN aprova em "Usuários".
+ */
 export async function register(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     if (!env.allowSelfRegistration) {
@@ -281,169 +304,41 @@ export async function register(req: Request, res: Response, next: NextFunction):
       return;
     }
 
-    const passwordHash = await bcrypt.hash(data.password, 10);
     const existing = await prisma.user.findUnique({ where: { email: data.email } });
-
-    let userId: string;
     if (existing) {
-      // Já existe e está ativo ou já verificado → não permite recadastro.
-      if (existing.isActive || existing.phoneVerified) {
+      // Sem OTP não há como provar que o e-mail é de quem está digitando, então um
+      // cadastro pendente não pode ser sobrescrito por outro pedido.
+      res.status(409).json({ error: existing.isActive ? 'E-mail já cadastrado.' : 'Este e-mail já tem um cadastro aguardando aprovação.' });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(data.password, 10);
+    let user: { name: string; email: string };
+    try {
+      user = await prisma.user.create({
+        data: {
+          name: data.name,
+          email: data.email,
+          phone,
+          passwordHash,
+          role: 'USER',
+          isActive: false,
+          // Sem OTP, "verificado" passa a significar "telefone informado, cadastro completo".
+          phoneVerified: true,
+        },
+        select: { name: true, email: true },
+      });
+    } catch (err) {
+      // Race condition: dois cadastros simultâneos com o mesmo e-mail.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         res.status(409).json({ error: 'E-mail já cadastrado.' });
         return;
       }
-      // Cadastro pendente/não verificado → atualiza dados e reenvia OTP.
-      await prisma.user.update({
-        where: { id: existing.id },
-        data: { name: data.name, phone, passwordHash },
-      });
-      userId = existing.id;
-    } else {
-      try {
-        const created = await prisma.user.create({
-          data: {
-            name: data.name,
-            email: data.email,
-            phone,
-            passwordHash,
-            role: 'USER',
-            isActive: false,
-            phoneVerified: false,
-          },
-        });
-        userId = created.id;
-      } catch (err) {
-        // Race condition: dois cadastros simultâneos com o mesmo e-mail.
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-          res.status(409).json({ error: 'E-mail já cadastrado.' });
-          return;
-        }
-        throw err;
-      }
+      throw err;
     }
 
-    try {
-      await issueOtp(userId, phone, data.name);
-    } catch (err) {
-      console.error('[WhatsApp][OTP]', err instanceof Error ? err.message : err);
-      res.status(502).json({ error: 'Não foi possível enviar o código por WhatsApp. Verifique o número e tente novamente.' });
-      return;
-    }
-
-    res.status(200).json({ userId, message: 'Código de verificação enviado por WhatsApp.' });
-  } catch (err) {
-    next(err);
-  }
-}
-
-const verifyOtpSchema = z.object({
-  userId: z.string().min(1),
-  code: z.string().min(1),
-});
-
-export async function verifyOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const { userId, code } = verifyOtpSchema.parse(req.body);
-
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      res.status(404).json({ error: 'Cadastro não encontrado.' });
-      return;
-    }
-    if (user.phoneVerified) {
-      res.status(409).json({ error: 'Telefone já verificado.' });
-      return;
-    }
-
-    const record = await prisma.verificationCode.findFirst({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (!record) {
-      res.status(400).json({ error: 'Nenhum código pendente. Solicite um novo código.' });
-      return;
-    }
-    if (record.expiresAt.getTime() < Date.now()) {
-      res.status(400).json({ error: 'Código expirado. Solicite um novo código.' });
-      return;
-    }
-    if (record.attempts >= 5) {
-      res.status(429).json({ error: 'Muitas tentativas. Solicite um novo código.' });
-      return;
-    }
-
-    const valid = await bcrypt.compare(code, record.codeHash);
-    if (!valid) {
-      await prisma.verificationCode.update({
-        where: { id: record.id },
-        data: { attempts: record.attempts + 1 },
-      });
-      res.status(400).json({ error: 'Código incorreto.' });
-      return;
-    }
-
-    // Sucesso: marca telefone verificado, limpa códigos. Conta segue inativa (aguarda admin).
-    await prisma.user.update({ where: { id: userId }, data: { phoneVerified: true } });
-    await prisma.verificationCode.deleteMany({ where: { userId } });
-
-    // Notifica admins sobre o novo cadastro pendente (fire-and-forget).
-    const admins = await prisma.user.findMany({
-      where: { role: 'ADMIN', isActive: true },
-      select: { phone: true },
-    });
-    for (const admin of admins) {
-      void sendWhatsApp(
-        admin.phone,
-        tplAvisoPortal(
-          `🔔 Novo cadastro aguardando aprovação no Portal CSP:\n` +
-            `*${user.name}* (${user.email})\n\nAcesse "Usuários" para aprovar.`,
-          'Novo cadastro aguardando aprovação',
-          `${user.name} (${user.email}) — aprove em "Usuários" no portal`,
-        ),
-      );
-    }
-
-    res.json({ message: 'Telefone verificado! Aguarde a aprovação do administrador.' });
-  } catch (err) {
-    next(err);
-  }
-}
-
-const resendOtpSchema = z.object({ userId: z.string().min(1) });
-
-export async function resendOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const { userId } = resendOtpSchema.parse(req.body);
-
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !user.phone) {
-      res.status(404).json({ error: 'Cadastro não encontrado.' });
-      return;
-    }
-    if (user.phoneVerified) {
-      res.status(409).json({ error: 'Telefone já verificado.' });
-      return;
-    }
-
-    // Rate-limit: bloqueia reenvio se o último código foi criado há menos de 60s.
-    const last = await prisma.verificationCode.findFirst({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (last && Date.now() - last.createdAt.getTime() < 60_000) {
-      const wait = Math.ceil((60_000 - (Date.now() - last.createdAt.getTime())) / 1000);
-      res.status(429).json({ error: `Aguarde ${wait}s para reenviar o código.` });
-      return;
-    }
-
-    try {
-      await issueOtp(userId, user.phone, user.name);
-    } catch (err) {
-      console.error('[WhatsApp][OTP]', err instanceof Error ? err.message : err);
-      res.status(502).json({ error: 'Não foi possível enviar o código por WhatsApp.' });
-      return;
-    }
-
-    res.json({ message: 'Novo código enviado por WhatsApp.' });
+    await avisarAdminsDeCadastro(user);
+    res.status(201).json({ message: MSG_CADASTRO_ENVIADO });
   } catch (err) {
     next(err);
   }
@@ -455,10 +350,10 @@ const googlePhoneSchema = z.object({
 });
 
 /**
- * Grava o WhatsApp de um usuário criado via Google (ainda não verificado) e
- * dispara o OTP. Espelha a parte de telefone/OTP do `register`. Endpoint público
- * (o usuário ainda não está logado): só aceita contas com `phoneVerified: false`,
- * impedindo trocar o telefone de contas já verificadas.
+ * Grava o telefone de um usuário criado via Google e conclui o cadastro (conta
+ * segue inativa até o ADMIN aprovar). Endpoint público (o usuário ainda não está
+ * logado): só aceita contas SEM telefone, para ninguém trocar o número de uma
+ * conta existente conhecendo o id.
  */
 export async function setGooglePhone(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -469,8 +364,8 @@ export async function setGooglePhone(req: Request, res: Response, next: NextFunc
       res.status(404).json({ error: 'Cadastro não encontrado.' });
       return;
     }
-    if (user.phoneVerified) {
-      res.status(409).json({ error: 'Telefone já verificado.' });
+    if (user.phone) {
+      res.status(409).json({ error: 'Telefone já cadastrado.' });
       return;
     }
 
@@ -480,17 +375,10 @@ export async function setGooglePhone(req: Request, res: Response, next: NextFunc
       return;
     }
 
-    await prisma.user.update({ where: { id: user.id }, data: { phone } });
+    await prisma.user.update({ where: { id: user.id }, data: { phone, phoneVerified: true } });
+    await avisarAdminsDeCadastro(user);
 
-    try {
-      await issueOtp(user.id, phone, user.name);
-    } catch (err) {
-      console.error('[WhatsApp][OTP]', err instanceof Error ? err.message : err);
-      res.status(502).json({ error: 'Não foi possível enviar o código por WhatsApp. Verifique o número e tente novamente.' });
-      return;
-    }
-
-    res.status(200).json({ userId: user.id, message: 'Código de verificação enviado por WhatsApp.' });
+    res.status(200).json({ message: MSG_CADASTRO_ENVIADO });
   } catch (err) {
     next(err);
   }

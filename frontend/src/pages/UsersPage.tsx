@@ -27,6 +27,8 @@ interface FormState {
 }
 
 // Estado visível na lista: Ativo (verde-água), Pendente de aprovação (âmbar) ou Inativo (coral).
+// Desde 06/11/2026 não há código por WhatsApp: `phoneVerified` significa "cadastro completo,
+// com telefone"; conta sem isso só existe se foi criada pelo Google e parou antes do telefone.
 function statusInfo(u: User): { label: string; tom: string } {
   if (u.isActive) return { label: 'Ativo', tom: 'teal' };
   if (u.phoneVerified) return { label: 'Pendente', tom: 'amber' };

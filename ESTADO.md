@@ -32,6 +32,17 @@ digital + conferência da gestão no validador; assina quem o admin marcar em Us
   branch. O Prisma 7 **não** quebra por isso (`migrate deploy` saiu 0 com 4 migrations
   aplicadas em outro formato), mas os gatilhos do agendamento vivem num `.sql`: não editar.
 - **06/11 ~20h30, pedido dele no teste local:** salas sem módulo — todos veem a agenda e reservam; USER/GESTOR alteram e cancelam só a própria, ADMIN qualquer; ganhou PUT `/salas/reservas/:id` e modal Alterar (teste 34 casos, mutações mortas). Também corrigida a barra de filtros de Chamados (dica da busca desalinhava os selects).
+- **06/11 ~23h (teste local dele, tudo no `main`):** (a) data declarada da assinatura ficava
+  vazia com PDF real do gov.br (`/M` vem antes de um `/Contents` de 33 KB; o leitor olhava só
+  3.000 chars em volta do `/ByteRange`) → lê o objeto inteiro; **detecção provada com PDF real
+  (`Adobe.PPKLite`/`adbe.pkcs7.detached`)**; (b) tela de salas ganhou "Próximas reservas de
+  todas as salas" (`GET /salas/reservas/proximas`, 37 casos) porque o admin só via o dia de
+  hoje; (c) logo do benefício em faixa de 140 px centralizada; (d) **cadastro sem código por
+  WhatsApp** (pedido dele: a API ainda não está em uso): telefone continua obrigatório e fica
+  guardado, conta nasce inativa e o ADMIN aprova em Usuários; vale para formulário e Google;
+  rotas `/auth/verify-otp` e `/auth/resend-otp` removidas; suíte `testar-cadastro-http.ts`
+  (14 casos, 3 mutações vermelhas). **"Esqueci minha senha" e "Redefinir senha" (admin) ainda
+  dependem do OTP por WhatsApp** — decisão pendente dele.
 - Depois de publicar: marcar em Usuários quem deve assinar
   (`Autorização de imagem`); cadastrar os benefícios; o gestor publica o modelo real.
 
