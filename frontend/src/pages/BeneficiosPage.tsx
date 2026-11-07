@@ -28,13 +28,19 @@ function LogoParceiro({ beneficio }: { beneficio: Beneficio }) {
     };
   }, [beneficio.id, beneficio.temLogo, beneficio.updatedAt]);
 
+  // Faixa de altura fixa no topo do card, com o logo grande e centralizado; sem logo,
+  // o ícone padrão ocupa o mesmo lugar para os cards ficarem alinhados.
   if (!beneficio.temLogo || !url) {
-    return <IconTile size={56}><HeartHandshake size={26} /></IconTile>;
+    return (
+      <div className="flex h-[140px] w-full items-center justify-center rounded-lg bg-white">
+        <IconTile size={64}><HeartHandshake size={30} /></IconTile>
+      </div>
+    );
   }
   return (
-    <span className="inline-flex h-[72px] items-center rounded-lg bg-white p-2">
-      <img src={url} alt={`Logo de ${beneficio.nome}`} className="max-h-[56px] max-w-[180px] object-contain" />
-    </span>
+    <div className="flex h-[140px] w-full items-center justify-center rounded-lg bg-white p-3">
+      <img src={url} alt={`Logo de ${beneficio.nome}`} className="max-h-full max-w-full object-contain" />
+    </div>
   );
 }
 
@@ -210,10 +216,10 @@ export default function BeneficiosPage() {
           <div className="grid-auto">
             {itens.map((b) => (
               <article key={b.id} className={`card stack ${b.ativo ? '' : 'opacity-70'}`.trim()}>
-                <div className="row justify-between items-start">
+                <div className="relative">
                   <LogoParceiro beneficio={b} />
                   {!b.ativo && (
-                    <span className="pill pill-muted">
+                    <span className="pill pill-muted absolute top-2 right-2">
                       <span className="pill-dot" aria-hidden="true" />
                       Oculto
                     </span>
