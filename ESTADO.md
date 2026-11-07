@@ -1,8 +1,20 @@
 # ESTADO — Portal de Chamados (Service Desk CSP)
 
-Handoff entre PCs. Atualizado em 06/11/2026 (noite).
+Handoff entre PCs. Atualizado em 07/11/2026 (madrugada).
 
-## 06/11/2026 noite (rrona) — 3 MÓDULOS NOVOS NO `main`, AINDA NÃO PUBLICADOS
+## 07/11/2026 00h30 (rrona) — TUDO ABAIXO EM PRODUÇÃO (`16f2f3c`)
+
+**Publicado 07/11 ~00h25 pelo rrona:** backend via `update.py` (exit 0; 3 migrations aplicadas no
+boot; gatilhos `ReservaSala_*`, 4 salas, 5 tabelas novas e 7 usuários conferidos dentro do
+container; `api/health` 200; rotas novas 401 sem token; `verify-otp`/`request-password-reset`
+404) e frontend via MCP `hosting_deployStaticWebsite` (bundle `index-sO94VqcT.js` servido, com
+`/alterar-senha`, `reservas/proximas` e a API de produção embutida; login e `/redefinir-senha`
+abertos no Chrome sem erro de console). Rollback: tag `pre-deploy-20261107` (= `80ca2cf`) +
+`/root/backups-csp/dev.db.pre-deploy-20261107` (hash igual ao de 06/11). **Falta:** teste real
+dele em produção (reserva, benefício, autorização com PDF do gov.br, senha provisória) e, depois,
+marcar em Usuários quem assina, cadastrar benefícios e publicar o modelo real.
+
+## 06/11/2026 noite (rrona) — 3 MÓDULOS NOVOS (histórico do que foi publicado em 07/11)
 
 Pedido da escola (`Desktop\Portal Service Desk\Demandas para o portal Service Desk.docx`):
 **Central de Benefícios**, **Agendamento de Salas** e **Autorização de Imagens**. Detalhe de
