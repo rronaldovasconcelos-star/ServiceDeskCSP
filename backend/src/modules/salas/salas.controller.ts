@@ -93,6 +93,19 @@ export async function agendaDoDia(req: Request, res: Response, next: NextFunctio
   } catch (err) { next(err); }
 }
 
+/** Reservas confirmadas de todo mundo que ainda não terminaram, em ordem de início. */
+export async function proximasReservas(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const itens = await prisma.reservaSala.findMany({
+      where: { status: 'CONFIRMADA', fim: { gt: new Date() } },
+      select: campos,
+      orderBy: { inicio: 'asc' },
+      take: 300,
+    });
+    res.json(itens.map((r) => saida(r, req.user!.sub)));
+  } catch (err) { next(err); }
+}
+
 export async function minhasReservas(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const itens = await prisma.reservaSala.findMany({

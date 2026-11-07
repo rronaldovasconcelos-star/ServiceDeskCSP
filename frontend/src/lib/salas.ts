@@ -28,6 +28,11 @@ export async function agendaDoDia(data: string): Promise<Reserva[]> {
   return (await api.get<Reserva[]>('/salas/reservas', { params: { data } })).data;
 }
 
+/** Reservas confirmadas de todo mundo que ainda não terminaram, em ordem de início. */
+export async function proximasReservas(): Promise<Reserva[]> {
+  return (await api.get<Reserva[]>('/salas/reservas/proximas')).data;
+}
+
 export async function minhasReservas(): Promise<Reserva[]> {
   return (await api.get<Reserva[]>('/salas/reservas/minhas')).data;
 }

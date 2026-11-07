@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../../middlewares/authenticate.js';
-import { listSalas, agendaDoDia, minhasReservas, reservar, alterar, cancelar } from './salas.controller.js';
+import { listSalas, agendaDoDia, proximasReservas, minhasReservas, reservar, alterar, cancelar } from './salas.controller.js';
 
 const router = Router();
 
@@ -10,6 +10,7 @@ router.use(authenticate);
 
 router.get('/', listSalas);
 router.get('/reservas', agendaDoDia);
+router.get('/reservas/proximas', proximasReservas);
 router.get('/reservas/minhas', minhasReservas);
 router.post('/reservas', reservar);
 router.put('/reservas/:id', alterar);

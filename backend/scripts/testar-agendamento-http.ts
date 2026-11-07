@@ -290,6 +290,29 @@ async function main() {
       assert.match((await r.json() as { error: string }).error, /já terminou/);
     });
 
+    console.log('Próximas reservas (de todo mundo)');
+    await teste('"próximas" exige token (401)', async () => {
+      assert.equal((await fetch(`${base}/salas/reservas/proximas`)).status, 401);
+    });
+    await teste('USER, GESTOR e ADMIN veem as reservas futuras uns dos outros, em ordem de início', async () => {
+      const r = await reservar(ana, 'Sala de Reuniões', br('09:00'), br('10:00'));
+      const { id: idFutura } = await r.json() as Reserva;
+      for (const conta of [bia, gestor, admin]) {
+        const lista = await (await chamar(conta, 'GET', '/salas/reservas/proximas')).json() as Reserva[];
+        const achada = lista.find((x) => x.id === idFutura);
+        assert.ok(achada, 'a reserva da ana precisa aparecer para os outros');
+        assert.equal(achada.minha, false);
+        assert.equal(achada.usuarioNome, `${PREFIXO} ana`);
+        for (let i = 1; i < lista.length; i++) assert.ok(lista[i - 1].inicio <= lista[i].inicio, 'fora de ordem');
+      }
+    });
+    await teste('"próximas" NÃO traz cancelada nem reserva que já terminou', async () => {
+      const lista = await (await chamar(admin, 'GET', '/salas/reservas/proximas')).json() as Reserva[];
+      assert.equal(lista.some((x) => x.id === idAna), false, 'cancelada apareceu');
+      assert.equal(lista.some((x) => x.finalidade === `${PREFIXO} velha`), false, 'reserva de 2020 apareceu');
+      assert.ok(lista.every((x) => x.status === 'CONFIRMADA'));
+    });
+
     console.log('Exclusão de usuário');
     await teste('apagar o usuário funciona e o histórico da reserva continua', async () => {
       const r = await reservar(descartavel, 'Biblioteca', br('18:00'), br('19:00'));

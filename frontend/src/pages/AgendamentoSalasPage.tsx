@@ -5,7 +5,7 @@ import PageHeader from '../components/PageHeader';
 import { Button, Card, EmptyState, Field, Modal, Notice, Table } from '../components/ui';
 import { mensagemDeErro } from '../lib/beneficios';
 import {
-  listarSalas, agendaDoDia, minhasReservas, reservarSala, alterarReserva, cancelarReserva,
+  listarSalas, agendaDoDia, proximasReservas, minhasReservas, reservarSala, alterarReserva, cancelarReserva,
   hojeLocal, instante, dataEHora, faixaHoraria, diaPorExtenso, type Reserva, type Sala,
 } from '../lib/salas';
 
@@ -19,6 +19,8 @@ export default function AgendamentoSalasPage() {
   const [data, setData] = useState(hojeLocal);
   const [agenda, setAgenda] = useState<Reserva[] | null>(null);
   const [minhas, setMinhas] = useState<Reserva[] | null>(null);
+  /** Reservas futuras de todas as pessoas, em todas as salas. */
+  const [proximas, setProximas] = useState<Reserva[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   /** Muda a cada reserva/cancelamento para recarregar agenda e "minhas reservas". */
   const [versao, setVersao] = useState(0);
@@ -59,6 +61,9 @@ export default function AgendamentoSalasPage() {
     let vivo = true;
     minhasReservas()
       .then((r) => { if (vivo) { setMinhas(r); setAgora(Date.now()); } })
+      .catch(() => { if (vivo) setLoadError(true); });
+    proximasReservas()
+      .then((r) => { if (vivo) setProximas(r); })
       .catch(() => { if (vivo) setLoadError(true); });
     return () => { vivo = false; };
   }, [versao]);
@@ -159,6 +164,17 @@ export default function AgendamentoSalasPage() {
       </span>
     );
   };
+
+  const cabecalhoProximas = (
+    <tr>
+      <th>Dia</th>
+      <th>Horário</th>
+      <th>Sala</th>
+      <th>Reservado por</th>
+      <th>Finalidade</th>
+      <th><span className="sr-only">Ações</span></th>
+    </tr>
+  );
 
   const cabecalhoMinhas = (
     <tr>
@@ -309,6 +325,53 @@ export default function AgendamentoSalasPage() {
                 );
               })}
             </div>
+          )}
+        </section>
+
+        <section className="stack" aria-labelledby="proximas-titulo">
+          <div className="section-head">
+            <h2 id="proximas-titulo" className="card-title">Próximas reservas de todas as salas</h2>
+            <p className="muted text-sm-2">Tudo o que está reservado daqui para a frente, por qualquer pessoa.</p>
+          </div>
+          {proximas === null ? (
+            <Table head={cabecalhoProximas} loading rows={3} cols={6} />
+          ) : proximas.length === 0 ? (
+            <div className="card">
+              <EmptyState icon={<DoorOpen size={22} />} title="Nenhuma reserva daqui para a frente">
+                As salas estão livres. A primeira reserva aparece aqui.
+              </EmptyState>
+            </div>
+          ) : (
+            <>
+              <div className="hidden md:block">
+                <Table head={cabecalhoProximas}>
+                  {proximas.map((r) => (
+                    <tr key={r.id}>
+                      <td className="whitespace-nowrap">{diaPorExtenso(r.inicio)}</td>
+                      <td className="whitespace-nowrap tabular-nums">{faixaHoraria(r)}</td>
+                      <td className="font-medium">{nomeDaSala(r.salaId)}</td>
+                      <td>{r.minha ? 'Você' : r.usuarioNome}</td>
+                      <td className="muted">{r.finalidade}</td>
+                      <td>{botoesDe(r)}</td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+              <div className="md:hidden stack">
+                {proximas.map((r) => (
+                  <div key={r.id} className="ticket-card">
+                    <p className="ticket-card-title">{nomeDaSala(r.salaId)}</p>
+                    <div className="ticket-card-meta">
+                      <span className="pill pill-muted">{diaPorExtenso(r.inicio)}</span>
+                      <span className="pill pill-muted">{faixaHoraria(r)}</span>
+                      <span className="pill pill-teal"><span className="pill-dot" aria-hidden="true" />{r.minha ? 'Você' : r.usuarioNome}</span>
+                    </div>
+                    <p className="ticket-card-sub mb-2">{r.finalidade}</p>
+                    {botoesDe(r)}
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </section>
 

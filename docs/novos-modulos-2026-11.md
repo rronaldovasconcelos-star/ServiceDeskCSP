@@ -43,6 +43,10 @@ aparece só na tela e o portal continua sem enviar e-mail.
 - **Acesso (decisão de 06/11, noite):** todo usuário logado vê a agenda de todos e reserva;
   não há módulo. Alterar (sala, horário, finalidade) e cancelar: USER e GESTOR só a
   própria reserva; ADMIN qualquer uma. Só enquanto a reserva não terminou.
+- A tela tem a agenda do dia escolhido (por sala) e, abaixo, **"Próximas reservas de todas
+  as salas"** (`GET /api/salas/reservas/proximas`): tudo o que está confirmado e ainda não
+  terminou, de qualquer pessoa, em ordem de início. Foi acrescentada porque o admin
+  procurava as reservas dos outros e só via o dia de hoje.
 - Cancelar é lógico: o registro fica como `CANCELADA`, com quem e quando, e some da
   agenda do dia. Alterar (`PUT /api/salas/reservas/:id`) passa pelas mesmas regras e pelo
   mesmo gatilho de conflito.
@@ -96,7 +100,7 @@ porque o `backend/.env` local aponta para serviços de produção:
 ```powershell
 $env:WHATSAPP_PROVIDER='mock'; $env:STORAGE_PROVIDER='local'; $env:REMINDER_SCHEDULER_ENABLED='false'
 npx tsx scripts/testar-beneficios-http.ts    # 20 casos
-npx tsx scripts/testar-agendamento-http.ts   # 34 casos
+npx tsx scripts/testar-agendamento-http.ts   # 37 casos
 npx tsx scripts/testar-autorizacoes-http.ts  # 27 casos
 ```
 
