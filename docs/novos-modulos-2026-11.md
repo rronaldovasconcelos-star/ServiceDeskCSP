@@ -75,8 +75,10 @@ no assinador do gov.br → envia o PDF assinado → a gestão confere no validad
   conta não apaga documento nem histórico.
 
 Limites conhecidos:
-- A detecção de assinatura foi provada com PDF **sintético**. Falta a prova com um PDF
-  assinado de verdade no gov.br.
+- A detecção de assinatura foi provada em 06/11/2026 com um PDF assinado de verdade no
+  gov.br (`/Filter /Adobe.PPKLite`, `/SubFilter /adbe.pkcs7.detached`). Nesse arquivo o
+  `/M` fica antes de um `/Contents` de ~33 KB; por isso a data é lida no objeto inteiro
+  da assinatura, não numa janela em volta do `/ByteRange`.
 - Dois envios do mesmo colaborador no mesmo instante poderiam entrar os dois (a tela
   bloqueia o botão enquanto envia; não há trava no banco).
 - Modelo só em PDF (Word precisa ser exportado antes).
