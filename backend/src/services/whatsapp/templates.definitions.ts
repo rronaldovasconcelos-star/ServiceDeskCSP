@@ -43,7 +43,7 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
   },
   {
     name: TEMPLATE_NAMES.chamadoStatus,
-    body: 'Houve uma atualização no seu chamado.\n\nChamado: {{1}}\nStatus: {{2}}\n\n{{3}}',
+    body: 'Houve uma atualização no seu chamado.\n\nChamado: {{1}}\nStatus: {{2}}\nDetalhe: {{3}}\n\nAcompanhe pelo portal.',
     example: ['Impressora da secretaria travando', 'Concluído', 'Qualquer dúvida, abra um novo chamado.'],
   },
   {
@@ -69,13 +69,6 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       'Consta que ainda não recebemos: {{2}}\n\n' +
       'Envie pelo portal, em "Meus Arquivos".',
     example: ['Maria', 'Plano de aula de Matemática — Fundamental I / 3º ano'],
-  },
-  {
-    name: TEMPLATE_NAMES.codigoAcesso,
-    body:
-      'Seu código de acesso ao Portal de Chamados é {{1}}.\n\n' +
-      'Ele expira em {{2}} minutos. Se você não solicitou, ignore esta mensagem.',
-    example: ['123456', '10'],
   },
   {
     name: TEMPLATE_NAMES.avisoPortal,

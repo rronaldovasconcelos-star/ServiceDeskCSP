@@ -20,7 +20,6 @@ export const TEMPLATE_NAMES = {
   chamadoAtribuido: 'csp_chamado_atribuido',
   chamadoComentario: 'csp_chamado_comentario',
   lembreteMaterial: 'csp_lembrete_material',
-  codigoAcesso: 'csp_codigo_acesso',
   avisoPortal: 'csp_aviso_portal',
 } as const;
 
@@ -79,7 +78,7 @@ export function tplChamadoStatus(
     // a Meta rejeita parâmetro em branco.
     template: {
       name: TEMPLATE_NAMES.chamadoStatus,
-      params: [title, statusLabel, detail || 'Acompanhe pelo portal.'],
+      params: [title, statusLabel, detail || 'sem observações'],
     },
   };
 }
@@ -114,16 +113,5 @@ export function lembreteMaterial(text: string, teacherName: string, summary: str
   return {
     text,
     template: { name: TEMPLATE_NAMES.lembreteMaterial, params: [teacherName, summary] },
-  };
-}
-
-/** Código de acesso (OTP de cadastro / redefinição de senha). */
-export function tplCodigoAcesso(code: string, minutes: number): WhatsAppMessage {
-  return {
-    text: `🔐 Seu código de acesso ao Portal de Chamados é *${code}*.\nEle expira em ${minutes} minutos.`,
-    // Templates de categoria AUTHENTICATION usam um formato próprio na Meta,
-    // com o código no corpo e botão de copiar. Mantido como UTILITY com duas
-    // variáveis para não depender da aprovação especial de autenticação.
-    template: { name: TEMPLATE_NAMES.codigoAcesso, params: [code, String(minutes)] },
   };
 }

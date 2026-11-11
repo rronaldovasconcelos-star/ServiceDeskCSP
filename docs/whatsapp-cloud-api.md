@@ -2,6 +2,17 @@
 
 > **28/10/2026:** o bot de suporte (entrada de mensagens, `bot.cloudWebhook.ts`, `/api/bot/*`, ponte `/api/bot-bridge`) e o painel do agente foram REMOVIDOS do portal por decisão do Ronaldo. Deste documento continua valendo só a parte de SAÍDA (provider da Cloud API e templates das notificações). Trechos sobre webhook de entrada são históricos.
 
+> **11/11/2026 — ATIVAÇÃO EM ANDAMENTO.** Número do portal: **+55 31 9198-3172** (nome de
+> exibição "Orbitlab", mantido por decisão do Ronaldo), já na Cloud API, `CONNECTED`/`GREEN`.
+> Portfólio "Francisco Ronaldo Orbit Lab" `1077556024710252`, WABA **`1054610734206670`**
+> (aparece em *Contas de mensagens*; os ids de *Contas do WhatsApp* NÃO servem para a API),
+> `phone_number_id` **`1260063360522360`**, app `Orbit_Automações` `1776423003698378`.
+> Token de system user (RONALDO) fora do git. 7 templates criados em 11/11 (PENDING);
+> `csp_codigo_acesso` removido (OTP saiu em 07/11; a Meta o recusou por categoria) e
+> `csp_chamado_status` ganhou texto fixo depois de `{{3}}` (a Meta recusa variável no fim).
+> O webhook dessa WABA aponta para o Chatwoot (`+553191983172`): resposta a um aviso cai lá.
+> Falta: aprovação → `whatsapp:check` com envio de teste → envs no servidor → `WHATSAPP_PROVIDER=cloud`.
+
 > Última atualização: 2026-07-30. **Repositório público — nenhum segredo aqui.**
 > Token, phone_number_id e afins ficam no `.env.production` local e na env do servidor.
 
@@ -178,8 +189,9 @@ Houve uma atualização no seu chamado.
 
 Chamado: {{1}}
 Status: {{2}}
+Detalhe: {{3}}
 
-{{3}}
+Acompanhe pelo portal.
 ```
 Exemplos: `Impressora da secretaria travando` · `Concluído` · `Qualquer dúvida, abra um novo chamado.`
 
@@ -215,14 +227,6 @@ Consta que ainda não recebemos: {{2}}
 Envie pelo portal, em "Meus Arquivos".
 ```
 Exemplos: `Maria` · `Plano de aula de Matemática — Fundamental I / 3º ano`
-
-#### `csp_codigo_acesso` — OTP de cadastro e de redefinição de senha
-```
-Seu código de acesso ao Portal de Chamados é {{1}}.
-
-Ele expira em {{2}} minutos. Se você não solicitou, ignore esta mensagem.
-```
-Exemplos: `123456` · `10`
 
 #### `csp_aviso_portal` — avisos operacionais (suprimentos, manutenção, cadastro pendente)
 ```
