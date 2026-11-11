@@ -1,6 +1,26 @@
 # ESTADO — Portal de Chamados (Service Desk CSP)
 
-Handoff entre PCs. Atualizado em 07/11/2026 (madrugada).
+Handoff entre PCs. Atualizado em 11/11/2026.
+
+## 11/11/2026 (franc) — WhatsApp Cloud API EM ATIVAÇÃO (produção NÃO tocada)
+
+Decisões do Ronaldo: o portal envia pelo **+55 31 9198-3172** (nome "Orbitlab", mantido); o
+`+55 31 8803-1221` (WhatsApp da escola) **não se mexe**. O número já estava na Cloud API:
+portfólio "Francisco Ronaldo Orbit Lab" `1077556024710252`, WABA **`1054610734206670`**
+(em *Contas de mensagens*), `phone_number_id` **`1260063360522360`**, CONNECTED/GREEN.
+Token de system user (RONALDO) só no franc, em `~\.secrets\csp-meta-token.local.txt`.
+
+- Commit `c81ed01`: `csp_chamado_status` com texto fixo depois de `{{3}}` (a Meta recusa
+  variável no fim); modelo/função `csp_codigo_acesso` removidos (OTP saiu em 07/11).
+- Templates: **5/7 aprovados**; PENDING `csp_chamado_aberto` e `csp_lembrete_material`.
+- `whatsapp-check.ts` (sem envio) só acusa os 2 pendentes.
+- Rodar os scripts sem `.env` (de `backend/`): exportar `WHATSAPP_CLOUD_WABA_ID`,
+  `WHATSAPP_CLOUD_PHONE_NUMBER_ID`, `WHATSAPP_CLOUD_TOKEN` (do arquivo), `DATABASE_URL=file:./dev.db`,
+  `JWT_SECRET=x`, `WHATSAPP_PROVIDER=mock|cloud` e `npx tsx scripts/whatsapp-templates.ts`.
+- **Falta, nesta ordem:** (1) 7/7 aprovados; (2) com OK dele, `whatsapp-check.ts 5531984367833`
+  (envio de teste); (3) as 3 envs + `WHATSAPP_PROVIDER=cloud` no `.env.production` do VPS →
+  `update.py`; (4) chamado de teste. Rollback: voltar `WHATSAPP_PROVIDER` e `update.py`.
+- Resposta a um aviso cai no Chatwoot (`+553191983172`), não no portal.
 
 ## 07/11/2026 00h30 (rrona) — TUDO ABAIXO EM PRODUÇÃO (`16f2f3c`)
 
