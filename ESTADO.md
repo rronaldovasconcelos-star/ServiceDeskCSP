@@ -1,6 +1,19 @@
 # ESTADO — Portal de Chamados (Service Desk CSP)
 
-Handoff entre PCs. Atualizado em 11/11/2026.
+Handoff entre PCs. Atualizado em 12/11/2026.
+
+## 12/11/2026 ~10h40 (franc) — WhatsApp Cloud API EM PRODUÇÃO
+
+- 7/7 modelos aprovados; `whatsapp-check.ts 5531984367833` enviou `csp_aviso_portal` e o Ronaldo
+  CONFIRMOU que chegou.
+- Commit `032bf37`: `docker-compose.yml` passa a repassar `WHATSAPP_CLOUD_*` ao container (antes
+  não repassava — só o `.env` não bastaria).
+- `.env.production` do VPS: `WHATSAPP_PROVIDER=cloud` + phone/WABA/token (antes `evolution`).
+  Backup: `/root/backups-csp/env.production.pre-cloud-20261112-1038`.
+- `update.py` exit 0; container healthy; dentro dele PROVIDER=cloud e token com 208 chars; log
+  `[WhatsApp] canal oficial (Cloud API) ativo.`; `api/health` 200.
+- **Falta:** chamado de teste real (aviso chegando pelo 9198-3172).
+- Rollback: copiar o backup acima para `.env.production` e rodar `update.py`.
 
 ## 11/11/2026 (franc) — WhatsApp Cloud API EM ATIVAÇÃO (produção NÃO tocada)
 
