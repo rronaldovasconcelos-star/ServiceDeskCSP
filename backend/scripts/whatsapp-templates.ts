@@ -59,22 +59,33 @@ async function fetchExisting(): Promise<RemoteTemplate[]> {
 }
 
 async function createTemplate(def: (typeof TEMPLATE_DEFINITIONS)[number]): Promise<void> {
+  // Template de código de uso único: a Meta não aceita texto nosso. O corpo é
+  // dela (com a recomendação de segurança), o rodapé mostra a validade e o
+  // botão OTP do tipo COPY_CODE põe o "Copiar código". Costuma ser aprovado na hora.
+  const components =
+    def.category === 'AUTHENTICATION'
+      ? [
+          { type: 'BODY', add_security_recommendation: true },
+          { type: 'FOOTER', code_expiration_minutes: def.codeExpirationMinutes ?? 10 },
+          { type: 'BUTTONS', buttons: [{ type: 'OTP', otp_type: 'COPY_CODE' }] },
+        ]
+      : [
+          {
+            type: 'BODY',
+            text: def.body,
+            // A Meta exige um exemplo por variável para revisar o template.
+            ...(def.example.length ? { example: { body_text: [def.example] } } : {}),
+          },
+        ];
   await graph(BASE, {
     method: 'POST',
-    body: JSON.stringify({
-      name: def.name,
-      language: LANG,
-      category: 'UTILITY',
-      components: [
-        {
-          type: 'BODY',
-          text: def.body,
-          // A Meta exige um exemplo por variável para revisar o template.
-          ...(def.example.length ? { example: { body_text: [def.example] } } : {}),
-        },
-      ],
-    }),
+    body: JSON.stringify({ name: def.name, language: LANG, category: def.category ?? 'UTILITY', components }),
   });
+}
+
+/** Apaga um template (todas as línguas desse nome) — usado para recriar um recusado. */
+async function deleteTemplate(name: string): Promise<void> {
+  await graph(`${BASE}?name=${encodeURIComponent(name)}`, { method: 'DELETE' });
 }
 
 async function main(): Promise<void> {
@@ -116,8 +127,24 @@ async function main(): Promise<void> {
 
     const motivo =
       remote.rejected_reason && remote.rejected_reason !== 'NONE' ? `  — ${remote.rejected_reason}` : '';
-    console.log(`  ${remote.status.toLowerCase().padEnd(10)} ${def.name}${motivo}`);
-    if (remote.status === 'APPROVED') aprovados++;
+    const categoriaErrada = (remote.category ?? 'UTILITY') !== (def.category ?? 'UTILITY');
+
+    // Recusado (ou cadastrado na categoria errada) e pedimos --criar: apaga e
+    // recria. O nome não pode ser reaproveitado enquanto o antigo existir.
+    if (criar && (remote.status === 'REJECTED' || categoriaErrada)) {
+      try {
+        await deleteTemplate(def.name);
+        await createTemplate(def);
+        console.log(`  recriado   ${def.name}  (antes: ${remote.status.toLowerCase()}${motivo}; aguardando revisão da Meta)`);
+        criados++;
+      } catch (err) {
+        console.error(`  FALHOU     ${def.name}: ${err instanceof Error ? err.message : err}`);
+      }
+      continue;
+    }
+
+    console.log(`  ${remote.status.toLowerCase().padEnd(10)} ${def.name}${motivo}${categoriaErrada ? `  (categoria ${remote.category}, esperada ${def.category ?? 'UTILITY'})` : ''}`);
+    if (remote.status === 'APPROVED' && !categoriaErrada) aprovados++;
   }
 
   const total = TEMPLATE_DEFINITIONS.length;

@@ -1,4 +1,5 @@
 import { TEMPLATE_NAMES } from './templates.js';
+import { env } from '../../config/env.js';
 
 /**
  * Definição dos templates como a Meta os recebe — **fonte única da verdade**.
@@ -18,10 +19,14 @@ import { TEMPLATE_NAMES } from './templates.js';
 
 export interface TemplateDefinition {
   name: string;
-  /** Corpo com as variáveis {{n}}. */
+  /** Corpo com as variáveis {{n}}. Em AUTHENTICATION é só descritivo: o corpo é da Meta. */
   body: string;
   /** Um exemplo por variável, na ordem — exigido pela Meta na revisão. */
   example: string[];
+  /** Padrão UTILITY. AUTHENTICATION = código de uso único, com formato próprio da Meta. */
+  category?: 'UTILITY' | 'AUTHENTICATION';
+  /** Só AUTHENTICATION: validade mostrada no rodapé (1 a 90 min). Deve bater com OTP_EXPIRES_MINUTES. */
+  codeExpirationMinutes?: number;
 }
 
 export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
@@ -80,5 +85,18 @@ export const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
       'Novo pedido de suprimento',
       'Papel A4 (10 resmas) — urgência ALTA, solicitado por Maria Silva',
     ],
+  },
+  {
+    // Código de confirmação do telefone (cadastro) e de redefinição de senha.
+    // Em 11/11/2026 a Meta recusou a versão UTILITY (INCORRECT_CATEGORY): código
+    // de acesso só passa como AUTHENTICATION, cujo texto é fixo e escrito por ela.
+    // O corpo abaixo é o que a pessoa recebe em pt_BR, só para documentação.
+    name: TEMPLATE_NAMES.codigoAcesso,
+    category: 'AUTHENTICATION',
+    body:
+      '{{1}} é seu código de verificação. Para sua segurança, não compartilhe este código.\n\n' +
+      `Este código expira em ${env.otpExpiresMinutes} minutos.\n\n[ Copiar código ]`,
+    example: ['123456'],
+    codeExpirationMinutes: env.otpExpiresMinutes,
   },
 ];

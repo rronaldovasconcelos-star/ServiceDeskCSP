@@ -6,11 +6,11 @@ import { useAuth } from '../context/AuthContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import AuthShell, { AuthAlert, AuthField, AuthHeading, authInputClass } from '../components/AuthShell';
 import { Button, IconTile } from '../components/ui';
-import { User, Mail, Lock, Phone, CheckCircle2 } from 'lucide-react';
+import { User, Mail, Lock, Phone, ArrowLeft, ShieldCheck, CheckCircle2 } from 'lucide-react';
 
-// Decisão de 06/11/2026: sem código por WhatsApp no cadastro (a API ainda não está em
-// uso). O telefone continua obrigatório e fica guardado; quem libera a conta é o admin.
-type Step = 'form' | 'google-phone' | 'done';
+// Desde 14/11/2026 (Cloud API da Meta no ar) o telefone é confirmado por um código de
+// 6 dígitos enviado pelo WhatsApp. Depois do código, quem libera a conta é o admin.
+type Step = 'form' | 'google-phone' | 'otp' | 'done';
 
 /** Estado opcional recebido da LoginPage quando o Google exige coleta de telefone. */
 interface GooglePhoneState {
@@ -26,30 +26,38 @@ function formatPhone(digits: string): string {
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
 
-// Espelha o backend (auth.controller.ts: registerSchema password.min(6); lib/phone.ts: DDD + 8 ou 9 dígitos).
+// Espelha o backend (auth.controller.ts: registerSchema password.min(6); OTP_LENGTH = 6;
+// lib/phone.ts: DDD + 8 ou 9 dígitos).
 const SENHA_MIN = 6;
+const CODIGO_TAM = 6;
 const MSG_TELEFONE = 'Informe um telefone válido com DDD (ex: (31) 98436-7833).';
 const MSG_SENHA_MIN = `A senha deve ter no mínimo ${SENHA_MIN} caracteres.`;
 const MSG_SENHAS_DIFERENTES = 'As senhas não conferem.';
+const MSG_CODIGO_ENVIADO = `Enviamos um código de ${CODIGO_TAM} dígitos para o seu WhatsApp.`;
 
 export default function RegisterPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { loginWithGoogle } = useAuth();
 
-  // Vindo da LoginPage via Google (conta sem telefone): inicia na coleta do WhatsApp.
+  // Vindo da LoginPage via Google (conta sem telefone confirmado): inicia na coleta do WhatsApp.
   const googleState = (location.state as GooglePhoneState | null)?.googlePhone;
 
   const [step, setStep] = useState<Step>(googleState ? 'google-phone' : 'form');
+  // Distingue o fluxo Google (volta para 'google-phone') do cadastro normal (volta para 'form').
+  const [fromGoogle, setFromGoogle] = useState(Boolean(googleState));
 
+  // Passo 1
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
 
-  // Conta criada pelo Google que ainda precisa informar o telefone.
+  // Passo 2
   const [userId, setUserId] = useState(googleState?.userId ?? '');
+  const [code, setCode] = useState('');
+  const [cooldown, setCooldown] = useState(0);
 
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
@@ -73,7 +81,25 @@ export default function RegisterPage() {
     setConfirmError('');
   };
 
+  // Espelha o intervalo mínimo de reenvio do backend (60 s por usuário).
+  const startCooldown = () => {
+    setCooldown(60);
+    const id = setInterval(() => {
+      setCooldown((c) => {
+        if (c <= 1) { clearInterval(id); return 0; }
+        return c - 1;
+      });
+    }, 1000);
+  };
+
   const telefoneValido = () => phoneDigits.length >= 10 && phoneDigits.length <= 11;
+
+  const irParaCodigo = () => {
+    setCode('');
+    setStep('otp');
+    setInfo(MSG_CODIGO_ENVIADO);
+    startCooldown();
+  };
 
   const handleRegister = async (e: { preventDefault(): void }) => {
     e.preventDefault();
@@ -97,15 +123,31 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       // Envia com DDI 55 + dígitos; o backend normaliza/valida.
-      await api.post('/auth/register', {
+      const res = await api.post('/auth/register', {
         name,
         email,
         phone: '+55' + phoneDigits,
         password,
       });
-      setStep('done');
+      setUserId(res.data.userId);
+      setFromGoogle(false);
+      irParaCodigo();
     } catch (err) {
       setError(apiError(err, 'Não foi possível concluir o cadastro.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerify = async (e: { preventDefault(): void }) => {
+    e.preventDefault();
+    limparErros();
+    setLoading(true);
+    try {
+      await api.post('/auth/verify-otp', { userId, code });
+      setStep('done');
+    } catch (err) {
+      setError(apiError(err, 'Código inválido.'));
     } finally {
       setLoading(false);
     }
@@ -117,8 +159,9 @@ export default function RegisterPage() {
     try {
       const result = await loginWithGoogle(credential);
       if (result.status === 'need_phone') {
-        // Conta sem telefone → coleta o número antes de prosseguir.
+        // Conta sem WhatsApp confirmado → coleta o telefone antes de prosseguir.
         setUserId(result.userId);
+        setFromGoogle(true);
         setStep('google-phone');
         return;
       }
@@ -145,19 +188,37 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await api.post('/auth/google/phone', { userId, phone: '+55' + phoneDigits });
-      setStep('done');
+      irParaCodigo();
     } catch (err) {
-      setError(apiError(err, 'Não foi possível concluir o cadastro.'));
+      setError(apiError(err, 'Não foi possível enviar o código.'));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResend = async () => {
+    if (cooldown > 0) return;
+    setError('');
+    setInfo('');
+    try {
+      await api.post('/auth/resend-otp', { userId });
+      setInfo('Novo código enviado por WhatsApp.');
+      startCooldown();
+    } catch (err) {
+      setError(apiError(err, 'Não foi possível reenviar o código.'));
+    }
+  };
+
+  const voltarDoOtp = () => {
+    setStep(fromGoogle ? 'google-phone' : 'form');
+    limparErros();
   };
 
   const campoTelefone = (autoFocus?: boolean) => (
     <AuthField
       label="WhatsApp"
       icon={<Phone size={16} />}
-      hint="Com DDD, ex.: (31) 98436-7833. Fica guardado para os avisos do portal."
+      hint="Com DDD, ex.: (31) 98436-7833. Você receberá um código de verificação neste número."
       error={phoneError || undefined}
     >
       {(ctl) => (
@@ -180,8 +241,8 @@ export default function RegisterPage() {
     </AuthField>
   );
 
-  const botaoEnviar = (texto: string) => (
-    <Button type="submit" loading={loading} className="w-full mt-2">
+  const botaoEnviar = (texto: string, desabilitado = false) => (
+    <Button type="submit" loading={loading} disabled={desabilitado} className="w-full mt-2">
       {texto}
     </Button>
   );
@@ -191,7 +252,7 @@ export default function RegisterPage() {
       {/* ----------------------------- PASSO 1 ----------------------------- */}
       {step === 'form' && (
         <>
-          <AuthHeading title="Criar conta" subtitle="Seu acesso é liberado por um administrador depois do cadastro" />
+          <AuthHeading title="Criar conta" subtitle="Confirme seu WhatsApp com um código; o acesso é liberado por um administrador" />
 
           {error && <AuthAlert kind="error">{error}</AuthAlert>}
           {info && <AuthAlert kind="info">{info}</AuthAlert>}
@@ -257,7 +318,7 @@ export default function RegisterPage() {
                 />
               )}
             </AuthField>
-            {botaoEnviar('Enviar cadastro')}
+            {botaoEnviar('Receber código no WhatsApp')}
           </form>
 
           <div className="auth-divider">ou</div>
@@ -275,18 +336,64 @@ export default function RegisterPage() {
       {/* --------------------- COLETA DE TELEFONE (GOOGLE) --------------------- */}
       {step === 'google-phone' && (
         <>
-          <AuthHeading title="Informe seu WhatsApp" subtitle="Precisamos do seu número para os avisos dos seus chamados" />
+          <AuthHeading title="Informe seu WhatsApp" subtitle="Precisamos do seu número para enviar os avisos dos seus chamados" />
 
           {error && <AuthAlert kind="error">{error}</AuthAlert>}
           {info && <AuthAlert kind="info">{info}</AuthAlert>}
 
           <form onSubmit={handleGooglePhone} className="space-y-4">
             {campoTelefone(true)}
-            {botaoEnviar('Enviar cadastro')}
+            {botaoEnviar('Receber código no WhatsApp')}
           </form>
 
           <div className="auth-links">
             <Link to="/login">Voltar ao login</Link>
+          </div>
+        </>
+      )}
+
+      {/* ----------------------------- PASSO 2 ----------------------------- */}
+      {step === 'otp' && (
+        <>
+          <AuthHeading title="Verifique seu WhatsApp" subtitle="Enviamos um código pelo WhatsApp cadastrado" />
+
+          {error && <AuthAlert kind="error">{error}</AuthAlert>}
+          {info && <AuthAlert kind="info">{info}</AuthAlert>}
+
+          <div className="flex justify-center mb-4"><IconTile size={52}><ShieldCheck size={24} /></IconTile></div>
+          <p className="text-sm-2 text-center mb-4">
+            Passo 2 de 2: digite o código de {CODIGO_TAM} dígitos que chegou no seu WhatsApp para confirmar o número.
+          </p>
+
+          <form onSubmit={handleVerify} className="space-y-4">
+            <AuthField label="Código de verificação" hint={`${CODIGO_TAM} dígitos`}>
+              {(ctl) => (
+                <input
+                  {...ctl}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="one-time-code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, CODIGO_TAM))}
+                  required
+                  maxLength={CODIGO_TAM}
+                  className="field text-center text-2xl font-semibold tracking-[0.5em]"
+                  placeholder="000000"
+                  autoFocus
+                />
+              )}
+            </AuthField>
+            {botaoEnviar('Verificar', code.length < CODIGO_TAM)}
+          </form>
+
+          <div className="flex items-center justify-between gap-2 mt-4">
+            <Button type="button" variant="ghost" size="sm" icon={<ArrowLeft size={14} />} onClick={voltarDoOtp}>
+              Voltar
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={handleResend} disabled={cooldown > 0}>
+              {cooldown > 0 ? `Reenviar em ${cooldown}s` : 'Reenviar código'}
+            </Button>
           </div>
         </>
       )}
@@ -297,7 +404,7 @@ export default function RegisterPage() {
           <div className="flex justify-center mb-4"><IconTile tone="teal" size={56}><CheckCircle2 size={28} /></IconTile></div>
           <h1 className="auth-card-title mb-2">Cadastro enviado</h1>
           <p className="text-sm-2 mb-5">
-            Sua conta está <strong>aguardando a aprovação</strong> de um administrador. Você poderá entrar assim que for aprovada.
+            Seu WhatsApp foi confirmado. Sua conta está <strong>aguardando a aprovação</strong> de um administrador. Você poderá entrar assim que for aprovada.
           </p>
           <Button onClick={() => navigate('/login')} className="w-full">Voltar para o login</Button>
         </div>

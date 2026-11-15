@@ -21,7 +21,24 @@ export const TEMPLATE_NAMES = {
   chamadoComentario: 'csp_chamado_comentario',
   lembreteMaterial: 'csp_lembrete_material',
   avisoPortal: 'csp_aviso_portal',
+  codigoAcesso: 'csp_codigo_acesso',
 } as const;
+
+/**
+ * Código de acesso (confirmação do telefone no cadastro e redefinição de senha).
+ * Na Meta é um template de categoria AUTHENTICATION: o corpo é fixo, escrito
+ * por ela ("<código> é seu código de verificação…"), com rodapé de validade e
+ * botão "Copiar código". Por isso não há `params`: o código vai em `otpCode` e
+ * o provider monta os componentes. Na Meta o texto livre abaixo não é enviado.
+ */
+export function tplCodigoAcesso(code: string, minutes: number): WhatsAppMessage {
+  return {
+    text:
+      `🔐 Seu código de acesso ao Portal de Chamados é *${code}*.\n` +
+      `Ele expira em ${minutes} minutos. Se você não solicitou, ignore esta mensagem.`,
+    template: { name: TEMPLATE_NAMES.codigoAcesso, params: [], otpCode: code },
+  };
+}
 
 /**
  * Aviso genérico do portal (assunto + detalhe). Cobre os avisos operacionais de

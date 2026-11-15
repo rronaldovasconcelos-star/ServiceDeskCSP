@@ -151,8 +151,9 @@ npm run whatsapp:templates -- --criar # cria os que faltam
 não há risco de o template cadastrado divergir dos parâmetros enviados.
 
 **À mão**, se preferir: *WhatsApp Manager > Modelos de mensagem > Criar modelo*, para cada
-um abaixo, categoria **Utilidade**, idioma **Português (BR)**. Cole o corpo **exatamente**
-como está — a ordem das variáveis é a que o código envia.
+um abaixo, categoria **Utilidade** (exceto `csp_codigo_acesso`, que é **Autenticação**), idioma
+**Português (BR)**. Cole o corpo **exatamente** como está — a ordem das variáveis é a que o
+código envia.
 
 > Regras da Meta que os corpos abaixo já respeitam: o texto não pode começar nem terminar
 > com variável, as variáveis são numeradas em sequência, e o parâmetro enviado nunca contém
@@ -238,6 +239,25 @@ Detalhe: {{2}}
 Acesse o portal para mais informações.
 ```
 Exemplos: `Novo pedido de suprimento` · `Papel A4 (10 resmas) — urgência ALTA, solicitado por Maria Silva`
+
+#### `csp_codigo_acesso` — código de confirmação do telefone (cadastro) e de redefinição de senha
+
+Categoria **Autenticação** (não Utilidade: em 11/11/2026 a Meta recusou a versão Utilidade com
+`INCORRECT_CATEGORY`). Nesse tipo de modelo o texto é da Meta e não se edita; o que se escolhe é:
+corpo com a recomendação de segurança, rodapé com a validade (`code_expiration_minutes` = o
+`OTP_EXPIRES_MINUTES` do portal, 10) e botão de código do tipo **Copiar código**. O que a pessoa
+recebe, em pt_BR:
+```
+{{1}} é seu código de verificação. Para sua segurança, não compartilhe este código.
+
+Este código expira em 10 minutos.
+[ Copiar código ]
+```
+No envio o código vai duas vezes: no corpo e no botão (`type: button, sub_type: url, index: 0`) —
+é assim que a Graph API representa o botão de copiar. O provider monta isso a partir de
+`template.otpCode` (`CloudApiProvider.otpComponents`). Se o script encontrar um `csp_codigo_acesso`
+recusado ou na categoria errada, `--criar` apaga e recria. Modelos de autenticação costumam ser
+aprovados em minutos.
 
 ### 5. Webhook de entrada (bot de suporte)
 

@@ -23,6 +23,12 @@ export interface TemplateRef {
   name: string;
   /** Valores das variáveis {{1}}, {{2}}... na ordem. */
   params: string[];
+  /**
+   * Código de uso único — só para template de categoria AUTHENTICATION. Esses
+   * templates têm corpo fixo escrito pela Meta e um botão "Copiar código"; o
+   * mesmo valor vai no corpo e no botão. Quando presente, `params` fica vazio.
+   */
+  otpCode?: string;
 }
 
 /**

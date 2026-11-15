@@ -69,22 +69,36 @@ export class CloudApiProvider implements WhatsAppProvider {
         name: template.name,
         language: { code: env.cloudApiTemplateLanguage },
         // Templates sem variáveis não podem mandar o componente `body` vazio.
-        ...(template.params.length
-          ? {
-              components: [
-                {
-                  type: 'body',
-                  parameters: template.params.map((text) => ({
-                    type: 'text',
-                    text: sanitizeParam(text),
-                  })),
-                },
-              ],
-            }
-          : {}),
+        ...(template.otpCode
+          ? { components: otpComponents(template.otpCode) }
+          : template.params.length
+            ? {
+                components: [
+                  {
+                    type: 'body',
+                    parameters: template.params.map((text) => ({
+                      type: 'text',
+                      text: sanitizeParam(text),
+                    })),
+                  },
+                ],
+              }
+            : {}),
       },
     };
   }
+}
+
+/**
+ * Componentes de um template AUTHENTICATION (código de uso único): a Meta exige
+ * o código no corpo E no botão "Copiar código" (sub_type `url`, índice 0 — é
+ * assim que a Graph API representa o botão de cópia, embora não haja URL).
+ */
+export function otpComponents(code: string) {
+  return [
+    { type: 'body', parameters: [{ type: 'text', text: code }] },
+    { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: code }] },
+  ];
 }
 
 /**

@@ -1,6 +1,32 @@
 # ESTADO — Portal de Chamados (Service Desk CSP)
 
-Handoff entre PCs. Atualizado em 12/11/2026.
+Handoff entre PCs. Atualizado em 14/11/2026.
+
+## 14/11/2026 (rrona) — CÓDIGO POR WHATSAPP DE VOLTA (cadastro e senha) — NO GIT, NÃO PUBLICADO
+
+Decisão do Ronaldo: com a Cloud API no ar, volta a confirmação do telefone por código de 6
+dígitos no cadastro (formulário e Google) e o "Esqueci minha senha" por código. Restaurado o
+que saiu em 07/11 (`cbf7c45`/`b967f02`), agora pelo canal oficial:
+
+- Backend: `/auth/verify-otp`, `/auth/resend-otp`, `/auth/request-password-reset`,
+  `/auth/reset-password` de volta; `register` e `google/phone` enviam o código (502 se a Meta
+  recusar o envio); login de conta não confirmada → 403 "Verifique seu telefone"; conta
+  confirmada segue inativa até o ADMIN aprovar. **Guarda nova:** `google/phone` e `resend-otp`
+  recusam conta ATIVA (antes, bastava o id para trocar o número de uma conta criada pelo admin).
+  A senha provisória do admin em Usuários CONTINUA como alternativa.
+- Template `csp_codigo_acesso` como **AUTHENTICATION** (corpo da Meta + rodapé de 10 min +
+  botão Copiar código); `TemplateRef.otpCode` e `otpComponents` no provider; o script
+  `whatsapp-templates.ts --criar` apaga e recria modelo recusado/categoria errada.
+- Frontend: `RegisterPage` com passo do código (reenvio 60 s) e `ResetPasswordPage` com código.
+- Provas: `testar-cadastro-http.ts` reescrita, 34 casos (27 vermelhos antes, verde depois; a
+  guarda de conta ativa nasceu de um caso vermelho); tsc 0/0; eslint frontend 18 (baseline);
+  `vite build` ok. Telas NÃO abertas no Chrome nesta rodada (mesmos componentes conferidos em
+  28/10 e 06/11; só textos mudaram).
+- **FALTA, nesta ordem:** (1) token da Meta neste PC (`~\.secrets\csp-meta-token.local.txt`;
+  o auto mode barrou a cópia do VPS); (2) `whatsapp-templates.ts --criar` → `csp_codigo_acesso`
+  APPROVED; (3) só então `update.py` (backend) + frontend pela Hostinger — publicar antes da
+  aprovação deixaria o cadastro em 502; (4) prova real: cadastro com o celular dele, código
+  chegando pelo 9198-3172, e "Esqueci minha senha".
 
 ## 12/11/2026 ~10h40 (franc) — WhatsApp Cloud API EM PRODUÇÃO
 
