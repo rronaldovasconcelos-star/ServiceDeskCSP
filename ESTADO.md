@@ -54,11 +54,16 @@ esperado só neste arquivo).
   (`index-sO94VqcT.js`), que funciona com o backend novo (a API só ganhou campo e rotas).
   O script exige `VITE_GOOGLE_CLIENT_ID` exportado (vem de `frontend/.env`).
 
+**23/11 ~22h40 — FRONTEND EM PRODUÇÃO.** Ele gerou token novo da Hostinger e pôs no
+`.deploy.env` do rrona; `deploy_hostinger.py` exit 0. Provado pelo que o site serve:
+bundle `index-IX0k-wON.js` com "Repetir toda semana", "Excluir série",
+`reservas/recorrente`, URL da API e Client ID do Google; `/salas`, foto do login e
+`/base` 200; API 200. (Os MCPs da Hostinger deste PC seguem com o token antigo, 401.)
+
 **Falta**
-1. Token novo da Hostinger no `.deploy.env` → `deploy_hostinger.py` a partir DESTA branch
-   → conferir que o site serve o bundle novo com "Repetir toda semana".
-2. Ele criar e apagar uma série de verdade em produção.
-3. Mesclar no `main`.
+1. Ele criar e apagar uma série de verdade em produção (Ctrl+Shift+R antes).
+2. Mesclar no `main`. ⚠️ Enquanto o código por WhatsApp não puder ir ao ar, publicar
+   SEMPRE desta branch, não do `main`.
 
 ## 12/11/2026 ~10h40 (franc) — WhatsApp Cloud API EM PRODUÇÃO
 
