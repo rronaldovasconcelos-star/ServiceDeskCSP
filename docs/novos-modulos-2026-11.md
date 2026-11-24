@@ -50,6 +50,16 @@ aparece só na tela e o portal continua sem enviar e-mail.
 - Cancelar é lógico: o registro fica como `CANCELADA`, com quem e quando, e some da
   agenda do dia. Alterar (`PUT /api/salas/reservas/:id`) passa pelas mesmas regras e pelo
   mesmo gatilho de conflito.
+- **Reserva recorrente (23/11, só ADMIN):** `POST /api/salas/reservas/recorrente` repete o
+  mesmo horário nos dias da semana escolhidos, de uma data a outra (máximo um ano). Cada
+  data vira uma reserva comum com o mesmo `serieId`; alterar ou cancelar continua sendo
+  por ocorrência. Data ocupada (ou horário de hoje que já passou) fica de fora e volta em
+  `puladas`; se nenhuma data ficar livre, 409. As horas são as do relógio de Brasília,
+  convertidas no servidor.
+- **Exclusão definitiva (23/11, só ADMIN):** `DELETE /api/salas/reservas/:id` apaga
+  qualquer reserva (inclusive cancelada ou encerrada) e `DELETE /api/salas/series/:serieId`
+  apaga a série inteira. Diferente de cancelar, **não fica histórico no banco** — só uma
+  linha `[salas]` no log do servidor. USER e GESTOR não têm essas rotas (403).
 
 ## Autorização de Imagens
 

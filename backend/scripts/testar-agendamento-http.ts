@@ -11,6 +11,8 @@
  * Excesso: horários encostados valem, a mesma hora em outra sala vale, 20h–22h
  * de Brasília vale (cruza a meia-noite UTC), reservar de novo após cancelar vale,
  * e apagar o usuário não apaga o histórico.
+ * Decisão de 23/11/2026: só ADMIN cria reserva recorrente (semanal, dias escolhidos;
+ * data ocupada é pulada e avisada) e só ADMIN apaga de vez uma reserva ou a série.
  * Tudo com finalidade "TESTE-SALA…" num dia distante; limpa ao final; sai ≠ 0 se falhar.
  */
 import 'dotenv/config';
@@ -311,6 +313,171 @@ async function main() {
       assert.equal(lista.some((x) => x.id === idAna), false, 'cancelada apareceu');
       assert.equal(lista.some((x) => x.finalidade === `${PREFIXO} velha`), false, 'reserva de 2020 apareceu');
       assert.ok(lista.every((x) => x.status === 'CONFIRMADA'));
+    });
+
+    // 07/04/2031 é segunda-feira. Abril e maio ficam livres do que os blocos acima reservaram.
+    console.log('Reserva recorrente (só ADMIN)');
+    interface Pulada { dia: string; motivo: string }
+    interface Serie { serieId: string; criadas: Array<Reserva & { serieId: string | null }>; puladas: Pulada[] }
+    const serie = (conta: Conta, nomeSala: string, dados: Record<string, unknown>, rotulo = 'série') =>
+      chamar(conta, 'POST', '/salas/reservas/recorrente', {
+        salaId: sala(nomeSala), dataInicio: '2031-04-07', dataFim: '2031-04-27', diasSemana: [1, 3],
+        horaInicio: '10:00', horaFim: '11:00', finalidade: `${PREFIXO} ${rotulo}`, ...dados,
+      });
+    const daSerie = (serieId: string) => prisma.reservaSala.count({ where: { serieId } });
+    const emSerie = () => prisma.reservaSala.count({ where: { serieId: { not: null }, finalidade: { startsWith: PREFIXO } } });
+
+    await teste('USER e GESTOR NÃO criam série (403) e nada é gravado', async () => {
+      assert.equal((await serie(ana, 'Sala Maker', {})).status, 403);
+      assert.equal((await serie(gestor, 'Sala Maker', {})).status, 403);
+      assert.equal(await emSerie(), 0);
+    });
+    let serieMaker = '';
+    let idsMaker: string[] = [];
+    await teste('ADMIN cria seg+qua por 3 semanas: 6 reservas, mesma série, dias e horas de Brasília', async () => {
+      const r = await serie(admin, 'Sala Maker', {});
+      assert.equal(r.status, 201);
+      const b = await r.json() as Serie;
+      assert.deepEqual(b.criadas.map((x) => x.inicio), ['07', '09', '14', '16', '21', '23'].map((d) => new Date(br('10:00', `2031-04-${d}`)).toISOString()));
+      assert.deepEqual(b.criadas.map((x) => x.fim), ['07', '09', '14', '16', '21', '23'].map((d) => new Date(br('11:00', `2031-04-${d}`)).toISOString()));
+      assert.ok(b.serieId);
+      assert.ok(b.criadas.every((x) => x.serieId === b.serieId && x.status === 'CONFIRMADA' && x.minha));
+      assert.deepEqual(b.puladas, []);
+      assert.equal(await daSerie(b.serieId), 6);
+      serieMaker = b.serieId;
+      idsMaker = b.criadas.map((x) => x.id);
+    });
+    await teste('série das 20h às 22h cai no dia certo (cruza a meia-noite UTC)', async () => {
+      const r = await serie(admin, 'Sala de Reuniões', { diasSemana: [1], dataFim: '2031-04-14', horaInicio: '20:00', horaFim: '22:00' });
+      assert.equal(r.status, 201);
+      const b = await r.json() as Serie;
+      assert.deepEqual(b.criadas.map((x) => x.inicio), [new Date(br('20:00', '2031-04-07')).toISOString(), new Date(br('20:00', '2031-04-14')).toISOString()]);
+    });
+    await teste('data ocupada: reserva as livres, pula a ocupada dizendo qual, e não toca na reserva alheia', async () => {
+      const alheia = await (await reservar(bia, 'Biblioteca', br('10:30', '2031-05-07'), br('11:30', '2031-05-07'))).json() as Reserva;
+      const r = await serie(admin, 'Biblioteca', { dataInicio: '2031-05-05', dataFim: '2031-05-11' });
+      assert.equal(r.status, 201);
+      const b = await r.json() as Serie;
+      assert.deepEqual(b.criadas.map((x) => x.inicio), [new Date(br('10:00', '2031-05-05')).toISOString()]);
+      assert.equal(b.puladas.length, 1);
+      assert.equal(b.puladas[0].dia, '2031-05-07');
+      assert.match(b.puladas[0].motivo, /10:30.*11:30.*bia/);
+      assert.equal((await prisma.reservaSala.findUnique({ where: { id: alheia.id } }))!.status, 'CONFIRMADA');
+    });
+    await teste('todas as datas ocupadas → 409 com a lista, e nenhuma série nasce', async () => {
+      const antes = await emSerie();
+      const r = await serie(admin, 'Sala Maker', {}, 'série repetida');
+      assert.equal(r.status, 409);
+      const b = await r.json() as { error: string; puladas: Pulada[] };
+      assert.equal(b.puladas.length, 6);
+      assert.equal(await emSerie(), antes);
+    });
+    await teste('corrida na série: se a checagem não vê o conflito, o gatilho barra e a data é pulada (não 500)', async () => {
+      const delegate = prisma.reservaSala as unknown as { findFirst: (...a: unknown[]) => Promise<unknown> };
+      const original = delegate.findFirst;
+      delegate.findFirst = async () => null;
+      try {
+        const r = await serie(admin, 'Sala Maker', { dataFim: '2031-04-30', diasSemana: [1, 3] }, 'série corrida');
+        assert.equal(r.status, 201);
+        const b = await r.json() as Serie;
+        assert.deepEqual(b.criadas.map((x) => x.inicio), ['28', '30'].map((d) => new Date(br('10:00', `2031-04-${d}`)).toISOString()));
+        assert.equal(b.puladas.length, 6);
+        await prisma.reservaSala.deleteMany({ where: { serieId: b.serieId } });
+      } finally {
+        delegate.findFirst = original;
+      }
+    });
+    await teste('pedido inválido → 400 (sem dia da semana, datas trocadas, horas trocadas, período longo, data que não existe, nenhum dia no período)', async () => {
+      const antes = await emSerie();
+      const casos: Array<Record<string, unknown>> = [
+        { diasSemana: [] },
+        { diasSemana: [7] },
+        { dataInicio: '2031-04-27', dataFim: '2031-04-07' },
+        { horaInicio: '11:00', horaFim: '10:00' },
+        { horaInicio: '10:00', horaFim: '10:00' },
+        { horaInicio: '25:00' },
+        { dataFim: '2032-04-09' },
+        { dataInicio: '2031-02-31' },
+        { dataInicio: '2031-04-07', dataFim: '2031-04-08', diasSemana: [5] },
+        { dataInicio: '2020-03-09', dataFim: '2020-03-30' },
+        { finalidade: '' },
+      ];
+      for (const c of casos) assert.equal((await serie(admin, 'Laboratório de Ciências', c)).status, 400, JSON.stringify(c));
+      assert.equal((await chamar(admin, 'POST', '/salas/reservas/recorrente', {
+        salaId: 'nao-existe', dataInicio: '2031-04-07', dataFim: '2031-04-27', diasSemana: [1], horaInicio: '10:00', horaFim: '11:00', finalidade: `${PREFIXO} x`,
+      })).status, 404);
+      assert.equal(await emSerie(), antes);
+    });
+    await teste('série começando hoje: o horário de hoje que já passou é pulado, os próximos dias entram', async () => {
+      const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+      const depois = new Date(new Date(`${hoje}T12:00:00Z`).getTime() + 2 * 86400000).toISOString().slice(0, 10);
+      const r = await serie(admin, 'Laboratório de Ciências', { dataInicio: hoje, dataFim: depois, diasSemana: [0, 1, 2, 3, 4, 5, 6], horaInicio: '00:00', horaFim: '00:01' }, 'série de hoje');
+      assert.equal(r.status, 201);
+      const b = await r.json() as Serie;
+      assert.equal(b.criadas.length, 2);
+      assert.deepEqual(b.puladas.map((p) => p.dia), [hoje]);
+      assert.match(b.puladas[0].motivo, /já passou/);
+    });
+    await teste('as listas trazem a série; reserva comum segue sem série', async () => {
+      const lista = await (await chamar(bia, 'GET', '/salas/reservas/proximas')).json() as Array<Reserva & { serieId: string | null }>;
+      assert.equal(lista.filter((x) => x.serieId === serieMaker).length, 6);
+      const comum = await (await reservar(bia, 'Sala Maker', br('08:00', '2031-04-07'), br('09:00', '2031-04-07'))).json() as Reserva & { serieId: string | null };
+      assert.equal(comum.serieId, null);
+    });
+    await teste('USER e GESTOR não alteram nem cancelam ocorrência da série (403); ADMIN altera uma só e ela continua na série', async () => {
+      assert.equal((await alterar(ana, idsMaker[0], { finalidade: `${PREFIXO} invadida` })).status, 403);
+      assert.equal((await chamar(gestor, 'POST', `/salas/reservas/${idsMaker[0]}/cancelar`)).status, 403);
+      assert.equal((await alterar(admin, idsMaker[0], { finalidade: `${PREFIXO} série ajustada` })).status, 200);
+      assert.equal(await daSerie(serieMaker), 6);
+      assert.equal((await prisma.reservaSala.findUnique({ where: { id: idsMaker[1] } }))!.finalidade, `${PREFIXO} série`);
+    });
+
+    console.log('Exclusão definitiva (só ADMIN)');
+    await teste('USER e GESTOR NÃO apagam reserva, nem a própria (403); o registro fica', async () => {
+      const dela = await (await reservar(ana, 'Biblioteca', br('08:00', '2031-04-08'), br('09:00', '2031-04-08'))).json() as Reserva;
+      const doGestor = await (await reservar(gestor, 'Biblioteca', br('09:00', '2031-04-08'), br('10:00', '2031-04-08'))).json() as Reserva;
+      assert.equal((await chamar(ana, 'DELETE', `/salas/reservas/${dela.id}`)).status, 403);
+      assert.equal((await chamar(bia, 'DELETE', `/salas/reservas/${dela.id}`)).status, 403);
+      assert.equal((await chamar(gestor, 'DELETE', `/salas/reservas/${doGestor.id}`)).status, 403);
+      assert.equal((await chamar(null, 'DELETE', `/salas/reservas/${dela.id}`)).status, 401);
+      assert.ok(await prisma.reservaSala.findUnique({ where: { id: dela.id } }));
+      assert.ok(await prisma.reservaSala.findUnique({ where: { id: doGestor.id } }));
+    });
+    await teste('ADMIN apaga a reserva de outra pessoa (204): some do banco e o horário fica livre', async () => {
+      const dela = await (await reservar(ana, 'Biblioteca', br('13:00', '2031-04-08'), br('14:00', '2031-04-08'))).json() as Reserva;
+      const vizinha = await (await reservar(ana, 'Biblioteca', br('14:00', '2031-04-08'), br('15:00', '2031-04-08'))).json() as Reserva;
+      assert.equal((await chamar(admin, 'DELETE', `/salas/reservas/${dela.id}`)).status, 204);
+      assert.equal(await prisma.reservaSala.findUnique({ where: { id: dela.id } }), null);
+      assert.ok(await prisma.reservaSala.findUnique({ where: { id: vizinha.id } }), 'apagou a reserva errada');
+      assert.equal((await reservar(bia, 'Biblioteca', br('13:00', '2031-04-08'), br('14:00', '2031-04-08'))).status, 201);
+    });
+    await teste('ADMIN apaga também reserva cancelada e reserva que já terminou (204)', async () => {
+      assert.equal((await chamar(admin, 'DELETE', `/salas/reservas/${idAna}`)).status, 204);
+      const velha = await prisma.reservaSala.findFirst({ where: { finalidade: `${PREFIXO} velha` } });
+      assert.equal((await chamar(admin, 'DELETE', `/salas/reservas/${velha!.id}`)).status, 204);
+      assert.equal(await prisma.reservaSala.findUnique({ where: { id: velha!.id } }), null);
+    });
+    await teste('apagar reserva que não existe → 404', async () => {
+      assert.equal((await chamar(admin, 'DELETE', '/salas/reservas/nao-existe')).status, 404);
+    });
+    await teste('USER e GESTOR NÃO apagam série (403); a série fica inteira', async () => {
+      assert.equal((await chamar(ana, 'DELETE', `/salas/series/${serieMaker}`)).status, 403);
+      assert.equal((await chamar(gestor, 'DELETE', `/salas/series/${serieMaker}`)).status, 403);
+      assert.equal(await daSerie(serieMaker), 6);
+    });
+    await teste('ADMIN apaga a série inteira (inclusive ocorrência cancelada) e só ela', async () => {
+      assert.equal((await chamar(admin, 'POST', `/salas/reservas/${idsMaker[2]}/cancelar`)).status, 200);
+      const fora = () => prisma.reservaSala.count({ where: { finalidade: { startsWith: PREFIXO }, OR: [{ serieId: null }, { serieId: { not: serieMaker } }] } });
+      const foraAntes = await fora();
+      const r = await chamar(admin, 'DELETE', `/salas/series/${serieMaker}`);
+      assert.equal(r.status, 200);
+      assert.equal((await r.json() as { apagadas: number }).apagadas, 6);
+      assert.equal(await daSerie(serieMaker), 0);
+      assert.equal(await fora(), foraAntes);
+    });
+    await teste('apagar série que não existe → 404', async () => {
+      assert.equal((await chamar(admin, 'DELETE', `/salas/series/${serieMaker}`)).status, 404);
+      assert.equal((await chamar(admin, 'DELETE', '/salas/series/nao-existe')).status, 404);
     });
 
     console.log('Exclusão de usuário');

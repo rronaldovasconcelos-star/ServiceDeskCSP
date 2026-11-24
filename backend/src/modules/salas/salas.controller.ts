@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../lib/prisma.js';
@@ -22,6 +23,38 @@ const reservaSchema = z.object({
 });
 const alteracaoSchema = reservaSchema.partial();
 
+const diaSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const horaSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+/** Série semanal: dias e horas são os do relógio de Brasília. `diasSemana`: 0 = domingo … 6 = sábado. */
+const serieSchema = z.object({
+  salaId: z.string().min(1),
+  dataInicio: diaSchema,
+  dataFim: diaSchema,
+  diasSemana: z.array(z.number().int().min(0).max(6)).min(1).max(7),
+  horaInicio: horaSchema,
+  horaFim: horaSchema,
+  finalidade: z.string().trim().min(3).max(200),
+});
+/** Uma série cobre no máximo um ano (o ano letivo cabe com folga). */
+const SERIE_MAX_DIAS = 366;
+
+/** Meio-dia UTC do dia `aaaa-mm-dd`, ou null se a data não existe (31/02). Serve para andar no calendário sem depender de fuso. */
+function meioDiaDe(dia: string): Date | null {
+  const d = new Date(`${dia}T12:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === dia ? d : null;
+}
+
+/** Instante em que o relógio de Brasília marca `dia` + `hora`, sem fixar o deslocamento do fuso. */
+function instanteEmBrasilia(dia: string, hora: string): Date {
+  const alvo = Date.parse(`${dia}T${hora}:00Z`);
+  let t = alvo;
+  for (let i = 0; i < 2; i++) {
+    const visto = Date.parse(`${diaDe(new Date(t))}T${horaDe(new Date(t))}:00Z`);
+    t += alvo - visto;
+  }
+  return new Date(t);
+}
+
 /** Regras de horário, iguais para criar e alterar. Devolve a mensagem de erro ou null. */
 function erroDeHorario(inicio: Date, fim: Date): string | null {
   if (fim.getTime() <= inicio.getTime()) return 'O horário de término precisa ser depois do início.';
@@ -41,12 +74,13 @@ function conflitoEm(salaId: string, inicio: Date, fim: Date, exceto?: string) {
 
 const campos = {
   id: true, salaId: true, usuarioId: true, usuarioNome: true, inicio: true, fim: true, finalidade: true,
-  status: true, canceladaEm: true, canceladaPorNome: true, createdAt: true,
+  status: true, canceladaEm: true, canceladaPorNome: true, createdAt: true, serieId: true,
 } as const;
 
 interface Linha {
   id: string; salaId: string; usuarioId: string | null; usuarioNome: string; inicio: Date; fim: Date;
   finalidade: string; status: string; canceladaEm: Date | null; canceladaPorNome: string | null; createdAt: Date;
+  serieId: string | null;
 }
 
 function saida({ usuarioId, ...resto }: Linha, quem: string) {
@@ -217,5 +251,99 @@ export async function cancelar(req: Request, res: Response, next: NextFunction):
       select: campos,
     });
     res.json(saida(atualizada, req.user!.sub));
+  } catch (err) { next(err); }
+}
+
+/**
+ * Reserva recorrente (só ADMIN, barrado no router): mesma sala e mesmo horário nos
+ * dias da semana escolhidos, de `dataInicio` a `dataFim`. Cada data vira uma reserva
+ * comum, com o mesmo `serieId`. Data ocupada (ou horário de hoje que já passou) é
+ * pulada e devolvida em `puladas` — decisão de 23/11/2026: reserva as livres e avisa.
+ */
+export async function reservarSerie(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const data = serieSchema.parse(req.body);
+    const primeiro = meioDiaDe(data.dataInicio);
+    const ultimo = meioDiaDe(data.dataFim);
+    if (!primeiro || !ultimo) { res.status(400).json({ error: 'Data inválida.' }); return; }
+    if (data.horaFim <= data.horaInicio) { res.status(400).json({ error: 'O horário de término precisa ser depois do início.' }); return; }
+    if (ultimo.getTime() < primeiro.getTime()) { res.status(400).json({ error: 'A data final precisa ser igual ou depois da inicial.' }); return; }
+    if (data.dataInicio < diaDe(new Date())) { res.status(400).json({ error: 'A data inicial já passou.' }); return; }
+    if ((ultimo.getTime() - primeiro.getTime()) / DIA_MS > SERIE_MAX_DIAS) { res.status(400).json({ error: 'A repetição pode cobrir no máximo um ano.' }); return; }
+
+    const dias: string[] = [];
+    for (let t = primeiro.getTime(); t <= ultimo.getTime(); t += DIA_MS) {
+      const d = new Date(t);
+      if (data.diasSemana.includes(d.getUTCDay())) dias.push(d.toISOString().slice(0, 10));
+    }
+    if (dias.length === 0) { res.status(400).json({ error: 'Nenhum dia do período cai nos dias da semana escolhidos.' }); return; }
+
+    const sala = await prisma.sala.findFirst({ where: { id: data.salaId, ativa: true }, select: { id: true, nome: true } });
+    if (!sala) { res.status(404).json({ error: 'Sala não encontrada' }); return; }
+
+    const serieId = randomUUID();
+    const criadas: Linha[] = [];
+    const puladas: Array<{ dia: string; motivo: string }> = [];
+    for (const dia of dias) {
+      const inicio = instanteEmBrasilia(dia, data.horaInicio);
+      const fim = instanteEmBrasilia(dia, data.horaFim);
+      if (inicio.getTime() < Date.now()) { puladas.push({ dia, motivo: 'Esse horário já passou.' }); continue; }
+      const ocupada = await conflitoEm(sala.id, inicio, fim);
+      if (ocupada) {
+        puladas.push({ dia, motivo: `Já reservada das ${horaDe(ocupada.inicio)} às ${horaDe(ocupada.fim)} por ${ocupada.usuarioNome}.` });
+        continue;
+      }
+      try {
+        criadas.push(await prisma.reservaSala.create({
+          data: {
+            salaId: sala.id,
+            usuarioId: req.user!.sub,
+            usuarioNome: req.user!.name,
+            usuarioEmail: req.user!.email,
+            inicio,
+            fim,
+            finalidade: data.finalidade,
+            serieId,
+          },
+          select: campos,
+        }));
+      } catch (err) {
+        if (!ehConflitoDoBanco(err)) throw err;
+        puladas.push({ dia, motivo: 'Acabou de ser reservada por outra pessoa nesse horário.' });
+      }
+    }
+
+    if (criadas.length === 0) {
+      res.status(409).json({ error: `Nenhuma data ficou reservada: ${sala.nome} não está livre em nenhuma delas.`, puladas });
+      return;
+    }
+    res.status(201).json({ serieId, criadas: criadas.map((r) => saida(r, req.user!.sub)), puladas });
+  } catch (err) { next(err); }
+}
+
+/**
+ * Apaga a reserva de vez (só ADMIN, barrado no router): de qualquer pessoa, em
+ * qualquer situação, inclusive cancelada ou já encerrada. Diferente de cancelar,
+ * não deixa histórico no banco — fica só a linha no log do servidor.
+ */
+export async function excluir(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const id = String(req.params.id);
+    const reserva = await prisma.reservaSala.findUnique({ where: { id }, select: { salaId: true, usuarioNome: true, inicio: true, fim: true, finalidade: true } });
+    if (!reserva) { res.status(404).json({ error: 'Reserva não encontrada' }); return; }
+    await prisma.reservaSala.delete({ where: { id } });
+    console.log(`[salas] reserva apagada por ${req.user!.email}: ${reserva.salaId} ${reserva.inicio.toISOString()}–${reserva.fim.toISOString()}, de ${reserva.usuarioNome} (${reserva.finalidade})`);
+    res.status(204).end();
+  } catch (err) { next(err); }
+}
+
+/** Apaga de vez todas as ocorrências de uma série (só ADMIN, barrado no router). */
+export async function excluirSerie(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const serieId = String(req.params.serieId);
+    const { count } = await prisma.reservaSala.deleteMany({ where: { serieId } });
+    if (count === 0) { res.status(404).json({ error: 'Série não encontrada' }); return; }
+    console.log(`[salas] série ${serieId} apagada por ${req.user!.email}: ${count} reserva(s)`);
+    res.json({ apagadas: count });
   } catch (err) { next(err); }
 }

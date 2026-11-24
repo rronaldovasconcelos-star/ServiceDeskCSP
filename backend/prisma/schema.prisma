@@ -273,11 +273,16 @@ model ReservaSala {
   canceladaEm      DateTime?
   canceladaPorNome String?   // snapshot de quem cancelou
   createdAt        DateTime  @default(now())
+  // Reserva recorrente (só ADMIN cria): as ocorrências de uma mesma série levam o
+  // mesmo `serieId`. Cada ocorrência é uma reserva comum; a série só serve para
+  // apagar todas de uma vez. Reserva avulsa fica com null.
+  serieId          String?
 
   sala Sala @relation(fields: [salaId], references: [id])
 
   @@index([salaId, inicio])
   @@index([usuarioId])
+  @@index([serieId])
 }
 
 // ---------------------------------------------------------------------------

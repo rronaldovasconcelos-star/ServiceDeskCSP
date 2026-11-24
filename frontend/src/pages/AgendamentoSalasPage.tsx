@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
-import { CalendarCheck, CalendarX, DoorOpen, Pencil } from 'lucide-react';
+import { CalendarCheck, CalendarX, DoorOpen, Pencil, Repeat, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import PageHeader from '../components/PageHeader';
-import { Button, Card, EmptyState, Field, Modal, Notice, Table } from '../components/ui';
+import { Button, Card, EmptyState, Field, Fieldset, Modal, Notice, Table } from '../components/ui';
 import { mensagemDeErro } from '../lib/beneficios';
 import {
   listarSalas, agendaDoDia, proximasReservas, minhasReservas, reservarSala, alterarReserva, cancelarReserva,
-  hojeLocal, instante, dataEHora, faixaHoraria, diaPorExtenso, type Reserva, type Sala,
+  reservarSerie, excluirReserva, excluirSerie, puladasDoErro, diaDaSemana, DIAS_DA_SEMANA,
+  hojeLocal, instante, dataEHora, faixaHoraria, diaPorExtenso, type DataPulada, type Reserva, type Sala,
 } from '../lib/salas';
 
 interface FormEdicao { salaId: string; data: string; horaInicio: string; horaFim: string; finalidade: string }
@@ -36,6 +37,13 @@ export default function AgendamentoSalasPage() {
   const [confirmacao, setConfirmacao] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [pageError, setPageError] = useState('');
+
+  // Reserva recorrente (só ADMIN): repete toda semana nos dias marcados, até a data final.
+  const [repetir, setRepetir] = useState(false);
+  const [diasSemana, setDiasSemana] = useState<number[]>([]);
+  const [ate, setAte] = useState('');
+  /** Datas da série que ficaram de fora (ocupadas ou com horário já passado). */
+  const [puladas, setPuladas] = useState<DataPulada[]>([]);
 
   // Alterar reserva (modal)
   const [editando, setEditando] = useState<Reserva | null>(null);
@@ -80,10 +88,33 @@ export default function AgendamentoSalasPage() {
     e.preventDefault();
     setFormError('');
     setConfirmacao('');
+    setPuladas([]);
     const inicio = instante(data, horaInicio);
     const fim = instante(data, horaFim);
     if (!inicio || !fim) { setFormError('Informe a data e os dois horários.'); return; }
     if (fim <= inicio) { setFormError('O horário de término precisa ser depois do início.'); return; }
+    if (isAdmin && repetir) {
+      if (diasSemana.length === 0) { setFormError('Marque pelo menos um dia da semana.'); return; }
+      if (!ate || ate < data) { setFormError('Informe até quando repetir (igual ou depois do primeiro dia).'); return; }
+      setSaving(true);
+      try {
+        const r = await reservarSerie({ salaId, dataInicio: data, dataFim: ate, diasSemana, horaInicio, horaFim, finalidade });
+        const n = r.criadas.length;
+        setConfirmacao(`${n === 1 ? '1 reserva confirmada' : `${n} reservas confirmadas`} em ${nomeDaSala(salaId)}, das ${faixaHoraria(r.criadas[0])}, de ${diaPorExtenso(r.criadas[0].inicio)} a ${diaPorExtenso(r.criadas[n - 1].inicio)}.`);
+        setPuladas(r.puladas);
+        setHoraInicio('');
+        setHoraFim('');
+        setFinalidade('');
+        setRepetir(false);
+        setVersao((v) => v + 1);
+      } catch (err) {
+        setFormError(mensagemDeErro(err, 'Não foi possível criar a reserva recorrente.'));
+        setPuladas(puladasDoErro(err));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     setSaving(true);
     try {
       const r = await reservarSala({ salaId, inicio, fim, finalidade });
@@ -109,6 +140,47 @@ export default function AgendamentoSalasPage() {
       setVersao((v) => v + 1);
     } catch (err) {
       setPageError(mensagemDeErro(err, 'Não foi possível cancelar a reserva.'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const alternarRepetir = (ligar: boolean) => {
+    setRepetir(ligar);
+    // Ao ligar, já marca o dia da semana do primeiro dia escolhido.
+    if (ligar && diasSemana.length === 0) setDiasSemana([diaDaSemana(data)]);
+  };
+  const alternarDia = (valor: number) =>
+    setDiasSemana((atual) => (atual.includes(valor) ? atual.filter((d) => d !== valor) : [...atual, valor]));
+
+  // Exclusão definitiva (só ADMIN): diferente de cancelar, o registro some.
+  const excluir = async (r: Reserva) => {
+    if (!window.confirm(`Excluir de vez a reserva de ${nomeDaSala(r.salaId)} em ${diaPorExtenso(r.inicio)}, das ${faixaHoraria(r)}, de ${r.minha ? 'você' : r.usuarioNome}?\n\nEla some do histórico e não dá para desfazer.`)) return;
+    setBusyId(r.id);
+    setPageError('');
+    setConfirmacao('');
+    try {
+      await excluirReserva(r.id);
+      setConfirmacao('Reserva excluída.');
+      setVersao((v) => v + 1);
+    } catch (err) {
+      setPageError(mensagemDeErro(err, 'Não foi possível excluir a reserva.'));
+    } finally {
+      setBusyId(null);
+    }
+  };
+  const excluirTodaSerie = async (r: Reserva) => {
+    if (!r.serieId) return;
+    if (!window.confirm(`Excluir de vez TODAS as reservas desta série ("${r.finalidade}", ${nomeDaSala(r.salaId)})?\n\nInclui as datas passadas e as futuras. Elas somem do histórico e não dá para desfazer.`)) return;
+    setBusyId(r.id);
+    setPageError('');
+    setConfirmacao('');
+    try {
+      const n = await excluirSerie(r.serieId);
+      setConfirmacao(n === 1 ? 'Série excluída: 1 reserva apagada.' : `Série excluída: ${n} reservas apagadas.`);
+      setVersao((v) => v + 1);
+    } catch (err) {
+      setPageError(mensagemDeErro(err, 'Não foi possível excluir a série.'));
     } finally {
       setBusyId(null);
     }
@@ -143,14 +215,29 @@ export default function AgendamentoSalasPage() {
 
   // Dono (usuário ou gestor) mexe só na própria reserva; ADMIN em qualquer uma.
   const podeMexer = (r: Reserva) => r.status === 'CONFIRMADA' && new Date(r.fim).getTime() > agora && (r.minha || isAdmin);
-  const botoesDe = (r: Reserva) => podeMexer(r) && (
+  // Excluir de vez (uma reserva ou a série) é só do ADMIN, em qualquer situação da reserva.
+  const botoesDe = (r: Reserva) => (podeMexer(r) || isAdmin) && (
     <div className="row flex-wrap">
-      <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => abrirEdicao(r)} disabled={busyId === r.id}>
-        Alterar<span className="sr-only"> reserva de {nomeDaSala(r.salaId)} das {faixaHoraria(r)}</span>
-      </Button>
-      <Button variant="ghost" size="sm" icon={<CalendarX size={14} />} onClick={() => cancelar(r)} loading={busyId === r.id}>
-        Cancelar<span className="sr-only"> reserva de {nomeDaSala(r.salaId)} das {faixaHoraria(r)}</span>
-      </Button>
+      {podeMexer(r) && (
+        <>
+          <Button variant="ghost" size="sm" icon={<Pencil size={14} />} onClick={() => abrirEdicao(r)} disabled={busyId === r.id}>
+            Alterar<span className="sr-only"> reserva de {nomeDaSala(r.salaId)} das {faixaHoraria(r)}</span>
+          </Button>
+          <Button variant="ghost" size="sm" icon={<CalendarX size={14} />} onClick={() => cancelar(r)} loading={busyId === r.id}>
+            Cancelar<span className="sr-only"> reserva de {nomeDaSala(r.salaId)} das {faixaHoraria(r)}</span>
+          </Button>
+        </>
+      )}
+      {isAdmin && (
+        <Button variant="ghost" size="sm" icon={<Trash2 size={14} />} onClick={() => excluir(r)} disabled={busyId === r.id}>
+          Excluir<span className="sr-only"> reserva de {nomeDaSala(r.salaId)} em {diaPorExtenso(r.inicio)} das {faixaHoraria(r)}</span>
+        </Button>
+      )}
+      {isAdmin && r.serieId && (
+        <Button variant="ghost" size="sm" icon={<Repeat size={14} />} onClick={() => excluirTodaSerie(r)} disabled={busyId === r.id}>
+          Excluir série<span className="sr-only"> de {nomeDaSala(r.salaId)}, {r.finalidade}</span>
+        </Button>
+      )}
     </div>
   );
 
@@ -252,6 +339,19 @@ export default function AgendamentoSalasPage() {
           <form onSubmit={handleSubmit} className="stack">
             {formError && <Notice kind="danger">{formError}</Notice>}
             {confirmacao && <Notice kind="success" onClose={() => setConfirmacao('')}>{confirmacao}</Notice>}
+            {puladas.length > 0 && (
+              <Notice
+                kind="warning"
+                title={puladas.length === 1 ? '1 data ficou de fora' : `${puladas.length} datas ficaram de fora`}
+                onClose={() => setPuladas([])}
+              >
+                <ul className="list-disc pl-5">
+                  {puladas.map((p) => (
+                    <li key={p.dia}>{diaPorExtenso(`${p.dia}T12:00:00`)}: {p.motivo}</li>
+                  ))}
+                </ul>
+              </Notice>
+            )}
             <div className="form-grid-2">
               <Field label="Sala" required>
                 {(ctl) => (
@@ -260,7 +360,7 @@ export default function AgendamentoSalasPage() {
                   </select>
                 )}
               </Field>
-              <Field label="Dia" required hint="A agenda abaixo mostra as reservas deste dia.">
+              <Field label={repetir ? 'Primeiro dia' : 'Dia'} required hint="A agenda abaixo mostra as reservas deste dia.">
                 {(ctl) => (
                   <input {...ctl} type="date" value={data} min={hojeLocal()} onChange={(e) => mudarData(e.target.value)} required className="field" />
                 )}
@@ -281,9 +381,34 @@ export default function AgendamentoSalasPage() {
                 <input {...ctl} value={finalidade} onChange={(e) => setFinalidade(e.target.value)} required minLength={3} maxLength={200} placeholder="Ex.: 5º ano B, aula de robótica" className="field" />
               )}
             </Field>
+            {isAdmin && (
+              <label className="row w-fit cursor-pointer field-label">
+                <input type="checkbox" className="accent-(--primary)" checked={repetir} onChange={(e) => alternarRepetir(e.target.checked)} />
+                Repetir toda semana
+              </label>
+            )}
+            {isAdmin && repetir && (
+              <Fieldset legend="Repetição" hint="A reserva vale no mesmo horário, nos dias marcados, do primeiro dia até a data final. Data já ocupada fica de fora e aparece em um aviso.">
+                <div className="row flex-wrap" role="group" aria-label="Dias da semana">
+                  {DIAS_DA_SEMANA.map((d) => (
+                    <label key={d.valor} className="choice items-center">
+                      <input type="checkbox" className="accent-(--primary)" checked={diasSemana.includes(d.valor)} onChange={() => alternarDia(d.valor)} />
+                      <span className="choice-title">{d.rotulo}</span>
+                    </label>
+                  ))}
+                </div>
+                <div className="form-grid-2">
+                  <Field label="Repetir até" required hint="No máximo um ano depois do primeiro dia.">
+                    {(ctl) => (
+                      <input {...ctl} type="date" value={ate} min={data} onChange={(e) => setAte(e.target.value)} required className="field" />
+                    )}
+                  </Field>
+                </div>
+              </Fieldset>
+            )}
             <div className="form-actions">
-              <Button type="submit" variant="primary" icon={<CalendarCheck size={16} />} loading={saving} disabled={!salaId}>
-                {saving ? 'Reservando...' : 'Reservar'}
+              <Button type="submit" variant="primary" icon={repetir && isAdmin ? <Repeat size={16} /> : <CalendarCheck size={16} />} loading={saving} disabled={!salaId}>
+                {saving ? 'Reservando...' : repetir && isAdmin ? 'Reservar toda semana' : 'Reservar'}
               </Button>
             </div>
           </form>

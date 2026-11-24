@@ -16,8 +16,33 @@ export interface Reserva {
   canceladaEm: string | null;
   canceladaPorNome: string | null;
   createdAt: string;
+  /** Preenchido nas ocorrências de uma reserva recorrente; null na reserva avulsa. */
+  serieId: string | null;
   minha: boolean;
 }
+
+/** Data da série que não foi reservada, com o motivo (ocupada ou horário já passado). */
+export interface DataPulada {
+  dia: string;
+  motivo: string;
+}
+
+export interface SerieCriada {
+  serieId: string;
+  criadas: Reserva[];
+  puladas: DataPulada[];
+}
+
+/** Dias da semana na ordem do formulário; `valor` segue o padrão 0 = domingo … 6 = sábado. */
+export const DIAS_DA_SEMANA = [
+  { valor: 1, rotulo: 'Seg' },
+  { valor: 2, rotulo: 'Ter' },
+  { valor: 3, rotulo: 'Qua' },
+  { valor: 4, rotulo: 'Qui' },
+  { valor: 5, rotulo: 'Sex' },
+  { valor: 6, rotulo: 'Sáb' },
+  { valor: 0, rotulo: 'Dom' },
+] as const;
 
 export async function listarSalas(): Promise<Sala[]> {
   return (await api.get<Sala[]>('/salas')).data;
@@ -47,6 +72,38 @@ export async function alterarReserva(id: string, dados: { salaId: string; inicio
 
 export async function cancelarReserva(id: string): Promise<Reserva> {
   return (await api.post<Reserva>(`/salas/reservas/${id}/cancelar`)).data;
+}
+
+/**
+ * Reserva recorrente (só ADMIN): mesmo horário nos dias da semana escolhidos, de
+ * `dataInicio` a `dataFim` (`aaaa-mm-dd`, horas `HH:mm` de Brasília). Datas ocupadas
+ * voltam em `puladas`; se nenhuma data ficar livre, a API responde 409 com a lista.
+ */
+export async function reservarSerie(dados: {
+  salaId: string; dataInicio: string; dataFim: string; diasSemana: number[]; horaInicio: string; horaFim: string; finalidade: string;
+}): Promise<SerieCriada> {
+  return (await api.post<SerieCriada>('/salas/reservas/recorrente', dados)).data;
+}
+
+/** Apaga a reserva de vez (só ADMIN). Não fica histórico. */
+export async function excluirReserva(id: string): Promise<void> {
+  await api.delete(`/salas/reservas/${id}`);
+}
+
+/** Apaga de vez todas as reservas de uma série (só ADMIN). */
+export async function excluirSerie(serieId: string): Promise<number> {
+  return (await api.delete<{ apagadas: number }>(`/salas/series/${serieId}`)).data.apagadas;
+}
+
+/** Datas puladas que a API devolve junto do erro 409 da série. */
+export function puladasDoErro(e: unknown): DataPulada[] {
+  const p = (e as { response?: { data?: { puladas?: unknown } } })?.response?.data?.puladas;
+  return Array.isArray(p) ? p as DataPulada[] : [];
+}
+
+/** Dia da semana (0 = domingo … 6 = sábado) de uma data `aaaa-mm-dd`. */
+export function diaDaSemana(data: string): number {
+  return new Date(`${data}T12:00:00`).getDay();
 }
 
 /** Hoje no relógio do navegador, como `aaaa-mm-dd` (valor de <input type="date">). */

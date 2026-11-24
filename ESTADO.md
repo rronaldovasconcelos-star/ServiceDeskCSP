@@ -1,6 +1,48 @@
 # ESTADO — Portal de Chamados (Service Desk CSP)
 
-Handoff entre PCs. Atualizado em 12/11/2026.
+Handoff entre PCs. Atualizado em 23/11/2026.
+
+## 23/11/2026 (rrona) — SALAS: reserva recorrente e exclusão definitiva (só ADMIN) — NA BRANCH `salas-recorrente`, NÃO PUBLICADO
+
+Pedido dele: forma de agendamento recorrente e exclusão de agendas para o ADMIN; usuário
+comum continua como está. Decisões dele (23/11): só ADMIN cria série; repetição semanal
+nos dias da semana escolhidos, mesmo horário, até uma data final; data ocupada fica de
+fora e a tela avisa; exclusão = apagar de vez, uma reserva ou a série inteira.
+
+**Por que branch:** `salas-recorrente` nasce de `8c28116`, que é o que está em produção.
+O `main` tem a mais o `677a9b8` (código por WhatsApp), que NÃO pode ser publicado antes
+de o modelo `csp_codigo_acesso` ser aprovado (cadastro responderia 502). Assim as salas
+podem ir ao ar sozinhas. Depois: `git merge salas-recorrente` no `main` (conflito
+esperado só neste arquivo).
+
+**O que mudou**
+- Banco: coluna `ReservaSala.serieId` (migration `20261123190000_add_reserva_sala_serie`,
+  `ADD COLUMN` de propósito — recriar a tabela apagaria os gatilhos anti-conflito).
+- API (todas com `requireRole('ADMIN')`): `POST /api/salas/reservas/recorrente`
+  (`dataInicio`, `dataFim`, `diasSemana` 0=dom…6=sáb, `horaInicio`, `horaFim` em horário de
+  Brasília; responde `{ serieId, criadas, puladas }`, 409 com `puladas` se nenhuma data
+  ficou livre; máximo um ano), `DELETE /api/salas/reservas/:id` (qualquer reserva, em
+  qualquer situação) e `DELETE /api/salas/series/:serieId`. As listas passam a trazer `serieId`.
+- Tela `/salas`, só para ADMIN: caixa "Repetir toda semana" (dias da semana + "Repetir
+  até"), aviso com as datas que ficaram de fora, botões "Excluir" e "Excluir série".
+  USER e GESTOR veem exatamente a tela de antes.
+- Exclusão não deixa histórico no banco: fica uma linha `[salas] … apagada por …` no log
+  do container.
+
+**Provas**
+- `backend/scripts/testar-agendamento-http.ts`: 54 casos verdes (17 novos; 15 estavam
+  vermelhos antes do código). 16 mutações, uma por vez, todas mortas.
+- tsc 0 (back e front), eslint do front 18 (baseline), build OK.
+- Chrome local: ADMIN criou série seg+qua (5 reservas, 1 data pulada por conflito com a
+  reserva de outra pessoa), excluiu uma reserva alheia e a série inteira; conta USER não
+  vê "Repetir" nem "Excluir"; 360 e 414 px sem estouro; console limpo. Tema escuro não conferido.
+
+**Falta**
+1. Publicar: `update.py` (backend, aplica a migration no boot) e depois o frontend
+   (`deploy_hostinger.py` ou MCP), a partir DESTA branch. Fazer cópia do banco antes.
+2. Provar em produção: rotas novas 401 sem token, bundle novo servido, ele cria e apaga
+   uma série de verdade.
+3. Mesclar no `main`.
 
 ## 12/11/2026 ~10h40 (franc) — WhatsApp Cloud API EM PRODUÇÃO
 
