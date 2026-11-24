@@ -1,6 +1,14 @@
 # ESTADO — Portal de Chamados (Service Desk CSP)
 
-Handoff entre PCs. Atualizado em 23/11/2026.
+Handoff entre PCs. Atualizado em 24/11/2026.
+
+## 24/11/2026 (franc) — página `/base` encerrada, EM PRODUÇÃO
+
+O formulário de coleta de conhecimento da Liz antiga (`frontend/public/base/index.html`) virou um aviso de
+"Formulário encerrado": o webhook `liz-form` do n8n foi desligado no mesmo dia (último envio era de 18/06/2026).
+Publicado do franc com `python deploy_hostinger.py --no-build` a partir da `salas-recorrente` (commit `58561b3`);
+bundle no ar continua `index-IX0k-wON.js`, `/api/health` 200. O token da Hostinger do franc foi renovado no
+`.deploy.env`. Login no portal não testado depois do deploy.
 
 ## 23/11/2026 (rrona) — SALAS: reserva recorrente e exclusão definitiva (só ADMIN) — NA BRANCH `salas-recorrente`, NÃO PUBLICADO
 
