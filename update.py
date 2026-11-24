@@ -42,7 +42,10 @@ def skip(rel):
     parts = rel.replace("\\", "/").split("/")
     if any(p in EXCLUDE_DIRS for p in parts): return True
     if parts[-1] in EXCLUDE_FILES: return True
-    if parts[-1].startswith(".env") and parts[-1] not in (".env.production", ".env.example"): return True
+    # O .env.production NÃO vai no pacote: a cópia que vale é a do servidor. A local
+    # envelhece (em 23/11/2026 a do rrona ainda dizia WHATSAPP_PROVIDER=evolution e
+    # teria derrubado a Cloud API ligada em 12/11 direto no VPS).
+    if parts[-1].startswith(".env") and parts[-1] != ".env.example": return True
     return False
 
 print("Empacotando projeto...")

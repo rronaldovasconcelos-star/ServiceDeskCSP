@@ -37,11 +37,27 @@ esperado só neste arquivo).
   reserva de outra pessoa), excluiu uma reserva alheia e a série inteira; conta USER não
   vê "Repetir" nem "Excluir"; 360 e 414 px sem estouro; console limpo. Tema escuro não conferido.
 
+**23/11 ~22h — BACKEND EM PRODUÇÃO (autorizado por ele); FRONTEND AINDA NÃO.**
+- Cópias antes: `/root/backups-csp/dev.db.pre-salas-recorrente-20261123` e
+  `env.production.pre-salas-recorrente-20261123`.
+- `update.py` rodado do rrona com `py` (Python 3.14, tem paramiko), exit 0. Provado:
+  health 200; as três rotas novas respondem 401 sem token; log do container com
+  `Applying migration 20261123190000_add_reserva_sala_serie`; `WHATSAPP_PROVIDER=cloud`
+  e "canal oficial (Cloud API) ativo" depois da subida.
+- **Defeito do `update.py` achado e corrigido antes de rodar:** ele mandava o
+  `.env.production` LOCAL por cima do do servidor. O do rrona era de julho
+  (`WHATSAPP_PROVIDER=evolution`) e teria derrubado a Cloud API ligada em 12/11 direto no
+  VPS. Agora o `.env.production` nunca vai no pacote; a cópia que vale é a do servidor.
+- Frontend: build de produção pronto (`index-IX0k-wON.js`), mas `deploy_hostinger.py`
+  parou em 401 — o `HOSTINGER_API_TOKEN` do `.deploy.env` do rrona está expirado e esta
+  sessão não tem o MCP de hospedagem. O site segue com o bundle de 07/11
+  (`index-sO94VqcT.js`), que funciona com o backend novo (a API só ganhou campo e rotas).
+  O script exige `VITE_GOOGLE_CLIENT_ID` exportado (vem de `frontend/.env`).
+
 **Falta**
-1. Publicar: `update.py` (backend, aplica a migration no boot) e depois o frontend
-   (`deploy_hostinger.py` ou MCP), a partir DESTA branch. Fazer cópia do banco antes.
-2. Provar em produção: rotas novas 401 sem token, bundle novo servido, ele cria e apaga
-   uma série de verdade.
+1. Token novo da Hostinger no `.deploy.env` → `deploy_hostinger.py` a partir DESTA branch
+   → conferir que o site serve o bundle novo com "Repetir toda semana".
+2. Ele criar e apagar uma série de verdade em produção.
 3. Mesclar no `main`.
 
 ## 12/11/2026 ~10h40 (franc) — WhatsApp Cloud API EM PRODUÇÃO
